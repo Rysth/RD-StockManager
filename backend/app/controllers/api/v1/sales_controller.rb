@@ -10,13 +10,15 @@ module Api
 
       # GET /api/v1/sales
       def index
-        @q = Sale.includes(:customer, :user, sale_items: { product_variant: :product }).ransack(search_params)
+        @q = Sale.includes(:customer, :user).ransack(search_params)
         @q.sorts = "sold_at desc" if @q.sorts.empty?
 
         @pagy, sales = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
+        sales = sales.to_a
+        item_counts = SaleItem.where(sale_id: sales.map(&:id)).group(:sale_id).count
 
         render_success(
-          sales: sales.map { |s| serialize(s) },
+          sales: sales.map { |s| serialize(s, items_count: item_counts[s.id].to_i) },
           pagination: pagination_data(@pagy)
         )
       end
@@ -132,7 +134,7 @@ module Api
         search
       end
 
-      def serialize(sale, with_items: false)
+      def serialize(sale, with_items: false, items_count: nil)
         data = {
           id: sale.id,
           status: sale.status,
@@ -143,7 +145,7 @@ module Api
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
-          items_count: sale.sale_items.size,
+          items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at
         }
 

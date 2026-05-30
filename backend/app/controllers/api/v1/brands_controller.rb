@@ -12,16 +12,18 @@ module Api
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, brands = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 50)
+        brands = brands.to_a
+        product_counts = Product.where(brand_id: brands.map(&:id)).group(:brand_id).count
 
         render_success(
-          brands: brands.map { |b| serialize(b) },
+          brands: brands.map { |b| serialize(b, products_count: product_counts[b.id].to_i) },
           pagination: pagination_data(@pagy)
         )
       end
 
       # GET /api/v1/brands/:id
       def show
-        render_success(brand: serialize(@brand))
+        render_success(brand: serialize(@brand, products_count: @brand.products.count))
       end
 
       # POST /api/v1/brands
@@ -78,13 +80,13 @@ module Api
         search
       end
 
-      def serialize(brand)
+      def serialize(brand, products_count: nil)
         {
           id: brand.id,
           name: brand.name,
           description: brand.description,
           active: brand.active,
-          products_count: brand.products.size,
+          products_count: products_count || brand.products.count,
           created_at: brand.created_at,
           updated_at: brand.updated_at
         }

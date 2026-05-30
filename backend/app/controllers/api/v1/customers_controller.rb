@@ -11,16 +11,18 @@ module Api
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, customers = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 12)
+        customers = customers.to_a
+        sales_counts = Sale.where(customer_id: customers.map(&:id)).group(:customer_id).count
 
         render_success(
-          customers: customers.map { |c| serialize(c) },
+          customers: customers.map { |c| serialize(c, sales_count: sales_counts[c.id].to_i) },
           pagination: pagination_data(@pagy)
         )
       end
 
       # GET /api/v1/customers/:id
       def show
-        render_success(customer: serialize(@customer))
+        render_success(customer: serialize(@customer, sales_count: @customer.sales.count))
       end
 
       # POST /api/v1/customers
@@ -77,7 +79,7 @@ module Api
         search
       end
 
-      def serialize(customer)
+      def serialize(customer, sales_count: nil)
         {
           id: customer.id,
           name: customer.name,
@@ -88,7 +90,7 @@ module Api
           country: customer.country,
           address: customer.address,
           active: customer.active,
-          sales_count: customer.sales.size,
+          sales_count: sales_count || customer.sales.count,
           created_at: customer.created_at,
           updated_at: customer.updated_at
         }
