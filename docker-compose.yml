@@ -4,7 +4,7 @@ services:
       context: ./admin
       args:
         VITE_API_URL: ${VITE_API_URL}
-    container_name: base-admin
+    container_name: rdstock-admin
     ports:
       - "5173:5173"
     volumes:
@@ -20,7 +20,7 @@ services:
     depends_on:
       - api
     networks:
-      - base_network
+      - rdstock_network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.admin.rule=Host(`admin.example.com`)"
@@ -35,7 +35,7 @@ services:
       context: ./storefront
       args:
         PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.example.com}
-    container_name: base-storefront
+    container_name: rdstock-storefront
     ports:
       - "4321:4321"
     volumes:
@@ -47,7 +47,7 @@ services:
     depends_on:
       - api
     networks:
-      - base_network
+      - rdstock_network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.storefront.rule=Host(`storefront.example.com`)"
@@ -57,7 +57,7 @@ services:
 
   api:
     build: ./backend
-    container_name: base-api
+    container_name: rdstock-api
     ports:
       - "${PORT}:${PORT}"
     volumes:
@@ -84,7 +84,7 @@ services:
     command: bash -c "bundle install && rm -f tmp/pids/server.pid && bundle exec rails db:migrate && bundle exec rails s -p ${PORT} -b '0.0.0.0'"
     # Postgres is provided externally in production; ensure DATABASE_URL points to it.
     networks:
-      - base_network
+      - rdstock_network
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.api.rule=Host(`api.example.com`)"
@@ -94,7 +94,7 @@ services:
 
   worker:
     build: ./backend
-    container_name: base-worker
+    container_name: rdstock-worker
     volumes:
       - ./backend:/rails
       - ./backend/tmp:/rails/tmp
@@ -119,10 +119,10 @@ services:
     command: bash -c "bundle install && bundle exec sidekiq"
     # Postgres/Redis are external in production; ensure env vars point to those services.
     networks:
-      - base_network
+      - rdstock_network
 
 volumes:
   rails_bundle:
 networks:
-  base_network:
+  rdstock_network:
     driver: bridge
