@@ -5,6 +5,7 @@ module Api
       before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock]
       before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy]
       before_action :set_product, only: [:show, :update, :destroy]
+      after_action :clear_inventory_cache, only: [:create, :update, :destroy]
 
       # GET /api/v1/products
       def index
@@ -77,6 +78,10 @@ module Api
       end
 
       private
+
+      def clear_inventory_cache
+        Rails.cache.delete("inventory:stats")
+      end
 
       def set_product
         @product = Product.includes(:category, :product_variants).find(params[:id])

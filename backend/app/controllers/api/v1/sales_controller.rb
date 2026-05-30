@@ -53,6 +53,7 @@ module Api
           sale.complete! if desired_status == "completed"
         end
 
+        Rails.cache.delete("inventory:stats")
         render_success({ sale: serialize(sale.reload, with_items: true) }, "Venta registrada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo registrar la venta", :unprocessable_entity, e.record.errors.full_messages)
@@ -66,6 +67,7 @@ module Api
         when "cancelled"
           @sale.cancel!
         end
+        Rails.cache.delete("inventory:stats")
         render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta actualizada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo actualizar la venta", :unprocessable_entity, e.record.errors.full_messages)
@@ -76,6 +78,7 @@ module Api
         # Restore stock if the sale had discounted it
         @sale.cancel! if @sale.completed?
         if @sale.destroy
+          Rails.cache.delete("inventory:stats")
           render_success({}, "Venta eliminada correctamente")
         else
           render_error("No se pudo eliminar la venta", :unprocessable_entity, @sale.errors.full_messages)

@@ -47,6 +47,11 @@ export const Permissions = {
 	VIEW_BUSINESS: "view_business",
 	EDIT_BUSINESS: "edit_business",
 	EDIT_PROFILE: "edit_profile",
+	VIEW_INVENTORY: "view_inventory",
+	MANAGE_PRODUCTS: "manage_products",
+	MANAGE_CUSTOMERS: "manage_customers",
+	MANAGE_SALES: "manage_sales",
+	VIEW_REPORTS: "view_reports",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

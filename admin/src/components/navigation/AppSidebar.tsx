@@ -8,6 +8,10 @@ import {
   LogOut,
   ChevronsUpDown,
   ChevronRight,
+  Package2,
+  ShoppingCart,
+  Users2,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -44,9 +48,17 @@ import { useBusinessStore } from "../../stores/businessStore";
 import type { User } from "../../types/auth";
 import logo from "../../assets/logo.svg";
 
+interface StorePermissions {
+  canViewInventory: boolean;
+  canManageCustomers: boolean;
+  canManageSales: boolean;
+  canViewReports: boolean;
+}
+
 interface AppSidebarProps {
   user: User;
   canManageUsers: boolean;
+  storePermissions: StorePermissions;
   setLogoutModalOpen: (open: boolean) => void;
 }
 
@@ -68,8 +80,13 @@ const activeMenuClasses =
 export default function AppSidebar({
   user,
   canManageUsers,
+  storePermissions,
   setLogoutModalOpen,
 }: AppSidebarProps) {
+  const { canViewInventory, canManageCustomers, canManageSales, canViewReports } =
+    storePermissions;
+  const showStoreGroup =
+    canViewInventory || canManageCustomers || canManageSales || canViewReports;
   // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
   const { isMobile, state } = useSidebar();
@@ -256,6 +273,76 @@ export default function AppSidebar({
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+
+        {showStoreGroup && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Tienda</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {canViewInventory && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Inventario"
+                      isActive={isActiveRoute("/dashboard/products")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/products">
+                        <Package2 />
+                        <span>Inventario</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageSales && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Ventas"
+                      isActive={isActiveRoute("/dashboard/sales")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/sales">
+                        <ShoppingCart />
+                        <span>Ventas</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageCustomers && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Clientes"
+                      isActive={isActiveRoute("/dashboard/customers")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/customers">
+                        <Users2 />
+                        <span>Clientes</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canViewReports && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Reportes"
+                      isActive={isActiveRoute("/dashboard/reports")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/reports">
+                        <BarChart3 />
+                        <span>Reportes</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter>

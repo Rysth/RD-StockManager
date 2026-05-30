@@ -39,8 +39,18 @@ export default function DashboardLayout() {
     Permissions.VIEW_USERS,
     Permissions.VIEW_BUSINESS,
     Permissions.EDIT_PROFILE,
+    Permissions.VIEW_INVENTORY,
+    Permissions.MANAGE_CUSTOMERS,
+    Permissions.MANAGE_SALES,
+    Permissions.VIEW_REPORTS,
   );
   const canManageUsers = hasPermission(Permissions.VIEW_USERS);
+  const storePermissions = {
+    canViewInventory: hasPermission(Permissions.VIEW_INVENTORY),
+    canManageCustomers: hasPermission(Permissions.MANAGE_CUSTOMERS),
+    canManageSales: hasPermission(Permissions.MANAGE_SALES),
+    canViewReports: hasPermission(Permissions.VIEW_REPORTS),
+  };
   const defaultRoute = getDefaultAdminRoute({
     user,
     hasPermission,
@@ -56,6 +66,14 @@ export default function DashboardLayout() {
       return { section: "Dashboard", page: "Usuarios" };
     } else if (path === "/dashboard/settings") {
       return { section: "Dashboard", page: "Configuración" };
+    } else if (path === "/dashboard/products") {
+      return { section: "Tienda", page: "Inventario" };
+    } else if (path === "/dashboard/customers") {
+      return { section: "Tienda", page: "Clientes" };
+    } else if (path === "/dashboard/sales") {
+      return { section: "Tienda", page: "Ventas" };
+    } else if (path === "/dashboard/reports") {
+      return { section: "Tienda", page: "Reportes" };
     }
     return { section: "Dashboard", page: "Panel de Control" };
   };
@@ -76,6 +94,7 @@ export default function DashboardLayout() {
         <AppSidebar
           user={user}
           canManageUsers={canManageUsers}
+          storePermissions={storePermissions}
           setLogoutModalOpen={setLogoutModalOpen}
         />
         <SidebarInset>

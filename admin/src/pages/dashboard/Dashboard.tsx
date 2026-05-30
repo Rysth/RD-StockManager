@@ -1,12 +1,63 @@
 import { useEffect } from "react";
+import { Package2, AlertTriangle, Users2, DollarSign } from "lucide-react";
 import { useAuthStore } from "../../stores/authStore";
 import { useDashboardStore } from "../../stores/dashboardStore";
+import { useInventoryStore } from "../../stores/inventoryStore";
+import { Permissions } from "../../types/auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatsCard } from "@/components/ui/stats-card";
 import { WelcomeBanner } from "./components/WelcomeBanner";
 import { StatsCards } from "./components/StatsCards";
 import { ChartsTrendRow } from "./components/ChartsTrendRow";
 import { ChartsDistributionRow } from "./components/ChartsDistributionRow";
 import { RecentUsersTable } from "./components/RecentUsersTable";
+
+const money = (n: number) =>
+  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
+
+// Fila de métricas de la tienda (inventario + ventas del día)
+function InventoryStatsRow() {
+  const { stats, fetchStats } = useInventoryStore();
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  if (!stats) return null;
+
+  return (
+    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <StatsCard
+        title="Productos"
+        value={stats.total_products}
+        icon={Package2}
+        iconColor="text-blue-600"
+        iconBgColor="bg-blue-100"
+      />
+      <StatsCard
+        title="Stock bajo"
+        value={stats.low_stock_count}
+        icon={AlertTriangle}
+        iconColor="text-amber-600"
+        iconBgColor="bg-amber-100"
+      />
+      <StatsCard
+        title="Clientes"
+        value={stats.total_customers}
+        icon={Users2}
+        iconColor="text-violet-600"
+        iconBgColor="bg-violet-100"
+      />
+      <StatsCard
+        title="Ingresos hoy"
+        value={money(stats.revenue_today)}
+        icon={DollarSign}
+        iconColor="text-emerald-600"
+        iconBgColor="bg-emerald-100"
+      />
+    </div>
+  );
+}
 
 // ── Helpers ───────────────────────────────────────────────────
 
@@ -52,7 +103,7 @@ function DashboardSkeleton() {
 // ── Dashboard ────────────────────────────────────────────────
 
 export default function Dashboard() {
-  const { user } = useAuthStore();
+  const { user, hasPermission } = useAuthStore();
   const {
     stats,
     rolesDistribution,
@@ -113,6 +164,8 @@ export default function Dashboard() {
       <WelcomeBanner fullname={user?.fullname} />
 
       <StatsCards stats={stats} formatNumber={formatNumber} />
+
+      {hasPermission(Permissions.VIEW_INVENTORY) && <InventoryStatsRow />}
 
       <ChartsTrendRow
         trendChartData={trendChartData}

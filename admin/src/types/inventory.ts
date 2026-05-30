@@ -1,0 +1,130 @@
+// Tipos del dominio de Inventario y Ventas (Tienda)
+// Las claves siguen snake_case para coincidir con la API.
+
+export interface Category {
+  id: number;
+  name: string;
+  description?: string | null;
+  active: boolean;
+  products_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductVariant {
+  id: number;
+  size?: string | null;
+  color?: string | null;
+  stock: number;
+  sku: string;
+  low_stock?: boolean;
+  out_of_stock?: boolean;
+}
+
+export interface Product {
+  id: number;
+  name: string;
+  brand?: string | null;
+  base_price: number;
+  description?: string | null;
+  active: boolean;
+  category_id: number;
+  category?: string | null;
+  total_stock: number;
+  variants: ProductVariant[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface LowStockVariant {
+  id: number;
+  sku: string;
+  size?: string | null;
+  color?: string | null;
+  stock: number;
+  product_id: number;
+  product_name: string;
+  brand?: string | null;
+  category?: string | null;
+}
+
+export interface Customer {
+  id: number;
+  name: string;
+  phone?: string | null;
+  city?: string | null;
+  sales_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SaleStatus = "pending" | "completed" | "cancelled";
+
+export interface SaleItem {
+  id: number;
+  product_variant_id: number;
+  sku: string;
+  product_name: string;
+  size?: string | null;
+  color?: string | null;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
+export interface Sale {
+  id: number;
+  status: SaleStatus;
+  total: number;
+  sold_at: string | null;
+  customer_id: number | null;
+  customer_name?: string | null;
+  seller?: string | null;
+  items_count: number;
+  items?: SaleItem[];
+  created_at: string;
+}
+
+// Payload para crear una venta
+export interface SaleItemInput {
+  product_variant_id: number;
+  quantity: number;
+  unit_price: number;
+}
+
+export interface CreateSaleData {
+  customer_id?: number | null;
+  status?: SaleStatus;
+  items: SaleItemInput[];
+}
+
+export interface SalesReport {
+  summary: {
+    revenue_today: number;
+    revenue_week: number;
+    revenue_month: number;
+    sales_today: number;
+  };
+  sales_by_day: { date: string; day: string; revenue: number }[];
+  top_products: { name: string; brand?: string | null; units_sold: number; revenue: number }[];
+  revenue_by_month: { month: string; label: string; revenue: number; count: number }[];
+}
+
+export interface InventoryStats {
+  total_products: number;
+  active_products: number;
+  total_variants: number;
+  low_stock_count: number;
+  out_of_stock_count: number;
+  total_customers: number;
+  total_categories: number;
+  revenue_today: number;
+  sales_today: number;
+}
+
+export interface Pagination {
+  current_page: number;
+  total_pages: number;
+  total_count: number;
+  per_page: number;
+}

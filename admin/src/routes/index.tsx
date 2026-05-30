@@ -8,6 +8,10 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import UsersIndex from "../pages/dashboard/users/UsersIndex";
 import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
+import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
+import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
+import SalesIndex from "../pages/dashboard/sales/SalesIndex";
+import ReportsIndex from "../pages/dashboard/reports/ReportsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
 import AuthConfirm from "../pages/auth/AuthConfirm";
@@ -86,6 +90,38 @@ export const router = createBrowserRouter([
             ]}
           >
             <BusinessSettings />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "products",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_INVENTORY}>
+            <ProductsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "customers",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_CUSTOMERS}>
+            <CustomersIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "sales",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <SalesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_REPORTS}>
+            <ReportsIndex />
           </ProtectedRoute>
         ),
       },
