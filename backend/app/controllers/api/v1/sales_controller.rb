@@ -1,6 +1,8 @@
 module Api
   module V1
     class SalesController < BaseController
+      MONTH_ABBR_ES = [nil, "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].freeze
+
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
@@ -95,8 +97,12 @@ module Api
             revenue_today: completed.where(sold_at: now.beginning_of_day..now).sum(:total),
             revenue_week: completed.where(sold_at: now.beginning_of_week..now).sum(:total),
             revenue_month: completed.where(sold_at: now.beginning_of_month..now).sum(:total),
-            sales_today: completed.where(sold_at: now.beginning_of_day..now).count
+            sales_today: completed.where(sold_at: now.beginning_of_day..now).count,
+            profit_today: profit_sum(now.beginning_of_day..now),
+            profit_week: profit_sum(now.beginning_of_week..now),
+            profit_month: profit_sum(now.beginning_of_month..now)
           },
+          total_profit: profit_sum,
           sales_by_day: sales_by_day(completed, now),
           top_products: top_products,
           revenue_by_month: revenue_by_month(completed, now)
@@ -150,12 +156,22 @@ module Api
               color: item.product_variant.color,
               quantity: item.quantity,
               unit_price: item.unit_price,
-              subtotal: item.subtotal
+              unit_cost: item.unit_cost,
+              subtotal: item.subtotal,
+              profit: item.profit
             }
           end
+          data[:profit] = sale.sale_items.sum(&:profit)
         end
 
         data
+      end
+
+      # Real profit across completed sale items, optionally within a date range
+      def profit_sum(date_range = nil)
+        rel = SaleItem.joins(:sale).where(sales: { status: Sale.statuses[:completed] })
+        rel = rel.where(sales: { sold_at: date_range }) if date_range
+        rel.sum(Arel.sql("sale_items.quantity * (sale_items.unit_price - sale_items.unit_cost)")).to_f
       end
 
       def sales_by_day(scope, now)
@@ -185,8 +201,9 @@ module Api
           month_end = (now - i.months).end_of_month
           {
             month: month_start.strftime("%Y-%m"),
-            label: I18n.l(month_start, format: "%b %Y", locale: :es, default: month_start.strftime("%b %Y")),
+            label: "#{MONTH_ABBR_ES[month_start.month]} #{month_start.year}",
             revenue: scope.where(sold_at: month_start..month_end).sum(:total).to_f,
+            profit: profit_sum(month_start..month_end),
             count: scope.where(sold_at: month_start..month_end).count
           }
         end.reverse

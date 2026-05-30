@@ -150,10 +150,14 @@ product_defs = [
 colors = %w[Negro Blanco Azul Rojo Gris]
 products = product_defs.map do |attrs|
   category = categories.find { |c| c.name == attrs[:category] }
+  base = attrs[:base_price]
   Product.create!(
     name: attrs[:name],
     brand: attrs[:brand],
-    base_price: attrs[:base_price],
+    base_price: base,
+    cost: (base * 0.6).round(2),                # costo ≈ 60% del precio
+    wholesale_price: (base * 0.85).round(2),    # mayoreo ≈ 85% del precio
+    wholesale_min_quantity: 3,
     description: "#{attrs[:brand]} #{attrs[:name]}",
     active: true,
     category: category

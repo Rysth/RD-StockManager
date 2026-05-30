@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_30_120006) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -102,6 +102,10 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_120006) do
     t.string "city"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "id_type"
+    t.string "id_number"
+    t.string "country", default: "Ecuador"
+    t.text "address"
     t.index ["name"], name: "index_customers_on_name"
   end
 
@@ -148,6 +152,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_120006) do
     t.bigint "category_id", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "cost", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "wholesale_price", precision: 10, scale: 2
+    t.integer "wholesale_min_quantity", default: 3, null: false
     t.index ["category_id"], name: "index_products_on_category_id"
     t.index ["name"], name: "index_products_on_name"
   end
@@ -180,6 +187,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_120006) do
     t.decimal "unit_price", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.index ["product_variant_id"], name: "index_sale_items_on_product_variant_id"
     t.index ["sale_id"], name: "index_sale_items_on_sale_id"
   end

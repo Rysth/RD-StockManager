@@ -2,9 +2,10 @@ class Customer < ApplicationRecord
   has_many :sales, dependent: :nullify
 
   validates :name, presence: { message: "El nombre es requerido" }
+  validates :id_type, inclusion: { in: %w[cedula pasaporte ruc], message: "Tipo de documento inválido" }, allow_blank: true
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id name phone city created_at updated_at]
+    %w[id name phone city id_type id_number country address created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

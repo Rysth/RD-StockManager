@@ -3,13 +3,13 @@ module Api
     class ProductsController < BaseController
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock]
-      before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy]
-      before_action :set_product, only: [:show, :update, :destroy]
-      after_action :clear_inventory_cache, only: [:create, :update, :destroy]
+      before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy, :images, :remove_image]
+      before_action :set_product, only: [:show, :update, :destroy, :images, :remove_image]
+      after_action :clear_inventory_cache, only: [:create, :update, :destroy, :images, :remove_image]
 
       # GET /api/v1/products
       def index
-        @q = Product.includes(:category, :product_variants).ransack(search_params)
+        @q = Product.includes(:category, product_variants: { images_attachments: :blob }, images_attachments: :blob).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, products = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -77,6 +77,18 @@ module Api
         end
       end
 
+      # POST /api/v1/products/:id/images  (multipart, images[])
+      def images
+        ProductImageStorageService.attach(@product, params[:images], folder: "products")
+        render_success({ product: serialize(@product.reload) }, "Imágenes actualizadas")
+      end
+
+      # DELETE /api/v1/products/:id/images/:image_id
+      def remove_image
+        ProductImageStorageService.remove(@product, params[:image_id])
+        render_success({ product: serialize(@product.reload) }, "Imagen eliminada")
+      end
+
       private
 
       def clear_inventory_cache
@@ -84,14 +96,15 @@ module Api
       end
 
       def set_product
-        @product = Product.includes(:category, :product_variants).find(params[:id])
+        @product = Product.includes(:category, product_variants: { images_attachments: :blob }, images_attachments: :blob).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Producto no encontrado", :not_found)
       end
 
       def product_params
         params.require(:product).permit(
-          :name, :brand, :base_price, :description, :active, :category_id,
+          :name, :brand, :base_price, :cost, :wholesale_price, :wholesale_min_quantity,
+          :description, :active, :category_id,
           product_variants_attributes: [:id, :size, :color, :stock, :sku, :_destroy]
         )
       end
@@ -110,11 +123,15 @@ module Api
           name: product.name,
           brand: product.brand,
           base_price: product.base_price,
+          cost: product.cost,
+          wholesale_price: product.wholesale_price,
+          wholesale_min_quantity: product.wholesale_min_quantity,
           description: product.description,
           active: product.active,
           category_id: product.category_id,
           category: product.category&.name,
           total_stock: product.product_variants.sum(&:stock),
+          images: image_list(product),
           variants: product.product_variants.map do |v|
             {
               id: v.id,
@@ -123,12 +140,17 @@ module Api
               stock: v.stock,
               sku: v.sku,
               low_stock: v.low_stock?,
-              out_of_stock: v.out_of_stock?
+              out_of_stock: v.out_of_stock?,
+              images: image_list(v)
             }
           end,
           created_at: product.created_at,
           updated_at: product.updated_at
         }
+      end
+
+      def image_list(record)
+        record.images.map { |img| { id: img.id, url: url_for(img) } }
       end
 
       def pagination_data(pagy)

@@ -51,6 +51,16 @@ Rails.application.routes.draw do
         collection do
           get :low_stock
         end
+        member do
+          post :images
+          delete "images/:image_id", action: :remove_image, as: :image
+        end
+      end
+      resources :product_variants, only: [] do
+        member do
+          post :images
+          delete "images/:image_id", action: :remove_image, as: :image
+        end
       end
       resources :customers
       resources :sales do

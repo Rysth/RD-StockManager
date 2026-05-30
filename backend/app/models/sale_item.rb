@@ -11,6 +11,11 @@ class SaleItem < ApplicationRecord
     quantity * unit_price
   end
 
+  # Real profit for this line: (sale price - cost) * quantity
+  def profit
+    (unit_price - unit_cost) * quantity
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id sale_id product_variant_id quantity unit_price created_at updated_at]
   end
@@ -21,11 +26,11 @@ class SaleItem < ApplicationRecord
 
   private
 
-  # Default the unit price to the product's base price when not provided
+  # Default the unit price to the product's base price when not provided,
+  # and snapshot the current product cost for accurate profit reporting.
   def set_unit_price
-    return if unit_price.present? && unit_price.positive?
-
-    self.unit_price = product_variant&.product&.base_price || 0
+    self.unit_price = product_variant&.product&.base_price || 0 unless unit_price.present? && unit_price.positive?
+    self.unit_cost = product_variant&.product&.cost || 0 if unit_cost.blank? || unit_cost.zero?
   end
 
   # Ensure there is enough stock to fulfil this line item
