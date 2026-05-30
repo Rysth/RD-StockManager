@@ -216,10 +216,12 @@ export const useAuthStore = create<AuthState>()(
               }
             } else if (Array.isArray(responseText?.errors)) {
               const formattedErrors = responseText.errors
-                .map((err) =>
+                .map((err: unknown) =>
                   typeof err === "string"
                     ? translateLoginMessage(err)
-                    : err?.message || err?.error || null
+                    : (err as { message?: string; error?: string })?.message ||
+                      (err as { message?: string; error?: string })?.error ||
+                      null
                 )
                 .filter(Boolean);
               if (formattedErrors.length) {
@@ -235,11 +237,13 @@ export const useAuthStore = create<AuthState>()(
               errorMessage = translateLoginMessage(responseText);
             } else if (Array.isArray(responseText?.errors)) {
               const formattedErrors = responseText.errors
-                .map((err) => {
+                .map((err: unknown) => {
                   const msg =
                     typeof err === "string"
                       ? translateLoginMessage(err)
-                      : err?.message || err?.error || null;
+                      : (err as { message?: string; error?: string })?.message ||
+                        (err as { message?: string; error?: string })?.error ||
+                        null;
                   // Translate common English messages to Spanish
                   if (msg) {
                     const translations: Record<string, string> = {

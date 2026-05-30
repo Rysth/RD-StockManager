@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useRef } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";

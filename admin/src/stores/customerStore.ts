@@ -6,7 +6,21 @@ interface CustomerInput {
   name: string;
   phone?: string;
   city?: string;
+  id_type?: string;
+  id_number?: string;
+  country?: string;
+  address?: string;
 }
+
+type ApiError = {
+  response?: {
+    status?: number;
+    data?: {
+      errors?: string[];
+      message?: string;
+    };
+  };
+};
 
 const DEFAULT_PAGINATION: Pagination = {
   current_page: 1,
@@ -15,15 +29,16 @@ const DEFAULT_PAGINATION: Pagination = {
   per_page: 12,
 };
 
-function toMessage(error: any, fallback: string): string {
-  if (error.response?.status === 429)
+function toMessage(error: unknown, fallback: string): string {
+  const response = (error as ApiError).response;
+
+  if (response?.status === 429)
     return "Demasiadas solicitudes. Por favor, espera un momento antes de intentar nuevamente.";
-  if (error.response?.status === 403)
+  if (response?.status === 403)
     return "No tienes permisos para realizar esta acción.";
-  if (error.response?.data?.errors?.length)
-    return error.response.data.errors.join(", ");
-  if (error.response?.data?.message) return error.response.data.message;
-  if (!error.response) return "Sin conexión. Verifica tu conexión a internet.";
+  if (response?.data?.errors?.length) return response.data.errors.join(", ");
+  if (response?.data?.message) return response.data.message;
+  if (!response) return "Sin conexión. Verifica tu conexión a internet.";
   return fallback;
 }
 
@@ -50,7 +65,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   fetchCustomers: async (page = 1, perPage = 12, search = "") => {
     set({ isLoading: true, error: null, currentSearch: search });
     try {
-      const params: any = { page, per_page: perPage };
+      const params: Record<string, string | number> = { page, per_page: perPage };
       if (search) params.search = search;
       const response = await api.get("/api/v1/customers", { params });
       set({
@@ -58,7 +73,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
         pagination: response.data.pagination,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener los clientes"), isLoading: false });
       throw error;
     }
@@ -70,7 +85,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       await api.post("/api/v1/customers", { customer: data });
       const { pagination, currentSearch } = get();
       await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al crear el cliente");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -83,7 +98,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
       await api.put(`/api/v1/customers/${id}`, { customer: data });
       const { pagination, currentSearch } = get();
       await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al actualizar el cliente");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -100,7 +115,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
           ? pagination.current_page - 1
           : pagination.current_page;
       await get().fetchCustomers(page, pagination.per_page, currentSearch);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al eliminar el cliente");
       set({ error: msg, isLoading: false });
       throw new Error(msg);

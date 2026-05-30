@@ -61,7 +61,7 @@ module Api
       end
 
       def customer_params
-        params.require(:customer).permit(:name, :phone, :city)
+        params.require(:customer).permit(:name, :phone, :city, :id_type, :id_number, :country, :address)
       end
 
       def search_params
@@ -76,6 +76,10 @@ module Api
           name: customer.name,
           phone: customer.phone,
           city: customer.city,
+          id_type: customer.id_type,
+          id_number: customer.id_number,
+          country: customer.country,
+          address: customer.address,
           sales_count: customer.sales.size,
           created_at: customer.created_at,
           updated_at: customer.updated_at

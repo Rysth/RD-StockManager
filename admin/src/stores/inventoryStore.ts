@@ -18,6 +18,9 @@ interface ProductInput {
   name: string;
   brand?: string;
   base_price: number;
+  cost?: number;
+  wholesale_price?: number | null;
+  wholesale_min_quantity?: number;
   description?: string;
   active?: boolean;
   category_id: number;
@@ -36,6 +39,16 @@ interface CategoryInput {
   active?: boolean;
 }
 
+type ApiError = {
+  response?: {
+    status?: number;
+    data?: {
+      errors?: string[];
+      message?: string;
+    };
+  };
+};
+
 const DEFAULT_PAGINATION: Pagination = {
   current_page: 1,
   total_pages: 1,
@@ -44,15 +57,16 @@ const DEFAULT_PAGINATION: Pagination = {
 };
 
 // Traduce un error de axios a un mensaje en español
-function toMessage(error: any, fallback: string): string {
-  if (error.response?.status === 429)
+function toMessage(error: unknown, fallback: string): string {
+  const response = (error as ApiError).response;
+
+  if (response?.status === 429)
     return "Demasiadas solicitudes. Por favor, espera un momento antes de intentar nuevamente.";
-  if (error.response?.status === 403)
+  if (response?.status === 403)
     return "No tienes permisos para realizar esta acción.";
-  if (error.response?.data?.errors?.length)
-    return error.response.data.errors.join(", ");
-  if (error.response?.data?.message) return error.response.data.message;
-  if (!error.response) return "Sin conexión. Verifica tu conexión a internet.";
+  if (response?.data?.errors?.length) return response.data.errors.join(", ");
+  if (response?.data?.message) return response.data.message;
+  if (!response) return "Sin conexión. Verifica tu conexión a internet.";
   return fallback;
 }
 
@@ -67,10 +81,14 @@ interface InventoryState {
   currentFilters: ProductFilters;
 
   fetchProducts: (page?: number, perPage?: number, filters?: ProductFilters) => Promise<void>;
-  createProduct: (data: ProductInput) => Promise<void>;
-  updateProduct: (id: number, data: ProductInput) => Promise<void>;
+  createProduct: (data: ProductInput) => Promise<Product>;
+  updateProduct: (id: number, data: ProductInput) => Promise<Product>;
   deleteProduct: (id: number) => Promise<void>;
   fetchLowStock: () => Promise<void>;
+  uploadProductImages: (id: number, files: File[]) => Promise<void>;
+  deleteProductImage: (id: number, imageId: number) => Promise<void>;
+  uploadVariantImages: (variantId: number, files: File[]) => Promise<void>;
+  deleteVariantImage: (variantId: number, imageId: number) => Promise<void>;
 
   fetchCategories: () => Promise<void>;
   createCategory: (data: CategoryInput) => Promise<void>;
@@ -93,7 +111,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   fetchProducts: async (page = 1, perPage = 12, filters = {}) => {
     set({ isLoading: true, error: null, currentFilters: filters });
     try {
-      const params: any = { page, per_page: perPage };
+      const params: Record<string, string | number | boolean> = { page, per_page: perPage };
       if (filters.search) params.search = filters.search;
       if (filters.category_id) params.category_id = filters.category_id;
       if (filters.active !== undefined && filters.active !== "")
@@ -105,7 +123,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
         pagination: response.data.pagination,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener los productos"), isLoading: false });
       throw error;
     }
@@ -114,10 +132,11 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   createProduct: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      await api.post("/api/v1/products", { product: data });
+      const response = await api.post("/api/v1/products", { product: data });
       const { pagination, currentFilters } = get();
       await get().fetchProducts(pagination.current_page, pagination.per_page, currentFilters);
-    } catch (error: any) {
+      return response.data.product as Product;
+    } catch (error) {
       const msg = toMessage(error, "Error al crear el producto");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -127,13 +146,56 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
   updateProduct: async (id, data) => {
     set({ isLoading: true, error: null });
     try {
-      await api.put(`/api/v1/products/${id}`, { product: data });
+      const response = await api.put(`/api/v1/products/${id}`, { product: data });
       const { pagination, currentFilters } = get();
       await get().fetchProducts(pagination.current_page, pagination.per_page, currentFilters);
-    } catch (error: any) {
+      return response.data.product as Product;
+    } catch (error) {
       const msg = toMessage(error, "Error al actualizar el producto");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
+    }
+  },
+
+  uploadProductImages: async (id, files) => {
+    if (!files.length) return;
+    try {
+      const formData = new FormData();
+      files.forEach((f) => formData.append("images[]", f));
+      await api.post(`/api/v1/products/${id}/images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al subir las imágenes"));
+    }
+  },
+
+  deleteProductImage: async (id, imageId) => {
+    try {
+      await api.delete(`/api/v1/products/${id}/images/${imageId}`);
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al eliminar la imagen"));
+    }
+  },
+
+  uploadVariantImages: async (variantId, files) => {
+    if (!files.length) return;
+    try {
+      const formData = new FormData();
+      files.forEach((f) => formData.append("images[]", f));
+      await api.post(`/api/v1/product_variants/${variantId}/images`, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al subir las imágenes de la variante"));
+    }
+  },
+
+  deleteVariantImage: async (variantId, imageId) => {
+    try {
+      await api.delete(`/api/v1/product_variants/${variantId}/images/${imageId}`);
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al eliminar la imagen"));
     }
   },
 
@@ -147,7 +209,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
           ? pagination.current_page - 1
           : pagination.current_page;
       await get().fetchProducts(page, pagination.per_page, currentFilters);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al eliminar el producto");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -159,7 +221,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     try {
       const response = await api.get("/api/v1/products/low_stock");
       set({ lowStock: response.data.variants });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener el stock bajo") });
     }
   },
@@ -169,7 +231,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     try {
       const response = await api.get("/api/v1/categories", { params: { per_page: 100 } });
       set({ categories: response.data.categories });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener las categorías") });
     }
   },
@@ -180,7 +242,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await api.post("/api/v1/categories", { category: data });
       await get().fetchCategories();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al crear la categoría");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -193,7 +255,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await api.put(`/api/v1/categories/${id}`, { category: data });
       await get().fetchCategories();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al actualizar la categoría");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -206,7 +268,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await api.delete(`/api/v1/categories/${id}`);
       await get().fetchCategories();
       set({ isLoading: false });
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al eliminar la categoría");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -218,7 +280,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     try {
       const response = await api.get("/api/v1/inventory/stats");
       set({ stats: response.data.stats });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener las estadísticas") });
     }
   },

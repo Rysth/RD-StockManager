@@ -11,6 +11,11 @@ export interface Category {
   updated_at: string;
 }
 
+export interface ProductImage {
+  id: number;
+  url: string;
+}
+
 export interface ProductVariant {
   id: number;
   size?: string | null;
@@ -19,6 +24,7 @@ export interface ProductVariant {
   sku: string;
   low_stock?: boolean;
   out_of_stock?: boolean;
+  images?: ProductImage[];
 }
 
 export interface Product {
@@ -26,11 +32,15 @@ export interface Product {
   name: string;
   brand?: string | null;
   base_price: number;
+  cost: number;
+  wholesale_price?: number | null;
+  wholesale_min_quantity: number;
   description?: string | null;
   active: boolean;
   category_id: number;
   category?: string | null;
   total_stock: number;
+  images: ProductImage[];
   variants: ProductVariant[];
   created_at: string;
   updated_at: string;
@@ -48,11 +58,17 @@ export interface LowStockVariant {
   category?: string | null;
 }
 
+export type IdType = "cedula" | "pasaporte" | "ruc" | "";
+
 export interface Customer {
   id: number;
   name: string;
   phone?: string | null;
   city?: string | null;
+  id_type?: IdType | null;
+  id_number?: string | null;
+  country?: string | null;
+  address?: string | null;
   sales_count?: number;
   created_at: string;
   updated_at: string;
@@ -69,7 +85,9 @@ export interface SaleItem {
   color?: string | null;
   quantity: number;
   unit_price: number;
+  unit_cost?: number;
   subtotal: number;
+  profit?: number;
 }
 
 export interface Sale {
@@ -82,6 +100,7 @@ export interface Sale {
   seller?: string | null;
   items_count: number;
   items?: SaleItem[];
+  profit?: number;
   created_at: string;
 }
 
@@ -104,10 +123,14 @@ export interface SalesReport {
     revenue_week: number;
     revenue_month: number;
     sales_today: number;
+    profit_today: number;
+    profit_week: number;
+    profit_month: number;
   };
+  total_profit: number;
   sales_by_day: { date: string; day: string; revenue: number }[];
   top_products: { name: string; brand?: string | null; units_sold: number; revenue: number }[];
-  revenue_by_month: { month: string; label: string; revenue: number; count: number }[];
+  revenue_by_month: { month: string; label: string; revenue: number; profit: number; count: number }[];
 }
 
 export interface InventoryStats {

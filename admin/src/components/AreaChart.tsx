@@ -13,13 +13,13 @@ import { cn } from "@/lib/utils";
 import { chartColors, type AvailableChartColorsKeys } from "../lib/chartUtils";
 
 interface AreaChartProps {
-  data: any[];
+  data: Record<string, unknown>[];
   index: string;
   categories: string[];
   className?: string;
   colors?: AvailableChartColorsKeys[];
   valueFormatter?: (value: number) => string;
-  onValueChange?: (value: any) => void;
+  onValueChange?: (value: unknown) => void;
 }
 
 export const AreaChart = ({
@@ -29,7 +29,6 @@ export const AreaChart = ({
   className,
   colors = ["blue", "emerald"],
   valueFormatter,
-  onValueChange: _onValueChange,
 }: AreaChartProps) => {
   return (
     <div className={cn("w-full", className)}>

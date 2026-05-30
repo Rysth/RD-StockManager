@@ -20,15 +20,26 @@ const DEFAULT_PAGINATION: Pagination = {
   per_page: 12,
 };
 
-function toMessage(error: any, fallback: string): string {
-  if (error.response?.status === 429)
+type ApiError = {
+  response?: {
+    status?: number;
+    data?: {
+      errors?: string[];
+      message?: string;
+    };
+  };
+};
+
+function toMessage(error: unknown, fallback: string): string {
+  const response = (error as ApiError).response;
+
+  if (response?.status === 429)
     return "Demasiadas solicitudes. Por favor, espera un momento antes de intentar nuevamente.";
-  if (error.response?.status === 403)
+  if (response?.status === 403)
     return "No tienes permisos para realizar esta acción.";
-  if (error.response?.data?.errors?.length)
-    return error.response.data.errors.join(", ");
-  if (error.response?.data?.message) return error.response.data.message;
-  if (!error.response) return "Sin conexión. Verifica tu conexión a internet.";
+  if (response?.data?.errors?.length) return response.data.errors.join(", ");
+  if (response?.data?.message) return response.data.message;
+  if (!response) return "Sin conexión. Verifica tu conexión a internet.";
   return fallback;
 }
 
@@ -36,12 +47,16 @@ interface SaleState {
   sales: Sale[];
   pagination: Pagination;
   report: SalesReport | null;
+  selectedSale: Sale | null;
   isLoading: boolean;
+  isLoadingDetail: boolean;
   isSubmitting: boolean;
   error: string | null;
   currentFilters: SaleFilters;
 
   fetchSales: (page?: number, perPage?: number, filters?: SaleFilters) => Promise<void>;
+  fetchSale: (id: number) => Promise<void>;
+  clearSelectedSale: () => void;
   createSale: (data: CreateSaleData) => Promise<Sale>;
   updateSaleStatus: (id: number, status: SaleStatus) => Promise<void>;
   deleteSale: (id: number) => Promise<void>;
@@ -52,7 +67,9 @@ export const useSaleStore = create<SaleState>((set, get) => ({
   sales: [],
   pagination: DEFAULT_PAGINATION,
   report: null,
+  selectedSale: null,
   isLoading: false,
+  isLoadingDetail: false,
   isSubmitting: false,
   error: null,
   currentFilters: {},
@@ -60,7 +77,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
   fetchSales: async (page = 1, perPage = 12, filters = {}) => {
     set({ isLoading: true, error: null, currentFilters: filters });
     try {
-      const params: any = { page, per_page: perPage };
+      const params: Record<string, string | number> = { page, per_page: perPage };
       if (filters.search) params.search = filters.search;
       if (filters.status) params.status = filters.status;
       const response = await api.get("/api/v1/sales", { params });
@@ -69,11 +86,23 @@ export const useSaleStore = create<SaleState>((set, get) => ({
         pagination: response.data.pagination,
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener las ventas"), isLoading: false });
       throw error;
     }
   },
+
+  fetchSale: async (id) => {
+    set({ isLoadingDetail: true, error: null, selectedSale: null });
+    try {
+      const response = await api.get(`/api/v1/sales/${id}`);
+      set({ selectedSale: response.data.sale as Sale, isLoadingDetail: false });
+    } catch (error) {
+      set({ error: toMessage(error, "Error al obtener la venta"), isLoadingDetail: false });
+    }
+  },
+
+  clearSelectedSale: () => set({ selectedSale: null }),
 
   createSale: async (data) => {
     set({ isSubmitting: true, error: null });
@@ -86,7 +115,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       // Refrescar primera página
       await get().fetchSales(1, get().pagination.per_page, get().currentFilters);
       return response.data.sale as Sale;
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al registrar la venta");
       set({ error: msg, isSubmitting: false });
       throw new Error(msg);
@@ -99,7 +128,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       await api.put(`/api/v1/sales/${id}`, { sale: { status } });
       const { pagination, currentFilters } = get();
       await get().fetchSales(pagination.current_page, pagination.per_page, currentFilters);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al actualizar la venta");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -116,7 +145,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
           ? pagination.current_page - 1
           : pagination.current_page;
       await get().fetchSales(page, pagination.per_page, currentFilters);
-    } catch (error: any) {
+    } catch (error) {
       const msg = toMessage(error, "Error al eliminar la venta");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
@@ -130,13 +159,14 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       set({
         report: {
           summary: response.data.summary,
+          total_profit: response.data.total_profit,
           sales_by_day: response.data.sales_by_day,
           top_products: response.data.top_products,
           revenue_by_month: response.data.revenue_by_month,
         },
         isLoading: false,
       });
-    } catch (error: any) {
+    } catch (error) {
       set({ error: toMessage(error, "Error al obtener el reporte"), isLoading: false });
     }
   },

@@ -3,9 +3,11 @@ import { Plus, Pencil, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCustomerStore } from "../../../stores/customerStore";
 import type { Customer } from "../../../types/inventory";
+import { ECUADOR_CITIES, COUNTRIES, ID_TYPES } from "../../../lib/locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Table,
@@ -38,11 +40,35 @@ import SearchBar from "../../../components/common/SearchBar";
 
 interface FormState {
   name: string;
+  id_type: string;
+  id_number: string;
   phone: string;
+  country: string;
   city: string;
+  address: string;
 }
 
-const EMPTY_FORM: FormState = { name: "", phone: "", city: "" };
+const EMPTY_FORM: FormState = {
+  name: "",
+  id_type: "",
+  id_number: "",
+  phone: "",
+  country: "Ecuador",
+  city: "",
+  address: "",
+};
+
+const ID_TYPE_LABEL: Record<string, string> = {
+  cedula: "Cédula",
+  pasaporte: "Pasaporte",
+  ruc: "RUC",
+};
+
+const selectClass =
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+
+const errorMessage = (error: unknown, fallback: string) =>
+  error instanceof Error && error.message ? error.message : fallback;
 
 export default function CustomersIndex() {
   const {
@@ -78,8 +104,12 @@ export default function CustomersIndex() {
     setEditing(customer);
     setForm({
       name: customer.name,
+      id_type: customer.id_type ?? "",
+      id_number: customer.id_number ?? "",
       phone: customer.phone ?? "",
+      country: customer.country ?? "Ecuador",
       city: customer.city ?? "",
+      address: customer.address ?? "",
     });
     setModalOpen(true);
   };
@@ -98,8 +128,8 @@ export default function CustomersIndex() {
         toast.success("Cliente creado correctamente");
       }
       setModalOpen(false);
-    } catch (e: any) {
-      toast.error(e.message || "Error al guardar el cliente");
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al guardar el cliente"));
     }
   };
 
@@ -109,8 +139,8 @@ export default function CustomersIndex() {
       await deleteCustomer(toDelete.id);
       toast.success("Cliente eliminado correctamente");
       setToDelete(null);
-    } catch (e: any) {
-      toast.error(e.message || "Error al eliminar el cliente");
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al eliminar el cliente"));
     }
   };
 
@@ -141,6 +171,7 @@ export default function CustomersIndex() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
+                <TableHead>Documento</TableHead>
                 <TableHead>Teléfono</TableHead>
                 <TableHead>Ciudad</TableHead>
                 <TableHead>Ventas</TableHead>
@@ -150,7 +181,7 @@ export default function CustomersIndex() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center">
+                  <TableCell colSpan={6} className="h-24 text-center">
                     Cargando clientes...
                   </TableCell>
                 </TableRow>
@@ -158,8 +189,25 @@ export default function CustomersIndex() {
                 customers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>
+                      {c.id_number ? (
+                        <span>
+                          <span className="text-xs text-muted-foreground">
+                            {c.id_type ? `${ID_TYPE_LABEL[c.id_type]} ` : ""}
+                          </span>
+                          {c.id_number}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
                     <TableCell>{c.phone || "—"}</TableCell>
-                    <TableCell>{c.city || "—"}</TableCell>
+                    <TableCell>
+                      {c.city || "—"}
+                      {c.country && c.country !== "Ecuador" ? (
+                        <span className="text-xs text-muted-foreground"> · {c.country}</span>
+                      ) : null}
+                    </TableCell>
                     <TableCell>{c.sales_count ?? 0}</TableCell>
                     <TableCell className="text-right">
                       <Button
@@ -183,7 +231,7 @@ export default function CustomersIndex() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                     No se encontraron clientes.
                   </TableCell>
                 </TableRow>
@@ -205,13 +253,11 @@ export default function CustomersIndex() {
 
       {/* Create / Edit modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
             <DialogDescription>
-              {editing
-                ? "Actualiza los datos del cliente"
-                : "Registra un nuevo cliente"}
+              {editing ? "Actualiza los datos del cliente" : "Registra un nuevo cliente"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -224,6 +270,35 @@ export default function CustomersIndex() {
                 placeholder="Nombre completo"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="id_type">Tipo de documento</Label>
+                <select
+                  id="id_type"
+                  value={form.id_type}
+                  onChange={(e) => setForm({ ...form, id_type: e.target.value })}
+                  className={selectClass}
+                >
+                  <option value="">Sin documento</option>
+                  {ID_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                      {t.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="id_number">Número</Label>
+                <Input
+                  id="id_number"
+                  value={form.id_number}
+                  onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+                  placeholder="0102030405"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="phone">Teléfono</Label>
               <Input
@@ -233,13 +308,48 @@ export default function CustomersIndex() {
                 placeholder="09XXXXXXXX"
               />
             </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="country">País</Label>
+                <select
+                  id="country"
+                  value={form.country}
+                  onChange={(e) => setForm({ ...form, country: e.target.value })}
+                  className={selectClass}
+                >
+                  {COUNTRIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="city">Ciudad</Label>
+                <select
+                  id="city"
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                  className={selectClass}
+                >
+                  <option value="">Selecciona...</option>
+                  {ECUADOR_CITIES.map((c) => (
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="city">Ciudad</Label>
-              <Input
-                id="city"
-                value={form.city}
-                onChange={(e) => setForm({ ...form, city: e.target.value })}
-                placeholder="Guayaquil"
+              <Label htmlFor="address">Dirección</Label>
+              <Textarea
+                id="address"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+                placeholder="Calle principal y referencia"
               />
             </div>
           </div>
@@ -258,12 +368,9 @@ export default function CustomersIndex() {
       <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">
-              Eliminar cliente
-            </AlertDialogTitle>
+            <AlertDialogTitle className="text-destructive">Eliminar cliente</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas eliminar a {toDelete?.name}? Esta acción no se
-              puede deshacer.
+              ¿Seguro que deseas eliminar a {toDelete?.name}? Esta acción no se puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
