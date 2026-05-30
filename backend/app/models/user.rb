@@ -3,6 +3,7 @@ class User < ApplicationRecord
   
   # Association
   belongs_to :account
+  has_many :sales, dependent: :nullify
 
   # Basic validations
   validates :username, presence: { message: "El nombre de usuario es requerido" }
@@ -55,6 +56,6 @@ class User < ApplicationRecord
   end
 
   def self.ransackable_associations(auth_object = nil)
-    ["roles", "account"]
+    ["roles", "account", "sales"]
   end
 end

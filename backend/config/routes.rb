@@ -45,6 +45,23 @@ Rails.application.routes.draw do
       # Permissions (read-only for admin/manager UI)
       resources :permissions, only: [:index]
 
+      # Inventory & Sales (Tienda)
+      resources :categories
+      resources :products do
+        collection do
+          get :low_stock
+        end
+      end
+      resources :customers
+      resources :sales do
+        collection do
+          get :report
+        end
+      end
+      namespace :inventory do
+        get :stats
+      end
+
       # Public endpoints (no authentication)
       namespace :public do
         resource :business, only: [:show]

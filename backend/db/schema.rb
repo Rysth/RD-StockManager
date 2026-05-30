@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_02_19_000001) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_30_120006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -87,6 +87,24 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_000001) do
     t.datetime "updated_at", null: false
   end
 
+  create_table "categories", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "description"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_categories_on_name"
+  end
+
+  create_table "customers", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "phone"
+    t.string "city"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_customers_on_name"
+  end
+
   create_table "otp_codes", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "code", limit: 6, null: false
@@ -109,6 +127,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_000001) do
     t.index ["key"], name: "index_permissions_on_key", unique: true
   end
 
+  create_table "product_variants", force: :cascade do |t|
+    t.bigint "product_id", null: false
+    t.string "size"
+    t.string "color"
+    t.integer "stock", default: 0, null: false
+    t.string "sku", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id"], name: "index_product_variants_on_product_id"
+    t.index ["sku"], name: "index_product_variants_on_sku", unique: true
+  end
+
+  create_table "products", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "brand"
+    t.decimal "base_price", precision: 10, scale: 2, default: "0.0", null: false
+    t.text "description"
+    t.boolean "active", default: true, null: false
+    t.bigint "category_id", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["category_id"], name: "index_products_on_category_id"
+    t.index ["name"], name: "index_products_on_name"
+  end
+
   create_table "role_permissions", force: :cascade do |t|
     t.bigint "role_id", null: false
     t.bigint "permission_id", null: false
@@ -128,6 +171,31 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_000001) do
     t.index ["name", "resource_type", "resource_id"], name: "index_roles_on_name_and_resource_type_and_resource_id"
     t.index ["name"], name: "index_roles_on_name"
     t.index ["resource_type", "resource_id"], name: "index_roles_on_resource"
+  end
+
+  create_table "sale_items", force: :cascade do |t|
+    t.bigint "sale_id", null: false
+    t.bigint "product_variant_id", null: false
+    t.integer "quantity", default: 1, null: false
+    t.decimal "unit_price", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_variant_id"], name: "index_sale_items_on_product_variant_id"
+    t.index ["sale_id"], name: "index_sale_items_on_sale_id"
+  end
+
+  create_table "sales", force: :cascade do |t|
+    t.bigint "customer_id"
+    t.bigint "user_id"
+    t.integer "status", default: 0, null: false
+    t.decimal "total", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "sold_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["customer_id"], name: "index_sales_on_customer_id"
+    t.index ["sold_at"], name: "index_sales_on_sold_at"
+    t.index ["status"], name: "index_sales_on_status"
+    t.index ["user_id"], name: "index_sales_on_user_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -156,7 +224,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_02_19_000001) do
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "otp_codes", "accounts"
+  add_foreign_key "product_variants", "products"
+  add_foreign_key "products", "categories"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
+  add_foreign_key "sale_items", "product_variants"
+  add_foreign_key "sale_items", "sales"
+  add_foreign_key "sales", "customers"
+  add_foreign_key "sales", "users"
   add_foreign_key "users", "accounts"
 end

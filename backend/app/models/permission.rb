@@ -24,11 +24,19 @@ class Permission < ApplicationRecord
   # Profile (own)
   EDIT_PROFILE = "edit_profile".freeze
 
+  # Inventory & Sales (Tienda)
+  VIEW_INVENTORY   = "view_inventory".freeze
+  MANAGE_PRODUCTS  = "manage_products".freeze
+  MANAGE_CUSTOMERS = "manage_customers".freeze
+  MANAGE_SALES     = "manage_sales".freeze
+  VIEW_REPORTS     = "view_reports".freeze
+
   ALL_KEYS = [
     VIEW_DASHBOARD,
     VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
     VIEW_BUSINESS, EDIT_BUSINESS,
-    EDIT_PROFILE
+    EDIT_PROFILE,
+    VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS
   ].freeze
 
   # Default permission mapping per role
@@ -38,11 +46,13 @@ class Permission < ApplicationRecord
       VIEW_DASHBOARD,
       VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
       VIEW_BUSINESS, EDIT_BUSINESS,
-      EDIT_PROFILE
+      EDIT_PROFILE,
+      VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS
     ],
     "operator" => [
       VIEW_DASHBOARD,
-      EDIT_PROFILE
+      EDIT_PROFILE,
+      VIEW_INVENTORY, MANAGE_CUSTOMERS, MANAGE_SALES
     ],
     "user" => [
       EDIT_PROFILE
@@ -67,7 +77,14 @@ class Permission < ApplicationRecord
       { key: EDIT_BUSINESS, name: "Editar Negocio", group: "business", description: "Editar configuración del negocio" },
 
       # Profile
-      { key: EDIT_PROFILE, name: "Editar Perfil", group: "profile", description: "Editar perfil propio" }
+      { key: EDIT_PROFILE, name: "Editar Perfil", group: "profile", description: "Editar perfil propio" },
+
+      # Inventory & Sales (Tienda)
+      { key: VIEW_INVENTORY, name: "Ver Inventario", group: "inventory", description: "Ver productos e inventario" },
+      { key: MANAGE_PRODUCTS, name: "Gestionar Productos", group: "inventory", description: "Crear y editar productos y categorías" },
+      { key: MANAGE_CUSTOMERS, name: "Gestionar Clientes", group: "customers", description: "Crear y editar clientes" },
+      { key: MANAGE_SALES, name: "Gestionar Ventas", group: "sales", description: "Registrar y gestionar ventas" },
+      { key: VIEW_REPORTS, name: "Ver Reportes", group: "reports", description: "Acceder a reportes de ventas" }
     ]
 
     permissions_by_key = {}
