@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus, Pencil, Archive } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { Brand, Category } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -223,10 +224,39 @@ function CatalogSection({
   );
 }
 
+function CatalogSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+      <Card className="rounded-xl p-0">
+        <CardContent className="p-0">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="flex-1"><Skeleton className="h-4 w-28 rounded" /></div>
+                <div className="flex-1"><Skeleton className="h-4 w-40 rounded" /></div>
+                <Skeleton className="h-4 w-8 rounded" />
+                <Skeleton className="h-6 w-16 rounded-full" />
+                <div className="flex gap-1">
+                  <Skeleton className="h-8 w-8 rounded" />
+                  <Skeleton className="h-8 w-8 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function BrandsIndex() {
   const {
     brands,
     categories,
+    isLoading,
     fetchBrands,
     fetchCategories,
     createBrand,
@@ -237,11 +267,24 @@ export default function BrandsIndex() {
     deleteCategory,
   } = useInventoryStore();
 
+  const [firstLoad, setFirstLoad] = useState(true);
+
   useEffect(() => {
-    fetchBrands();
-    fetchCategories();
+    Promise.all([fetchBrands(), fetchCategories()]).finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (isLoading && firstLoad) {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-56 rounded" />
+          <Skeleton className="h-4 w-72 rounded" />
+        </div>
+        <CatalogSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

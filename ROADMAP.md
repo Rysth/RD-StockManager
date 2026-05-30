@@ -1,12 +1,13 @@
-# Roadmap: Sistema de Inventario para Zapatería
+# Roadmap: EDLU Store — Sistema de Inventario y Ventas
 
-> Demo funcional en 1 día — Rails 8 API + React 19 Admin
+> Demo funcional — Rails 8 API + React 19 Admin
 
 ---
 
 ## Contexto
 
-Cliente: vendedora de zapatos en Guayaquil que necesita automatizar su negocio.
+Cliente: **EDLU Store** (Guayas-Guayaquil) — tienda que vende gorras, calzado y accesorios.
+Contacto: storeedlu@gmail.com · WhatsApp +593983236580 · TikTok @edlu_store_ec.
 Necesidades confirmadas: **control de inventarios** y **reportes de ventas**.
 
 ---
@@ -242,3 +243,57 @@ Hora 10     Test E2E: producto → cliente → venta → reporte
 - [x] POS: elegir Transferencia + contra entrega, completar venta (stock baja, pago registrado)
 - [x] Home (`/dashboard`) muestra Reportes
 - [x] `npm run build` del admin sin errores de tipos
+
+---
+
+## Fase 11 — Pulido para Demo: Skeletons, Cache, EDLU Store y Productos Genéricos
+
+### 11.1 — Skeleton loaders en todas las páginas de listado
+
+Cada página de listado muestra un skeleton animado (`animate-pulse`) durante la primera carga,
+en vez de la pantalla en blanco anterior. Patrón: `if (isLoading && firstLoad) return <PageSkeleton />;`
+
+| Página | Skeleton añadido |
+|--------|-----------------|
+| `ProductsIndex` | Encabezado + 6 filas de tabla con thumb/nombre/precio/stock |
+| `BrandsIndex` | Encabezado + 5 filas de tabla marcas/categorías |
+| `CustomersIndex` | Encabezado + 6 filas de tabla nombre/teléfono/ciudad |
+| `SalesIndex` (tab lista) | 6 filas de tabla fecha/cliente/total/estado |
+
+### 11.2 — Cache `inventory:stats` corregido en todos los controladores
+
+Antes, crear/editar/archivar categorías y clientes no invalidaba el cache del widget del Dashboard.
+
+| Controlador | Antes | Después |
+|-------------|-------|---------|
+| `CategoriesController` | ❌ Sin cache clear | ✅ `after_action :clear_inventory_cache, only: [:create, :update, :destroy]` |
+| `CustomersController` | ❌ Sin cache clear | ✅ Ídem |
+| `BrandsController` | ❌ Sin cache clear | ✅ Ídem |
+
+### 11.3 — EDLU Store: datos del negocio
+
+- Migración: `add_email_and_location_to_businesses` (columnas `email`, `location`).
+- `Business.current` ahora crea EDLU Store por defecto en bases de datos nuevas.
+- Seeds actualizan la fila existente: nombre, slogan, whatsapp, tiktok, email, location.
+- `admin/index.html` título: **"EDLU Store | Powered By RysthDesign"**.
+- **Logo**: subir manualmente desde Settings → Negocio (no se incluye en seeds).
+- Controladores `BusinessesController` y `Public::BusinessesController` exponen `email` y `location`.
+
+### 11.4 — Productos genéricos (gorras, calzado y accesorios)
+
+La plataforma ya era 100% genérica (categorías/marcas/variantes sin restricciones).
+Seeds actualizados para demostrar versatilidad:
+
+- 7 categorías: Mujer, Hombre, Niños, Deporte, Casual, **Gorras**, **Accesorios**.
+- 10 marcas de calzado + **New Era** y **Volcom** (gorras).
+- 12 productos: 10 calzado + 2 gorras (**9FORTY Adjustable**, **Full-Zip Logo Cap**) con tallas S/M/L.
+
+### Verificación Fase 11
+
+- [x] `rails db:migrate && rails db:seed` sin errores
+- [x] Business actualizado: nombre "EDLU Store", TikTok "edlu_store_ec", email y location guardados
+- [x] Navegar a Inventario/Clientes/Ventas → skeleton visible antes de la tabla
+- [x] Crear categoría → widget "Total Categorías" en Dashboard se actualiza al refrescar
+- [x] Crear cliente → widget "Clientes" en Dashboard se actualiza
+- [x] Seeds incluyen gorras con tallas S/M/L — se pueden gestionar igual que zapatos
+- [x] `npm run build` sin errores de tipos

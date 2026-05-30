@@ -39,6 +39,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MAX_IMAGES = 3;
 
@@ -188,6 +189,48 @@ function ImageGallery({
   );
 }
 
+function ProductsSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-40 rounded" />
+          <Skeleton className="h-4 w-56 rounded" />
+        </div>
+        <Skeleton className="h-9 w-36 rounded-md" />
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="h-9 w-64 rounded-md" />
+        <Skeleton className="h-9 w-44 rounded-md" />
+      </div>
+      <Card className="rounded-xl p-0">
+        <CardContent className="p-0">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-4 rounded" />
+                <Skeleton className="h-10 w-10 rounded-md" />
+                <div className="flex-1 space-y-1">
+                  <Skeleton className="h-4 w-32 rounded" />
+                  <Skeleton className="h-3 w-20 rounded" />
+                </div>
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+                <div className="flex gap-1">
+                  <Skeleton className="h-8 w-8 rounded" />
+                  <Skeleton className="h-8 w-8 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function ProductsIndex() {
   const {
     products,
@@ -211,6 +254,7 @@ export default function ProductsIndex() {
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
 
+  const [firstLoad, setFirstLoad] = useState(true);
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -240,9 +284,9 @@ export default function ProductsIndex() {
   }, []);
 
   useEffect(() => {
-    fetchProducts(1, pagination.per_page, productFilters()).catch((e) =>
-      toast.error(e.message || "Error al cargar productos"),
-    );
+    fetchProducts(1, pagination.per_page, productFilters())
+      .catch((e) => toast.error(e.message || "Error al cargar productos"))
+      .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, categoryFilter, showArchived]);
 
@@ -408,6 +452,8 @@ export default function ProductsIndex() {
       setImporting(false);
     }
   };
+
+  if (isLoading && firstLoad) return <ProductsSkeleton />;
 
   const margin =
     form.base_price && form.cost ? parseFloat(form.base_price) - parseFloat(form.cost) : null;

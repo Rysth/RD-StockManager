@@ -84,34 +84,39 @@ puts "=" * 60
 puts ""
 puts "👟 Seeding inventory & sales demo data..."
 
-# 5 categorías
+# Categorías — calzado + gorras/accesorios (la tienda vende ambos)
 category_names = {
-  "Mujer"    => "Calzado para dama",
-  "Hombre"   => "Calzado para caballero",
-  "Niños"    => "Calzado infantil",
-  "Deporte"  => "Zapatos deportivos y running",
-  "Casual"   => "Calzado casual y urbano"
+  "Mujer"        => "Calzado y accesorios para dama",
+  "Hombre"       => "Calzado y accesorios para caballero",
+  "Niños"        => "Calzado infantil",
+  "Deporte"      => "Zapatos deportivos y running",
+  "Casual"       => "Calzado casual y urbano",
+  "Gorras"       => "Gorras y sombreros",
+  "Accesorios"   => "Otros accesorios de moda"
 }
 categories = category_names.map do |name, description|
   Category.create!(name: name, description: description, active: true)
 end
 
-# Marcas (ahora entidad administrable)
-brand_names = %w[Nike Adidas Puma Converse Vans Reebok Crocs Skechers]
+# Marcas (ahora entidad administrable) — calzado + gorras
+brand_names = %w[Nike Adidas Puma Converse Vans Reebok Crocs Skechers New\ Era Volcom]
+brand_names = ["Nike", "Adidas", "Puma", "Converse", "Vans", "Reebok", "Crocs", "Skechers", "New Era", "Volcom"]
 brands = brand_names.index_with { |name| Brand.create!(name: name, active: true) }
 
-# 10 productos
+# 12 productos — 10 calzado + 2 gorras
 product_defs = [
-  { name: "Air Max 270",       brand: "Nike",     base_price: 129.99, category: "Deporte" },
-  { name: "Ultraboost 22",     brand: "Adidas",   base_price: 149.99, category: "Deporte" },
-  { name: "RS-X",              brand: "Puma",     base_price: 99.90,  category: "Casual" },
-  { name: "Chuck Taylor",      brand: "Converse", base_price: 64.99,  category: "Casual" },
-  { name: "Old Skool",         brand: "Vans",     base_price: 69.99,  category: "Casual" },
-  { name: "Classic Leather",   brand: "Reebok",   base_price: 84.99,  category: "Hombre" },
-  { name: "Sandalia Comfort",  brand: "Crocs",    base_price: 39.99,  category: "Mujer" },
-  { name: "Skech-Air",         brand: "Skechers", base_price: 74.99,  category: "Mujer" },
-  { name: "Revolution 6",      brand: "Nike",     base_price: 59.99,  category: "Niños" },
-  { name: "Grand Court",       brand: "Adidas",   base_price: 54.99,  category: "Niños" }
+  { name: "Air Max 270",        brand: "Nike",     base_price: 129.99, category: "Deporte" },
+  { name: "Ultraboost 22",      brand: "Adidas",   base_price: 149.99, category: "Deporte" },
+  { name: "RS-X",               brand: "Puma",     base_price: 99.90,  category: "Casual" },
+  { name: "Chuck Taylor",       brand: "Converse", base_price: 64.99,  category: "Casual" },
+  { name: "Old Skool",          brand: "Vans",     base_price: 69.99,  category: "Casual" },
+  { name: "Classic Leather",    brand: "Reebok",   base_price: 84.99,  category: "Hombre" },
+  { name: "Sandalia Comfort",   brand: "Crocs",    base_price: 39.99,  category: "Mujer" },
+  { name: "Skech-Air",          brand: "Skechers", base_price: 74.99,  category: "Mujer" },
+  { name: "Revolution 6",       brand: "Nike",     base_price: 59.99,  category: "Niños" },
+  { name: "Grand Court",        brand: "Adidas",   base_price: 54.99,  category: "Niños" },
+  { name: "9FORTY Adjustable",  brand: "New Era",  base_price: 34.99,  category: "Gorras" },
+  { name: "Full-Zip Logo Cap",  brand: "Volcom",   base_price: 28.99,  category: "Gorras" }
 ]
 
 colors = %w[Negro Blanco Azul Rojo Gris]
@@ -135,7 +140,8 @@ end
 all_variants = []
 products.each do |product|
   sizes = case product.category.name
-          when "Niños" then %w[28 30 32 34]
+          when "Niños"  then %w[28 30 32 34]
+          when "Gorras" then %w[S M L]
           else %w[36 38 40 42]
           end
   product_colors = colors.sample(rand(1..2))
@@ -215,3 +221,21 @@ puts "   • Variantes:   #{ProductVariant.count}"
 puts "   • Clientes:    #{Customer.count}"
 puts "   • Ventas:      #{Sale.count} (#{Sale.completed.count} completadas, #{Sale.pending.count} pendientes, #{Sale.cancelled.count} canceladas)"
 puts "=" * 60
+
+# ──────────────────────────────────────────────────────────────
+# Negocio: EDLU Store
+# ──────────────────────────────────────────────────────────────
+puts ""
+puts "🏪 Updating business profile → EDLU Store..."
+Business.current.update!(
+  name: "EDLU Store",
+  slogan: "Venta de gorras y calzados",
+  whatsapp: "+593983236580",
+  tiktok: "edlu_store_ec",
+  email: "storeedlu@gmail.com",
+  location: "Guayas-Guayaquil",
+  instagram: "",
+  facebook: ""
+)
+puts "   ✅ Business: #{Business.current.name} — #{Business.current.slogan}"
+puts "   ℹ️  Sube el logo manualmente desde Settings → Negocio."

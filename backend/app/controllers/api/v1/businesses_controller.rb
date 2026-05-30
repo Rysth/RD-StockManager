@@ -47,7 +47,9 @@ module Api
       end
 
       def business_params
-        params.except(:id, :controller, :action).permit(:name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo)
+        params.except(:id, :controller, :action).permit(
+          :name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo, :email, :location
+        )
       end
 
       def business_json(business)
@@ -60,6 +62,8 @@ module Api
           instagram: business.instagram,
           facebook: business.facebook,
           tiktok: business.tiktok,
+          email: business.email,
+          location: business.location,
           created_at: business.created_at,
           updated_at: business.updated_at
         }

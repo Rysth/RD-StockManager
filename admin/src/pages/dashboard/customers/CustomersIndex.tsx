@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface FormState {
   name: string;
@@ -70,6 +71,38 @@ const selectClass =
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
+function CustomersSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-8 w-28 rounded" />
+          <Skeleton className="h-4 w-52 rounded" />
+        </div>
+        <Skeleton className="h-9 w-32 rounded-md" />
+      </div>
+      <Skeleton className="h-9 w-64 rounded-md" />
+      <Card className="rounded-xl p-0">
+        <CardContent className="p-0">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <div className="flex-1"><Skeleton className="h-4 w-32 rounded" /></div>
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+                <div className="flex gap-1 ml-auto">
+                  <Skeleton className="h-8 w-8 rounded" />
+                  <Skeleton className="h-8 w-8 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function CustomersIndex() {
   const {
     customers,
@@ -81,6 +114,7 @@ export default function CustomersIndex() {
     deleteCustomer,
   } = useCustomerStore();
 
+  const [firstLoad, setFirstLoad] = useState(true);
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -88,9 +122,9 @@ export default function CustomersIndex() {
   const [toDelete, setToDelete] = useState<Customer | null>(null);
 
   useEffect(() => {
-    fetchCustomers(1, pagination.per_page, search).catch((e) =>
-      toast.error(e.message || "Error al cargar clientes"),
-    );
+    fetchCustomers(1, pagination.per_page, search)
+      .catch((e) => toast.error(e.message || "Error al cargar clientes"))
+      .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
@@ -143,6 +177,8 @@ export default function CustomersIndex() {
       toast.error(errorMessage(e, "Error al archivar el cliente"));
     }
   };
+
+  if (isLoading && firstLoad) return <CustomersSkeleton />;
 
   return (
     <div className="space-y-6">

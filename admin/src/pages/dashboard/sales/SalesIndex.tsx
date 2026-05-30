@@ -48,6 +48,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Pagination from "../../../components/common/Pagination";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
@@ -66,6 +67,34 @@ const PAYMENT_LABEL: Record<string, string> = {
   transfer: "Transferencia",
 };
 
+function SaleListSkeleton() {
+  return (
+    <div className="space-y-4">
+      <Skeleton className="h-9 w-44 rounded-md" />
+      <Card className="rounded-xl p-0">
+        <CardContent className="p-0">
+          <div className="p-4 space-y-3">
+            {[1, 2, 3, 4, 5, 6].map((i) => (
+              <div key={i} className="flex items-center gap-4">
+                <Skeleton className="h-4 w-20 rounded" />
+                <Skeleton className="h-4 w-28 rounded" />
+                <Skeleton className="h-4 w-24 rounded" />
+                <Skeleton className="h-4 w-8 rounded" />
+                <Skeleton className="h-4 w-16 rounded" />
+                <Skeleton className="h-6 w-20 rounded-full" />
+                <div className="ml-auto flex gap-1">
+                  <Skeleton className="h-8 w-8 rounded" />
+                  <Skeleton className="h-8 w-16 rounded" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
   return url ? (
     <img src={url} alt="" className={`${size} rounded-md border object-cover`} />
@@ -82,14 +111,15 @@ function SalesListTab() {
     sales, pagination, isLoading, fetchSales, updateSaleStatus,
     selectedSale, isLoadingDetail, fetchSale, clearSelectedSale,
   } = useSaleStore();
+  const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
 
   useEffect(() => {
-    fetchSales(1, pagination.per_page, { status }).catch((e) =>
-      toast.error(e.message || "Error al cargar ventas"),
-    );
+    fetchSales(1, pagination.per_page, { status })
+      .catch((e) => toast.error(e.message || "Error al cargar ventas"))
+      .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
@@ -113,6 +143,8 @@ function SalesListTab() {
       setCancelId(null);
     }
   };
+
+  if (isLoading && firstLoad) return <SaleListSkeleton />;
 
   return (
     <div className="space-y-4">

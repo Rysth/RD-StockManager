@@ -16,12 +16,14 @@ class Business < ApplicationRecord
 
   def self.current
     first || create(
-      name: "MicroBiz",
-      slogan: "Powered by RysthDesign",
-      whatsapp: "",
+      name: "EDLU Store",
+      slogan: "Venta de gorras y calzados",
+      whatsapp: "+593983236580",
+      tiktok: "edlu_store_ec",
+      email: "storeedlu@gmail.com",
+      location: "Guayas-Guayaquil",
       instagram: "",
-      facebook: "",
-      tiktok: ""
+      facebook: ""
     )
   end
 

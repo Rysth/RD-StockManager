@@ -16,7 +16,9 @@ module Api
               whatsapp: business.whatsapp,
               instagram: business.instagram,
               facebook: business.facebook,
-              tiktok: business.tiktok
+              tiktok: business.tiktok,
+              email: business.email,
+              location: business.location
             }
           end
 

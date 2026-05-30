@@ -5,6 +5,7 @@ module Api
       before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show]
       before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy]
       before_action :set_brand, only: [:show, :update, :destroy]
+      after_action :clear_inventory_cache, only: [:create, :update, :destroy]
 
       # GET /api/v1/brands
       def index
@@ -90,6 +91,10 @@ module Api
           created_at: brand.created_at,
           updated_at: brand.updated_at
         }
+      end
+
+      def clear_inventory_cache
+        Rails.cache.delete("inventory:stats")
       end
 
       def pagination_data(pagy)

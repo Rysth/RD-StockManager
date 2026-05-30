@@ -4,6 +4,7 @@ module Api
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::MANAGE_CUSTOMERS) }
       before_action :set_customer, only: [:show, :update, :destroy]
+      after_action :clear_inventory_cache, only: [:create, :update, :destroy]
 
       # GET /api/v1/customers
       def index
@@ -94,6 +95,10 @@ module Api
           created_at: customer.created_at,
           updated_at: customer.updated_at
         }
+      end
+
+      def clear_inventory_cache
+        Rails.cache.delete("inventory:stats")
       end
 
       def pagination_data(pagy)
