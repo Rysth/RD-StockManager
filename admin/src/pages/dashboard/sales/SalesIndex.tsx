@@ -40,6 +40,15 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
+import {
   Table,
   TableBody,
   TableCell,
@@ -115,6 +124,7 @@ function SalesListTab() {
   const [status, setStatus] = useState<SaleStatus | "">("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
+  const [completeId, setCompleteId] = useState<number | null>(null);
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, { status })
@@ -141,6 +151,22 @@ function SalesListTab() {
       toast.error(errorMessage(e, "Error al cancelar la venta"));
     } finally {
       setCancelId(null);
+    }
+  };
+
+  const confirmComplete = async () => {
+    if (completeId == null) return;
+    try {
+      await updateSaleStatus(completeId, "completed");
+      toast.success("Pedido completado — stock descontado");
+      if (selectedSale?.id === completeId) {
+        setDrawerOpen(false);
+        clearSelectedSale();
+      }
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al completar el pedido"));
+    } finally {
+      setCompleteId(null);
     }
   };
 
@@ -193,6 +219,11 @@ function SalesListTab() {
                       <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(s.id)} title="Ver detalle">
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {s.status === "pending" && (
+                        <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => setCompleteId(s.id)}>
+                          Confirmar entrega
+                        </Button>
+                      )}
                       {s.status !== "cancelled" && (
                         <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setCancelId(s.id)}>
                           Cancelar
@@ -283,6 +314,14 @@ function SalesListTab() {
                 )}
               </div>
 
+              {selectedSale.status === "pending" && (
+                <Button
+                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  onClick={() => setCompleteId(selectedSale.id)}
+                >
+                  Confirmar entrega y pago
+                </Button>
+              )}
               {selectedSale.status !== "cancelled" && (
                 <Button variant="outline" className="w-full text-destructive" onClick={() => setCancelId(selectedSale.id)}>
                   Cancelar venta
@@ -308,6 +347,28 @@ function SalesListTab() {
             <AlertDialogAction onClick={confirmCancel}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               Sí, cancelar venta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmación de completar pedido contra entrega */}
+      <AlertDialog open={completeId != null} onOpenChange={(o) => !o && setCompleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar entrega y pago</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmás que el pedido fue entregado y el pago recibido? La venta pasará a
+              <strong> Completada</strong> y se descontará el stock de los productos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmComplete}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              Sí, confirmar entrega
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -349,6 +410,7 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   useEffect(() => {
     fetchProducts(1, 100, {});
@@ -418,12 +480,13 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
 
   const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
 
-  const complete = async () => {
-    if (cart.length === 0) return toast.error("Agrega al menos un producto");
+  // Pago contra entrega → la venta queda pendiente hasta confirmar la entrega.
+  // Pago en el momento → se completa de inmediato y descuenta stock.
+  const submitSale = async () => {
     try {
       await createSale({
         customer_id: customerId ? Number(customerId) : null,
-        status: "completed",
+        status: cashOnDelivery ? "pending" : "completed",
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
         items: cart.map((i) => ({
@@ -432,12 +495,17 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
           unit_price: i.unit_price,
         })),
       });
-      toast.success("Venta completada correctamente");
+      toast.success(
+        cashOnDelivery
+          ? "Pedido registrado — pendiente de entrega y pago"
+          : "Venta completada correctamente"
+      );
+      setConfirmOpen(false);
       setCart([]); setCustomerId(""); setVariantQuery("");
       setPaymentMethod("cash"); setCashOnDelivery(false);
       onComplete();
     } catch (e) {
-      toast.error(errorMessage(e, "Error al completar la venta"));
+      toast.error(errorMessage(e, "Error al registrar la venta"));
     }
   };
 
@@ -638,13 +706,100 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
                 <span>Total</span>
                 <span>{money(total)}</span>
               </div>
-              <Button className="h-11 w-full text-base" disabled={isSubmitting || cart.length === 0} onClick={complete}>
-                {isSubmitting ? "Procesando..." : "Completar Venta"}
+              <Button
+                className="h-11 w-full text-base"
+                disabled={cart.length === 0}
+                onClick={() => setConfirmOpen(true)}
+              >
+                {cashOnDelivery ? "Registrar pedido (contra entrega)" : "Completar Venta"}
               </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Modal de confirmación antes de enviar ── */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar venta</DialogTitle>
+            <DialogDescription>
+              Revisá el resumen antes de registrar.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 text-sm">
+            {/* Cliente */}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Cliente</span>
+              <span className="font-medium">
+                {customerId
+                  ? customers.find((c) => String(c.id) === customerId)?.name ?? "—"
+                  : "Consumidor final"}
+              </span>
+            </div>
+
+            <Separator />
+
+            {/* Líneas */}
+            <div className="space-y-2">
+              {cart.map((i) => (
+                <div key={i.product_variant_id} className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{i.label}</p>
+                    <p className="text-xs text-muted-foreground">{i.sku}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p>{i.quantity} × {money(i.unit_price)}</p>
+                    <p className="font-medium">{money(i.unit_price * i.quantity)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <Separator />
+
+            {/* Totales */}
+            <div className="flex justify-between text-base font-bold">
+              <span>Total</span>
+              <span>{money(total)}</span>
+            </div>
+
+            <Separator />
+
+            {/* Pago */}
+            <div className="space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Método de pago</span>
+                <span className="font-medium capitalize">
+                  {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
+                </span>
+              </div>
+              {cashOnDelivery && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Modalidad</span>
+                  <span className="font-medium text-amber-600">Pago contra entrega</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Estado al registrar</span>
+                <span className={`font-medium ${cashOnDelivery ? "text-amber-600" : "text-emerald-600"}`}>
+                  {cashOnDelivery ? "Pendiente" : "Completada"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Volver a editar
+            </Button>
+            <Button onClick={submitSale} disabled={isSubmitting}>
+              {isSubmitting ? "Procesando..." : "Confirmar y registrar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
