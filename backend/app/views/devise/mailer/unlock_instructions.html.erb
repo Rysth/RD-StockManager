@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      .btn-primary {
+        background-color: #3b82f6;
+        color: white;
+        padding: 12px 24px;
+        border-radius: 6px;
+        text-decoration: none;
+        display: inline-block;
+      }
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container">
+      <div class="bg-white p-8 rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">¡Hola <%= @resource.email %>!</h2>
+        <p class="text-gray-600 mb-4">Su cuenta ha sido bloqueada debido a un número excesivo de intentos fallidos de inicio de sesión.</p>
+        <div class="text-center mb-6">
+          <%= link_to 'Desbloquear mi cuenta', 
+              unlock_url(@resource, unlock_token: @token),
+              class: "btn-primary" %>
+        </div>
+        <p class="text-sm text-gray-500">Si no solicitó esto, por favor ignore este correo electrónico.</p>
+      </div>
+    </div>
+  </body>
+</html>

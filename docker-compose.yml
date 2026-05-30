@@ -1,0 +1,128 @@
+services:
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: ${VITE_API_URL}
+    container_name: base-admin
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./admin:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=${VITE_API_URL}
+      - ADMIN_SERVER_NAME=${ADMIN_SERVER_NAME:-admin.example.com}
+      - API_UPSTREAM_SCHEME=${API_UPSTREAM_SCHEME:-https}
+      - API_UPSTREAM_HOST=${API_UPSTREAM_HOST:-api.example.com}
+      - API_UPSTREAM_PORT=${API_UPSTREAM_PORT:-443}
+    depends_on:
+      - api
+    networks:
+      - base_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`admin.example.com`)"
+      - "traefik.http.routers.admin.tls=true"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+
+  storefront:
+    profiles:
+      - storefront
+    build:
+      context: ./storefront
+      args:
+        PUBLIC_API_URL: ${PUBLIC_API_URL:-https://api.example.com}
+    container_name: base-storefront
+    ports:
+      - "4321:4321"
+    volumes:
+      - ./storefront:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-https://api.example.com}
+    depends_on:
+      - api
+    networks:
+      - base_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.storefront.rule=Host(`storefront.example.com`)"
+      - "traefik.http.routers.storefront.tls=true"
+      - "traefik.http.routers.storefront.tls.certresolver=letsencrypt"
+      - "traefik.http.services.storefront.loadbalancer.server.port=4321"
+
+  api:
+    build: ./backend
+    container_name: base-api
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./backend:/rails
+      - ./backend/tmp:/rails/tmp
+      - rails_bundle:/usr/local/bundle
+    environment:
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-https://admin.example.com}
+      - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-https://storefront.example.com}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
+      - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-https://storefront.example.com}
+      - RAILS_ENV=${RAILS_ENV}
+      - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+      - REDIS_URL=${REDIS_URL}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - "SMTP_HOST=${SMTP_HOST}"
+      - "SMTP_PORT=${SMTP_PORT}"
+      - "SMTP_USER=${SMTP_USER}"
+      - "SMTP_PASSWORD=${SMTP_PASSWORD}"
+      - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
+    command: bash -c "bundle install && rm -f tmp/pids/server.pid && bundle exec rails db:migrate && bundle exec rails s -p ${PORT} -b '0.0.0.0'"
+    # Postgres is provided externally in production; ensure DATABASE_URL points to it.
+    networks:
+      - base_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`api.example.com`)"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=${PORT}"
+
+  worker:
+    build: ./backend
+    container_name: base-worker
+    volumes:
+      - ./backend:/rails
+      - ./backend/tmp:/rails/tmp
+      - rails_bundle:/usr/local/bundle
+    environment:
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-https://admin.example.com}
+      - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-https://storefront.example.com}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
+      - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-https://storefront.example.com}
+      - RAILS_ENV=${RAILS_ENV}
+      - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
+      - REDIS_URL=${REDIS_URL}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - "SMTP_HOST=${SMTP_HOST}"
+      - "SMTP_PORT=${SMTP_PORT}"
+      - "SMTP_USER=${SMTP_USER}"
+      - "SMTP_PASSWORD=${SMTP_PASSWORD}"
+      - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
+    command: bash -c "bundle install && bundle exec sidekiq"
+    # Postgres/Redis are external in production; ensure env vars point to those services.
+    networks:
+      - base_network
+
+volumes:
+  rails_bundle:
+networks:
+  base_network:
+    driver: bridge

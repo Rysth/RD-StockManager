@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+      .btn-primary {
+        background-color: #3b82f6; color: white; padding: 12px 24px;
+        border-radius: 6px; text-decoration: none; display: inline-block;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container">
+      <div class="p-8 bg-white rounded-lg shadow-md">
+        <h2 class="mb-4 text-2xl font-bold text-gray-800">🎉 Nuevo Usuario Registrado</h2>
+        
+        <div class="p-4 mb-6 rounded-lg bg-blue-50">
+          <h3 class="mb-3 text-lg font-semibold text-blue-800">Información del Usuario:</h3>
+          <div class="space-y-2">
+            <p><strong>Nombre Completo:</strong> <%= @user.fullname %></p>
+            <p><strong>Username:</strong> <%= @user.username %></p>
+            <p><strong>Email:</strong> <%= @user.account.email %></p>
+            <% if @user.identification.present? %>
+              <p><strong>Identificación:</strong> <%= @user.identification %></p>
+            <% end %>
+            <% if @user.phone_number.present? %>
+              <p><strong>Teléfono:</strong> <%= @user.phone_number %></p>
+            <% end %>
+            <p><strong>Roles:</strong> <%= @user.roles.pluck(:name).join(', ').presence || 'user' %></p>
+            <p><strong>Estado:</strong>
+              <span class="<%= @user.account.status == 'verified' ? 'text-green-600' : 'text-yellow-600' %>">
+                <%= @user.account.status == 'verified' ? 'Confirmado' : 'Pendiente de confirmación' %>
+              </span>
+            </p>
+            <p><strong>Fecha de registro:</strong> <%= @user.created_at.strftime('%d/%m/%Y a las %H:%M') %></p>
+          </div>
+        </div>
+
+        <div class="text-center">
+          <p class="mb-4 text-gray-600">Puedes gestionar este usuario desde el panel de administración.</p>
+          <a href="<%= FrontendUrls.admin_url %>/dashboard/users" class="btn-primary">
+            Ver Panel de Usuarios
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

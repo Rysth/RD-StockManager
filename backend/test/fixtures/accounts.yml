@@ -1,0 +1,55 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Verified accounts for testing authenticated scenarios
+admin_account:
+  email: admin@test.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: verified
+
+manager_account:
+  email: manager@test.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: verified
+
+verified_user:
+  email: john@remindzen.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password") %>
+  status: verified
+
+verified_user_two:
+  email: user2@test.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: verified
+
+# Unverified accounts for testing email verification scenarios
+unverified_user:
+  email: jane@remindzen.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password") %>
+  status: unverified
+
+unverified_new_user:
+  email: newuser@test.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: unverified
+
+# Closed accounts for testing account closure scenarios
+closed_account:
+  email: closed@remindzen.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password") %>
+  status: closed
+
+closed_admin_account:
+  email: closedadmin@test.com
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: closed
+
+# Edge case accounts for validation testing
+invalid_email_format:
+  email: invalid-email
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: unverified
+
+uppercase_email:
+  email: UPPERCASE@TEST.COM
+  password_hash: <%= RodauthApp.rodauth.allocate.password_hash("password123") %>
+  status: verified

@@ -1,0 +1,90 @@
+---
+openapi: 3.0.1
+info:
+  title: Rails API
+  version: v1
+  description: API documentation for the Rails backend application with versioning,
+    authentication, and comprehensive endpoint coverage.
+  contact:
+    name: API Support
+    email: api-support@example.com
+paths:
+  "/api/v1":
+    get:
+      summary: API Version Check
+      tags:
+      - Base
+      description: Check API version and basic connectivity
+      responses:
+        '404':
+          description: endpoint not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: error
+                  message:
+                    type: string
+                    example: Not Found
+servers:
+- url: http://localhost:3000
+  description: Development server
+- url: https://{defaultHost}
+  description: Production server
+  variables:
+    defaultHost:
+      default: api.example.com
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    Error:
+      type: object
+      properties:
+        status:
+          type: string
+          example: error
+        message:
+          type: string
+          example: An error occurred
+        errors:
+          type: array
+          items:
+            type: string
+      required:
+      - status
+      - message
+    Success:
+      type: object
+      properties:
+        status:
+          type: string
+          example: success
+        data:
+          type: object
+      required:
+      - status
+      - data
+    Pagination:
+      type: object
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        total_pages:
+          type: integer
+          example: 10
+        total_count:
+          type: integer
+          example: 100
+        per_page:
+          type: integer
+          example: 12
+security:
+- bearerAuth: []

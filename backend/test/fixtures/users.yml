@@ -1,0 +1,69 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Admin users for testing administrative functionality
+admin_user:
+  account: admin_account
+  fullname: Admin User
+  username: admin_user
+  phone_number: '+1234567890'
+  identification: '1234567890'
+
+# Manager users for testing management functionality
+manager_user:
+  account: manager_account
+  fullname: Manager User
+  username: manager_user
+  phone_number: '+1234567891'
+  identification: '1234567891'
+
+# Regular verified users
+john:
+  account: verified_user
+  fullname: John Doe
+  username: johndoe
+  phone_number: '+1234567890'
+  identification: '1234567890'
+
+verified_user_two:
+  account: verified_user_two
+  fullname: User Two
+  username: usertwo
+  phone_number: '+1234567892'
+  identification: '1234567892'
+
+# Unverified users for testing email verification scenarios
+jane:
+  account: unverified_user
+  fullname: Jane Smith
+  username: janesmith
+  phone_number: '+0987654321'
+  identification: '0987654321'
+
+unverified_new_user:
+  account: unverified_new_user
+  fullname: New User
+  username: newuser
+  phone_number: '+1234567893'
+  identification: '1234567893'
+
+# Users with closed accounts
+closed_user:
+  account: closed_account
+  fullname: Closed User
+  username: closeduser
+  phone_number: '+1234567894'
+  identification: '1234567894'
+
+# Edge case users for validation testing
+user_with_special_chars:
+  account: verified_user
+  fullname: User With Special Characters
+  username: user_123_test
+  phone_number: '+1234567895'
+  identification: '1234567895'
+
+# User with minimal required fields only
+minimal_user:
+  account: verified_user_two
+  fullname: Minimal User
+  username: minimaluser

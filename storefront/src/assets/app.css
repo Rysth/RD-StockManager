@@ -1,0 +1,47 @@
+@import "tailwindcss";
+@plugin "daisyui";
+
+@theme {
+    --font-sans: "Sora", "Segoe UI", sans-serif;
+}
+
+@plugin "daisyui/theme" {
+    name: "microbiz";
+    default: true;
+    color-scheme: light;
+    --color-base-100: oklch(98% 0.01 95);
+    --color-base-200: oklch(95% 0.02 95);
+    --color-base-300: oklch(89% 0.03 90);
+    --color-base-content: oklch(23% 0.03 250);
+    --color-primary: oklch(50% 0.13 175);
+    --color-primary-content: oklch(98% 0.01 95);
+    --color-secondary: oklch(72% 0.11 55);
+    --color-secondary-content: oklch(18% 0.02 250);
+    --color-accent: oklch(76% 0.12 130);
+    --color-accent-content: oklch(20% 0.02 150);
+    --color-neutral: oklch(29% 0.03 250);
+    --color-neutral-content: oklch(96% 0.01 95);
+    --color-info: oklch(66% 0.1 230);
+    --color-success: oklch(72% 0.12 150);
+    --color-warning: oklch(81% 0.14 80);
+    --color-error: oklch(62% 0.2 25);
+    --radius-box: 1.25rem;
+    --radius-field: 999px;
+    --radius-selector: 999px;
+}
+
+:root {
+    color-scheme: light;
+}
+
+body {
+    @apply bg-base-100 text-base-content;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+::selection {
+    @apply bg-primary text-primary-content;
+}

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: 24px;
+      }
+      .otp-code {
+        font-size: 36px;
+        font-weight: bold;
+        letter-spacing: 8px;
+        color: #1e40af;
+        font-family: 'Courier New', monospace;
+      }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container">
+      <div class="bg-white p-8 rounded-lg shadow-md">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">🔐 Código de Verificación</h2>
+        
+        <p class="text-gray-600 mb-4">Hola,</p>
+        
+        <p class="text-gray-600 mb-6">Para completar tu inicio de sesión en <strong>R&R Template</strong>, usa el siguiente código de verificación:</p>
+        
+        <div class="bg-blue-50 border-2 border-dashed border-blue-500 rounded-lg p-6 text-center mb-6">
+          <div class="otp-code"><%= @otp_code %></div>
+        </div>
+        
+        <div class="bg-yellow-50 border-l-4 border-yellow-500 p-4 mb-4 rounded">
+          <p class="text-sm text-gray-700">
+            <strong>⏰ Importante:</strong> Este código expira en <%= @expires_in %>. Si no lo usas dentro de este tiempo, deberás solicitar uno nuevo.
+          </p>
+        </div>
+        
+        <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded">
+          <p class="text-sm text-gray-700">
+            <strong>🔒 Seguridad:</strong> Si no solicitaste este código, ignora este correo. Nunca compartas este código con nadie.
+          </p>
+        </div>
+        
+        <p class="text-sm text-gray-500">Si tienes problemas, contacta a nuestro equipo de soporte.</p>
+        
+        <div class="mt-8 pt-6 border-t border-gray-200 text-center">
+          <p class="text-xs text-gray-500 mb-1">Este correo fue enviado de manera automática.</p>
+          <p class="text-xs text-gray-500">Creado por RysthDesign - <a href="https://rysthdesign.com/" class="text-blue-500 hover:underline">https://rysthdesign.com/</a></p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

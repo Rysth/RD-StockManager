@@ -1,0 +1,289 @@
+---
+import Layout from "../layouts/Layout.astro";
+
+const apiUrl = import.meta.env.PUBLIC_API_URL || "http://localhost:3000";
+
+const metrics = [
+  { value: "24h", label: "para salir con una base visible" },
+  { value: "0", label: "dependencias de React en cliente" },
+  { value: "100%", label: "enfocado en una landing inicial" },
+];
+
+const highlights = [
+  {
+    title: "Oferta clara desde el primer scroll",
+    description:
+      "La home arranca con estructura pensada para explicar valor, captar interés y dirigir al siguiente paso.",
+  },
+  {
+    title: "Separación real entre web pública y operación interna",
+    description:
+      "El admin vive aparte en React y el storefront se mantiene ligero, rápido y fácil de adaptar por proyecto.",
+  },
+  {
+    title: "Base simple para crecer después",
+    description:
+      "Puedes sumar catálogo, CMS, contenido dinámico o integraciones sin rearmar la arquitectura del inicio.",
+  },
+];
+
+const modules = [
+  "Hero con CTA principal y secundario",
+  "Bloque de diferenciadores del negocio",
+  "Sección de servicios, productos o categorías",
+  "Prueba social con testimonios o cifras",
+  "CTA final para contacto, compra o agenda",
+  "Integración simple con la API cuando haga falta",
+];
+
+const useCases = [
+  {
+    name: "Servicios profesionales",
+    pitch: "Consultoras, estudios, despachos o agencias con foco en captación.",
+  },
+  {
+    name: "Negocios locales",
+    pitch: "Restaurantes, clínicas, talleres o tiendas que necesitan presencia clara y rápida.",
+  },
+  {
+    name: "Marcas de lanzamiento",
+    pitch: "Landing temporal o comercial mientras el resto del producto evoluciona.",
+  },
+];
+
+const steps = [
+  {
+    title: "Cambias textos y branding",
+    detail: "Ajustas nombre, propuesta, colores e imágenes sin tocar la arquitectura.",
+  },
+  {
+    title: "Defines el CTA principal",
+    detail: "Venta, contacto, agendamiento o generación de leads según el proyecto.",
+  },
+  {
+    title: "Escalas cuando el negocio lo pida",
+    detail: "Añades secciones o datos dinámicos sin mezclar la web pública con el panel.",
+  },
+];
+
+const testimonials = [
+  {
+    quote:
+      "Sirve perfecto como base de preventa: no distrae, carga rápido y deja el negocio bien presentado.",
+    author: "Equipo comercial",
+  },
+  {
+    quote:
+      "La separación con el admin nos evita convertir la web pública en una SPA innecesaria.",
+    author: "Equipo técnico",
+  },
+];
+---
+
+<Layout
+  title="Storefront Template"
+  description="Landing inicial en Astro para storefronts rápidos, claros y fáciles de extender."
+>
+  <main class="relative overflow-hidden bg-base-100">
+    <div class="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_top,rgba(17,94,89,0.18),transparent_60%)]"></div>
+    <div class="absolute right-0 top-24 h-96 w-96 rounded-full bg-secondary/20 blur-3xl"></div>
+    <div class="absolute left-0 top-72 h-96 w-96 rounded-full bg-primary/12 blur-3xl"></div>
+
+    <section class="relative mx-auto flex min-h-screen max-w-7xl flex-col px-6 py-8 lg:px-10">
+      <header class="navbar rounded-full border border-base-300/70 bg-base-100/80 px-4 shadow-sm backdrop-blur">
+        <div class="navbar-start gap-3">
+          <div class="grid h-11 w-11 place-items-center rounded-2xl bg-neutral text-neutral-content shadow-lg ring-1 ring-white/10">
+            MB
+          </div>
+          <div>
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-neutral/60">Storefront</p>
+            <p class="text-lg font-semibold text-neutral">Landing comercial base</p>
+          </div>
+        </div>
+        <div class="navbar-end gap-2">
+          <a href="#modules" class="btn btn-ghost rounded-full text-sm">Módulos</a>
+          <a href={apiUrl} class="btn btn-outline rounded-full text-sm">API</a>
+        </div>
+      </header>
+
+      <div class="grid flex-1 items-center gap-14 py-16 lg:grid-cols-[1.08fr_0.92fr] lg:py-24">
+        <div class="space-y-8 lg:pr-6">
+          <div class="badge badge-lg border-primary/20 bg-primary/10 px-5 py-4 text-primary">
+            Astro + Tailwind + daisyUI
+          </div>
+
+          <div class="space-y-5">
+            <h1 class="max-w-4xl text-5xl font-extrabold leading-[0.95] tracking-tight text-neutral sm:text-6xl lg:text-7xl">
+              Una plantilla de storefront para lanzar una web pública clara, rápida y vendible.
+            </h1>
+            <p class="max-w-2xl text-lg leading-8 text-neutral/70 sm:text-xl">
+              Diseñada para salir con una landing sólida sin mezclar marketing, contenido público
+              y operación interna. El admin sigue en React; la cara pública vive en Astro.
+            </p>
+          </div>
+
+          <div class="flex flex-col gap-3 sm:flex-row">
+            <a href="#modules" class="btn btn-primary btn-lg rounded-full px-8">Ver secciones</a>
+            <a href="#proof" class="btn btn-outline btn-lg rounded-full px-8">Ver ejemplo</a>
+          </div>
+
+          <div class="grid gap-4 sm:grid-cols-3">
+            {metrics.map((metric) => (
+              <div class="rounded-3xl border border-base-300 bg-base-100 p-5 shadow-sm">
+                <p class="text-3xl font-bold text-neutral">{metric.value}</p>
+                <p class="mt-3 text-sm uppercase tracking-[0.18em] text-neutral/55">{metric.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div class="space-y-6">
+          <div class="rounded-4xl border border-base-300 bg-neutral p-6 text-neutral-content shadow-2xl shadow-primary/10">
+            <div class="flex items-center justify-between border-b border-neutral-content/10 pb-5">
+              <div>
+                <p class="text-sm uppercase tracking-[0.2em] text-neutral-content/50">Template</p>
+                <h2 class="mt-2 text-2xl font-semibold">Base comercial inicial</h2>
+              </div>
+              <div class="badge badge-accent badge-lg">Landing</div>
+            </div>
+
+            <div class="space-y-3 py-6 text-neutral-content/80">
+              {highlights.map((item, index) => (
+                <div class="rounded-3xl bg-white/5 p-4">
+                  <div class="flex items-start gap-4">
+                    <div class="badge badge-secondary badge-lg mt-1">0{index + 1}</div>
+                    <div>
+                      <p class="font-semibold text-neutral-content">{item.title}</p>
+                      <p class="mt-2 text-sm leading-6 text-neutral-content/70">{item.description}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div id="proof" class="rounded-3xl bg-accent/90 p-5 text-accent-content">
+              <p class="text-sm font-semibold uppercase tracking-[0.2em]">Caso ideal</p>
+              <p class="mt-2 text-lg leading-7">
+                Negocios que necesitan verse bien desde el día uno, pero todavía no requieren una
+                aplicación pública compleja ni una capa rica de ecommerce.
+              </p>
+            </div>
+          </div>
+
+          <div class="stats stats-vertical border border-base-300 bg-base-100 shadow-sm sm:stats-horizontal">
+            <div class="stat">
+              <div class="stat-title">Render</div>
+              <div class="stat-value text-primary">Static</div>
+              <div class="stat-desc">Con Astro</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Estilos</div>
+              <div class="stat-value text-secondary">UI</div>
+              <div class="stat-desc">Tailwind + daisyUI</div>
+            </div>
+            <div class="stat">
+              <div class="stat-title">Integración</div>
+              <div class="stat-value text-accent">API</div>
+              <div class="stat-desc">Cuando el proyecto lo requiera</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <section id="modules" class="relative pb-8">
+        <div class="grid gap-6 lg:grid-cols-[0.86fr_1.14fr]">
+          <div class="space-y-4">
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-primary">Secciones base</p>
+            <h2 class="text-3xl font-bold text-neutral sm:text-4xl">
+              La plantilla ya viene con la estructura que normalmente se arma primero en una landing comercial.
+            </h2>
+            <p class="text-lg leading-8 text-neutral/70">
+              Puedes reemplazar este contenido con el del cliente y mantener intacta la separación entre web pública y panel interno.
+            </p>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            {modules.map((module) => (
+              <article class="card border border-base-300 bg-base-100 shadow-sm transition-transform duration-300 hover:-translate-y-1">
+                <div class="card-body">
+                  <div class="badge badge-outline">Módulo</div>
+                  <p class="mt-2 text-lg font-semibold text-neutral">{module}</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="py-14 lg:py-18">
+        <div class="grid gap-6 lg:grid-cols-3">
+          {useCases.map((item) => (
+            <article class="rounded-4xl border border-base-300 bg-base-100 p-6 shadow-sm">
+              <p class="text-sm font-semibold uppercase tracking-[0.2em] text-primary">Uso recomendado</p>
+              <h3 class="mt-4 text-2xl font-semibold text-neutral">{item.name}</h3>
+              <p class="mt-3 leading-7 text-neutral/70">{item.pitch}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="pb-14">
+        <div class="rounded-4xl border border-base-300 bg-base-200/70 p-8 shadow-sm lg:p-12">
+          <div class="grid gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+            <div class="space-y-4">
+              <p class="text-sm font-semibold uppercase tracking-[0.24em] text-primary">Cómo se usa</p>
+              <h2 class="text-3xl font-bold text-neutral sm:text-4xl">
+                Cambias contenido, validas branding y ya tienes una base pública utilizable.
+              </h2>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-3">
+              {steps.map((step, index) => (
+                <div class="rounded-3xl bg-base-100 p-5 shadow-sm">
+                  <p class="text-sm text-neutral/50">0{index + 1}</p>
+                  <p class="mt-3 font-semibold text-neutral">{step.title}</p>
+                  <p class="mt-2 text-sm leading-6 text-neutral/65">{step.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pb-16 lg:pb-24">
+        <div class="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+          <div class="space-y-4">
+            <p class="text-sm font-semibold uppercase tracking-[0.24em] text-primary">Señales de valor</p>
+            <h2 class="text-3xl font-bold text-neutral sm:text-4xl">
+              La idea es vender claridad, no complejidad, en la primera versión pública.
+            </h2>
+          </div>
+          <div class="grid gap-4 sm:grid-cols-2">
+            {testimonials.map((item) => (
+              <blockquote class="rounded-4xl border border-base-300 bg-base-100 p-6 shadow-sm">
+                <p class="text-lg leading-8 text-neutral/75">“{item.quote}”</p>
+                <footer class="mt-6 text-sm font-semibold uppercase tracking-[0.2em] text-primary">
+                  {item.author}
+                </footer>
+              </blockquote>
+            ))}
+          </div>
+        </div>
+
+        <div class="mt-8 rounded-4xl bg-neutral px-8 py-10 text-neutral-content shadow-xl">
+          <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div class="max-w-2xl">
+              <p class="text-sm font-semibold uppercase tracking-[0.24em] text-neutral-content/60">CTA final</p>
+              <h3 class="mt-3 text-3xl font-bold">Una base pública lista para personalizar en cada proyecto.</h3>
+              <p class="mt-3 text-neutral-content/75">
+                Mantén la versión inicial enfocada en posicionamiento, contacto y conversión. Cuando haga falta, luego se extiende.
+              </p>
+            </div>
+            <div class="flex flex-col gap-3 sm:flex-row">
+              <a href="#modules" class="btn btn-secondary rounded-full px-8">Revisar módulos</a>
+              <a href={apiUrl} class="btn btn-outline rounded-full px-8 text-neutral-content">Ver API</a>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+</Layout>

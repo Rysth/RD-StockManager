@@ -1,0 +1,25 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+active_code:
+  account: verified_user
+  code: "123456"
+  expires_at: <%= 5.minutes.from_now %>
+  used_at: 
+
+expired_code:
+  account: verified_user_two
+  code: "654321"
+  expires_at: <%= 10.minutes.ago %>
+  used_at: 
+
+used_code:
+  account: manager_account
+  code: "111111"
+  expires_at: <%= 5.minutes.from_now %>
+  used_at: <%= 1.minute.ago %>
+
+recent_code:
+  account: verified_user
+  code: "789012"
+  expires_at: <%= 3.minutes.from_now %>
+  used_at:

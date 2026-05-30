@@ -1,0 +1,82 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Standard business with all social media fields
+test_business:
+  name: Test Business
+  slogan: Test Business Slogan
+  whatsapp: "+1234567890"
+  instagram: "test_business"
+  facebook: "test.business"
+  tiktok: "test_business_tiktok"
+
+# Minimal business with only required fields
+minimal_business:
+  name: Minimal Business
+  slogan: 
+  whatsapp: 
+  instagram: 
+  facebook: 
+  tiktok: 
+
+# Complete business with all fields populated
+complete_business:
+  name: Complete Business
+  slogan: Complete Business with all fields
+  whatsapp: "+0987654321"
+  instagram: "complete_business"
+  facebook: "complete.business"
+  tiktok: "complete_business_tiktok"
+
+# Business for testing default values
+default_business:
+  name: MicroBiz
+  slogan: Powered by RysthDesign
+  whatsapp: ""
+  instagram: ""
+  facebook: ""
+  tiktok: ""
+
+# Business with international phone number
+international_business:
+  name: International Business
+  slogan: Global reach business
+  whatsapp: "+44123456789"
+  instagram: "intl_business"
+  facebook: "international.business"
+  tiktok: "intl_business"
+
+# Business with edge case social media handles
+edge_case_business:
+  name: Edge Case Business
+  slogan: Testing edge cases
+  whatsapp: "+12345678901234"
+  instagram: "edge.case_123"
+  facebook: "edge.case123"
+  tiktok: "edge_case.123"
+
+# Business with maximum length name and slogan
+max_length_business:
+  name: <%= "A" * 100 %>
+  slogan: <%= "B" * 200 %>
+  whatsapp: "+1234567890"
+  instagram: "max_length"
+  facebook: "max.length"
+  tiktok: "max_length"
+
+# Business for testing validation failures (will be used in tests, not valid fixture)
+empty_name_business:
+  name: ""
+  slogan: "Business without name"
+  whatsapp: "+1234567890"
+  instagram: "no_name"
+  facebook: "no.name"
+  tiktok: "no_name"
+
+# Business with various phone number formats
+phone_formats_business:
+  name: Phone Formats Business
+  slogan: Testing phone number formats
+  whatsapp: "+1234567890"
+  instagram: "phone_test"
+  facebook: "phone.test"
+  tiktok: "phone_test"

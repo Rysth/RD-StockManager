@@ -1,0 +1,151 @@
+services:
+  admin:
+    build:
+      context: ./admin
+      dockerfile: Dockerfile.dev
+    container_name: base-admin
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./admin:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=${VITE_API_URL}
+    depends_on:
+      - api
+    networks:
+      - base_network
+
+  storefront:
+    profiles:
+      - storefront
+    build:
+      context: ./storefront
+      dockerfile: Dockerfile.dev
+    container_name: base-storefront
+    ports:
+      - "4321:4321"
+    volumes:
+      - ./storefront:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - PUBLIC_API_URL=${PUBLIC_API_URL:-http://localhost:3000}
+    depends_on:
+      - api
+    networks:
+      - base_network
+
+  api:
+    build: ./backend
+    container_name: base-api
+    ports:
+      - "${PORT}:${PORT}"
+    volumes:
+      - ./backend:/rails
+      - ./backend/tmp:/rails/tmp
+      - rails_bundle:/usr/local/bundle
+    environment:
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-http://localhost:5173}
+      - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-http://localhost:4321}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-http://localhost:5173}
+      - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-http://localhost:4321}
+      - RAILS_ENV=${RAILS_ENV}
+      # Use default Postgres internal port 5432; DB_PORT not needed inside network
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - REDIS_URL=${REDIS_URL}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      # SMTP / Mailer
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      # Secret key base (inject via Dokploy env vars)
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    command: bash -c "rm -f tmp/pids/server.pid && bundle exec rails db:prepare && bundle exec rails s -p ${PORT} -b '0.0.0.0'"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - base_network
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: base-postgres
+    # Do not publish Postgres to host to avoid port conflicts on the dokploy server.
+    # Containers on the same compose network can connect to `postgres:5432` internally.
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - base_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: base-redis
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+    networks:
+      - base_network
+
+  worker:
+    build: ./backend
+    container_name: base-worker
+    volumes:
+      - ./backend:/rails
+      - ./backend/tmp:/rails/tmp
+      - rails_bundle:/usr/local/bundle
+    environment:
+      - ADMIN_FRONTEND_URL=${ADMIN_FRONTEND_URL:-http://localhost:5173}
+      - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-http://localhost:4321}
+      - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-http://localhost:5173}
+      - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-http://localhost:4321}
+      - RAILS_ENV=${RAILS_ENV}
+      - DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}
+      - REDIS_URL=${REDIS_URL}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+    command: bundle exec sidekiq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - base_network
+
+volumes:
+  postgres_data:
+  rails_bundle:
+  redis_data:
+networks:
+  base_network:
+    driver: bridge

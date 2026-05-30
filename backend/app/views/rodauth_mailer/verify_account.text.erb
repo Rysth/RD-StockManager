@@ -1,0 +1,13 @@
+Hola <%= @email %>,
+
+¡Bienvenido a NoviSchool!
+
+Para completar tu registro y activar tu cuenta, verifica tu dirección de correo electrónico haciendo clic en el siguiente enlace:
+
+<%= FrontendUrls.admin_url %>/identity/email_verification?token=<%= @token %>
+
+Si no solicitaste esta cuenta, puedes ignorar este correo electrónico.
+
+---
+Este correo fue enviado de manera automática.
+Creado por RysthDesign - https://rysthdesign.com/

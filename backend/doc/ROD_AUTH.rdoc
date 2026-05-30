@@ -1,0 +1,1574 @@
+= Rodauth
+
+Rodauth is Ruby's most advanced authentication framework, designed
+to work in any rack application.  It's built using Roda and Sequel,
+but it can be used with other web frameworks, database libraries,
+and databases.
+
+When used with PostgreSQL, MySQL, and Microsoft SQL Server in the
+default configuration, it offers additional security for password
+hashes by protecting access via database functions.
+
+Rodauth supports multiple multifactor authentication methods,
+multiple passwordless authentication methods, and offers both an
+HTML and JSON API for all supported features.
+
+== Design Goals
+
+* Security: Ship in a maximum security by default configuration
+* Simplicity: Allow for easy configuration via a DSL
+* Flexibility: Allow for easy overriding of any part of the framework
+
+== Features
+
+* Login
+* Logout
+* Change Password
+* Change Login
+* Reset Password
+* Create Account
+* Close Account
+* Verify Account
+* Confirm Password
+* Remember (Autologin via token)
+* Lockout (Bruteforce protection)
+* Audit Logging
+* Email Authentication (Passwordless login via email link)
+* WebAuthn (Multifactor authentication via WebAuthn)
+* WebAuthn Login (Passwordless login via WebAuthn)
+* WebAuthn Verify Account (Passwordless WebAuthn Setup)
+* WebAuthn Autofill (Autofill WebAuthn credentials on login)
+* WebAuthn Modify Email (Email when WebAuthn authenticator added or removed)
+* OTP (Multifactor authentication via TOTP)
+* OTP Modify Email (Email when TOTP authentication setup or disabled)
+* OTP Unlock (Unlock TOTP authentication after lockout)
+* OTP Lockout Email (Email when TOTP authentication locked out or unlocked)
+* Recovery Codes (Multifactor authentication via backup codes)
+* SMS Codes (Multifactor authentication via SMS)
+* Verify Login Change (Verify new login before changing login)
+* Verify Account Grace Period (Don't require verification before login)
+* Password Grace Period (Don't require password entry if recently entered)
+* Password Complexity (More sophisticated checks)
+* Password Pepper
+* Disallow Password Reuse
+* Disallow Common Passwords
+* Password Expiration
+* Account Expiration
+* Session Expiration
+* Active Sessions (Prevent session reuse after logout, allow logout of all sessions)
+* Single Session (Only one active session per account)
+* JSON (JSON API support for all other features)
+* JWT (JSON Web Token support for all other features)
+* JWT Refresh (Access & Refresh Token)
+* JWT CORS (Cross-Origin Resource Sharing)
+* Update Password Hash (when hash cost changes)
+* Argon2
+* HTTP Basic Auth
+* Change Password Notify
+* Reset Password Notify
+* Internal Request
+* Path Class Methods
+
+== Resources
+
+Website :: http://rodauth.jeremyevans.net
+Demo Site :: http://rodauth-demo.jeremyevans.net
+Source :: http://github.com/jeremyevans/rodauth
+Bugs :: http://github.com/jeremyevans/rodauth/issues
+Discussion Forum (GitHub Discussions) :: https://github.com/jeremyevans/rodauth/discussions
+Alternate Discussion Forum (Google Groups) :: https://groups.google.com/forum/#!forum/rodauth
+
+== Dependencies
+
+There are some dependencies that Rodauth uses depending on the
+features in use. These are development dependencies instead of
+runtime dependencies in the gem as it is possible to run without them:
+
+tilt :: Used by all features unless in JSON API only mode or using
+        :render=>false plugin option.
+rack_csrf :: Used for CSRF support if the <tt>csrf: :rack_csrf</tt> plugin
+             option is given (the default is to use Roda's route_csrf
+             plugin, as that allows for more secure request-specific
+             tokens).
+bcrypt :: Used by default for password hashing, can be skipped
+          if password_match? is overridden for custom authentication.
+argon2 :: Used by the argon2 feature as alternative to bcrypt for
+          password hashing.
+mail :: Used by default for mailing in the reset_password, verify_account,
+        verify_login_change, change_password_notify, lockout, and
+        email_auth features.
+rotp :: Used by the otp feature
+rqrcode :: Used by the otp feature
+jwt :: Used by the jwt feature
+webauthn :: Used by the webauthn feature
+
+You can use <tt>gem install --development rodauth</tt> to install
+the development dependencies in order to run tests.
+
+== Security
+
+=== Password Hash Access Via Database Functions
+
+By default on PostgreSQL, MySQL, and Microsoft SQL Server, Rodauth
+uses database functions to access password hashes, with the user
+running the application unable to get direct access to password
+hashes.  This reduces the risk of an attacker being able to access
+password hashes and use them to attack other sites.
+
+The rest of this section describes this feature in more detail, but
+note that Rodauth does not require this feature be used and works
+correctly without it.  There may be cases where you cannot use
+this feature, such as when using a different database or when you
+do not have full control over the database you are using.
+
+Passwords are hashed using bcrypt by default, and the password hashes are
+kept in a separate table from the accounts table, with a foreign key
+referencing the accounts table.  Two database functions are added,
+one to retrieve the salt for a password, and the other to check
+if a given password hash matches the password hash for the user.
+
+Two database accounts are used. The first is the account that the
+application uses, which is referred to as the +app+ account. The +app+
+account does not have access to read the password hashes. The other
+account handles password hashes and is referred to as the +ph+
+account.  The +ph+ account sets up the database functions that can
+retrieve the salt for a given account's password, and check if a
+password hash matches for a given account.  The +ph+ account
+sets these functions up so that the +app+ account can execute the
+functions using the +ph+ account's permissions.  This allows the
++app+ account to check passwords without having access to read
+password hashes.
+
+While the +app+ account is not be able to read password hashes, it
+is still be able to insert password hashes, update passwords hashes,
+and delete password hashes, so the additional security is not that
+painful.
+
+By disallowing the +app+ account access to the password hashes,
+it is much more difficult for an attacker to access the password
+hashes, even if they are able to exploit an SQL injection or remote
+code execution vulnerability in the application.
+
+The reason for extra security in regards to password hashes stems from
+the fact that people tend to choose poor passwords and reuse passwords,
+so a compromise of one database containing password hashes can result
+in account access on other sites, making password hash storage of
+critical importance even if the other data stored is not that important.
+
+If you are storing other sensitive information in your database, you
+should consider using a similar approach in other areas (or all areas)
+of your application.
+
+=== Tokens
+
+Account verification, password resets, email auth, verify login change,
+remember, and lockout tokens all use a similar approach.  They all
+provide a token, in the format "account-id_long-random-string".  By
+including the id of the account in the token, an attacker can only
+attempt to bruteforce the token for a single account, instead of being
+able to bruteforce tokens for all accounts at once (which would be
+possible if the token was just a random string).
+
+Additionally, all comparisons of tokens use a timing-safe comparison
+function to reduce the risk of timing attacks.
+
+== HMAC
+
+By default, for backwards compatibility, Rodauth does not use HMACs,
+but you are strongly encouraged to use the +hmac_secret+ configuration
+method to set an HMAC secret.  Setting an HMAC secret will enable HMACs
+for additional security, as described below.
+
+=== email_base feature
+
+All features that send email use this feature.  Setting +hmac_secret+
+will make the tokens sent via email use an HMAC, while the raw token
+stored in the database will not use an HMAC.  This will make it so
+if the tokens in the database are leaked (e.g. via an SQL injection
+vulnerability), they will not be usable without also having access
+to the +hmac_secret+.  Without an HMAC, the raw token is sent in the
+email, and if the tokens in the database are leaked, they will be
+usable.
+
+To allow for an graceful transition, you can set +allow_raw_email_token?+
+to true temporarily.  This will allow the raw tokens in previous sent
+emails to still work.  This should only be set temporarily as it
+removes the security that +hmac_secret+ adds.  Most features that
+send email have tokens that expire by default in 1 day.  The
+exception is the verify_account feature, which has tokens that do
+not expire.  For the verify_account feature, if the user requested
+an email before +hmac_secret+ was set, after +allow_raw_email_token+
+is no longer set, they will need to request the verification email
+be resent, in which case they will receive an email with a token
+that uses an HMAC.
+
+=== remember feature
+
+Similar to the email_base feature, this uses HMACs for remember
+tokens, while storing the raw tokens in the database.  This makes
+it so if the raw tokens in the database are leaked, the remember
+tokens are not usable without knowledge of the +hmac_secret+.
+
+The +raw_remember_token_deadline+ configuration method can
+be set to allow a previously set raw remember token to be used
+if the deadline for the remember token is before the given time.
+This allows for graceful transition to using HMACs for remember tokens.
+By default, the deadline is 14 days after the token is created, so this
+should be set to 14 days after the time you enable the HMAC for the
+remember feature if you are using the defaults.
+
+=== otp feature
+
+Setting +hmac_secret+ will provide HMACed OTP keys to users, and
+would store the raw OTP keys in the database.  This will make so
+if the raw OTP keys in the database are leaked, they will not be
+usable for two factor authentication without knowledge of the +hmac_secret+.
+
+Unfortunately, there can be no simple graceful transition for existing users.
+When introducing +hmac_secret+ to a Rodauth installation that already uses
+the otp feature, you will have to either revoke and replace all OTP keys,
+set +otp_keys_use_hmac?+ to false and continue to use raw OTP keys, or override
++otp_keys_use_hmac?+ to return false if the user was issued an OTP key before
++hmac_secret+ was added to the configuration, and true otherwise.
++otp_keys_use_hmac?+ defaults to true if +hmac_secret+ is set, and false
+otherwise.
+
+If +otp_keys_use_hmac?+ is true, Rodauth will also ensure during OTP setup
+that the OTP key was generated by the server.  If +otp_keys_use_hmac?+ is false,
+any OTP key in a valid format will be accepted during setup.
+
+If +otp_keys_use_hmac?+ is true, the jwt and otp features are in use and you
+are setting up OTP via JSON requests, you need to first send a POST request
+to the OTP setup route.  This will return an error with the +otp_secret+ and
++otp_raw_secret+ parameters in the JSON.  These parameters should be submitted
+in the POST request to setup OTP, along with a valid OTP auth code for the
++otp_secret+.
+
+=== webauthn feature
+
+Setting +hmac_secret+ is required to use the webauthn feature, as it is
+used for checking that the provided authentication challenges have not
+been modified.
+
+=== active_sessions feature
+
+Setting +hmac_secret+ is required to use the active_sessions feature,
+as the database stores an HMAC of the active session ID.
+
+=== single_session feature
+
+Setting +hmac_secret+ will ensure the single session secret set in the
+session will be an HMACed.  This does not affect security, as the session
+itself should at the least by protected by an HMAC (if not encrypted).
+This is only done for consistency, so that the raw tokens in the database
+are distinct from the tokens provided to the users.  To allow for a
+graceful transition, +allow_raw_single_session_key?+ can be set to true.
+
+== PostgreSQL Database Setup
+
+In order to get full advantages of Rodauth's security design on PostgreSQL,
+multiple database accounts are involved:
+
+1. database superuser account (usually postgres)
+2. +app+ account (same name as application)
+3. +ph+ account (application name with +_password+ appended)
+
+The database superuser account is used to load extensions related to the
+database.  The application should never be run using the database
+superuser account.
+
+=== Create database accounts
+
+If you are currently running your application using the database superuser
+account, the first thing you need to do is to create the +app+ database
+account.  It's often best to name this account the same as the
+database name.
+
+You should also create the +ph+ database account which will handle access
+to the password hashes.
+
+Example for PostgreSQL:
+
+  createuser -U postgres ${DATABASE_NAME}
+  createuser -U postgres ${DATABASE_NAME}_password
+
+Note that if the database superuser account owns all of the items in the
+database, you'll need to change the ownership to the database account you
+just created.  See https://gist.github.com/jeremyevans/8483320
+for a way to do that.
+
+=== Create database
+
+In general, the +app+ account is the owner of the database, since it will
+own most of the tables:
+
+  createdb -U postgres -O ${DATABASE_NAME} ${DATABASE_NAME}
+
+Note that this is not the most secure way to develop applications.  For
+maximum security, you would want to use a separate database account as
+the owner of the tables, have the +app+ account not be the
+owner of any tables, and specifically grant the +app+ account only the
+minimum access it needs to work correctly.  Doing that is beyond the
+scope of Rodauth, though.
+
+=== Load extensions
+
+If you want to use the login features for Rodauth, you need to load the
+citext extension if you want to support case insensitive logins.
+
+Example:
+
+  psql -U postgres -c "CREATE EXTENSION citext" ${DATABASE_NAME}
+
+Note that on Heroku, this extension can be loaded using a standard database
+account.  If you want logins to be case sensitive (generally considered a
+bad idea), you don't need to use the PostgreSQL citext extension. Just
+remember to modify the migration below to use +String+ instead of +citext+
+for the email in that case.
+
+=== Grant schema rights (PostgreSQL 15+)
+
+PostgreSQL 15 changed default database security so that only the database
+owner has writable access to the public schema.  Rodauth expects the
++ph+ account to have writable access to the public schema when setting
+things up.  Temporarily grant that access (it will be revoked after the
+migration has run)
+
+  psql -U postgres -c "GRANT CREATE ON SCHEMA public TO ${DATABASE_NAME}_password" ${DATABASE_NAME}
+
+=== Using non-default schema
+
+PostgreSQL sets up new tables in the public schema by default.
+If you would like to use separate schemas per user, you can do:
+
+  psql -U postgres -c "DROP SCHEMA public;" ${DATABASE_NAME}
+  psql -U postgres -c "CREATE SCHEMA AUTHORIZATION ${DATABASE_NAME};"          ${DATABASE_NAME}
+  psql -U postgres -c "CREATE SCHEMA AUTHORIZATION ${DATABASE_NAME}_password;" ${DATABASE_NAME}
+  psql -U postgres -c "GRANT USAGE ON SCHEMA ${DATABASE_NAME}          TO ${DATABASE_NAME}_password;" ${DATABASE_NAME}
+  psql -U postgres -c "GRANT USAGE ON SCHEMA ${DATABASE_NAME}_password TO ${DATABASE_NAME};"          ${DATABASE_NAME}
+
+You'll need to modify the code to load the extension to specify the schema:
+
+  psql -U postgres -c "CREATE EXTENSION citext SCHEMA ${DATABASE_NAME}" ${DATABASE_NAME}
+
+When running the migration for the +ph+ user you'll need to modify a couple
+things for the schema changes:
+
+  create_table(:account_password_hashes) do
+    foreign_key :id, Sequel[:${DATABASE_NAME}][:accounts], primary_key: true, type: :Bignum
+    String :password_hash, null: false
+  end
+  Rodauth.create_database_authentication_functions(self, table_name: Sequel[:${DATABASE_NAME}_password][:account_password_hashes])
+
+  # if using the disallow_password_reuse feature:
+  create_table(:account_previous_password_hashes) do
+    primary_key :id, type: :Bignum
+    foreign_key :account_id, Sequel[:${DATABASE_NAME}][:accounts], type: :Bignum
+    String :password_hash, null: false
+  end
+  Rodauth.create_database_previous_password_check_functions(self, table_name: Sequel[:${DATABASE_NAME}_password][:account_previous_password_hashes])
+
+You'll also need to use the following Rodauth configuration methods so that the
+app account calls functions in a separate schema:
+
+  function_name do |name|
+    "${DATABASE_NAME}_password.#{name}"
+  end
+  password_hash_table Sequel[:${DATABASE_NAME}_password][:account_password_hashes]
+
+  # if using the disallow_password_reuse feature:
+  previous_password_hash_table Sequel[:${DATABASE_NAME}_password][:account_previous_password_hashes]
+
+== MySQL Database Setup
+
+MySQL does not have the concept of object owners, and MySQL's GRANT/REVOKE
+support is much more limited than PostgreSQL's. When using MySQL, it is
+recommended to GRANT the +ph+ account ALL privileges on the database,
+including the ability to GRANT permissions to the +app+ account:
+
+  CREATE USER '${DATABASE_NAME}'@'localhost' IDENTIFIED BY '${PASSWORD}';
+  CREATE USER '${DATABASE_NAME}_password'@'localhost' IDENTIFIED BY '${OTHER_PASSWORD}';
+  GRANT ALL ON ${DATABASE_NAME}.* TO '${DATABASE_NAME}_password'@'localhost' WITH GRANT OPTION;
+
+You should run all migrations as the +ph+ account, and GRANT specific access
+to the +app+ account as needed.
+
+Adding the database functions on MySQL may require setting the 
+<tt>log_bin_trust_function_creators=1</tt> setting in the MySQL configuration.
+
+== Microsoft SQL Server Database Setup
+
+Microsoft SQL Server has a concept of database owners, but similar to MySQL
+usage it's recommended to use the +ph+ account as the superuser for the
+database, and have it GRANT permissions to the +app+ account:
+
+  CREATE LOGIN rodauth_test WITH PASSWORD = 'rodauth_test';
+  CREATE LOGIN rodauth_test_password WITH PASSWORD = 'rodauth_test';
+  CREATE DATABASE rodauth_test;
+  USE rodauth_test;
+  CREATE USER rodauth_test FOR LOGIN rodauth_test;
+  GRANT CONNECT, EXECUTE TO rodauth_test;
+  EXECUTE sp_changedbowner 'rodauth_test_password';
+
+You should run all migrations as the +ph+ account, and GRANT specific access
+to the +app+ account as needed.
+
+== Creating tables
+
+Because two different database accounts are used, two different migrations
+are required, one for each database account.  Here are example migrations.
+You can modify them to add support for additional columns, or remove tables
+or columns related to features that you don't need.
+
+First migration.  On PostgreSQL, this should be run with the +app+ account,
+on MySQL and Microsoft SQL Server this should be run with the +ph+ account.
+
+Note that these migrations require Sequel 4.35.0+.
+
+  Sequel.migration do
+    up do
+      extension :date_arithmetic
+
+      # Used by the account verification and close account features
+      create_table(:account_statuses) do
+        Integer :id, primary_key: true
+        String :name, null: false, unique: true
+      end
+      from(:account_statuses).import([:id, :name], [[1, 'Unverified'], [2, 'Verified'], [3, 'Closed']])
+
+      db = self
+      create_table(:accounts) do
+        primary_key :id, type: :Bignum
+        foreign_key :status_id, :account_statuses, null: false, default: 1
+        if db.database_type == :postgres
+          citext :email, null: false
+          constraint :valid_email, email: /^[^,;@ \r\n]+@[^,@; \r\n]+\.[^,@; \r\n]+$/
+        else
+          String :email, null: false
+        end
+        if db.supports_partial_indexes?
+          index :email, unique: true, where: {status_id: [1, 2]}
+        else
+          index :email, unique: true
+        end
+      end
+
+      deadline_opts = proc do |days|
+        if database_type == :mysql
+          {null: false}
+        else
+          {null: false, default: Sequel.date_add(Sequel::CURRENT_TIMESTAMP, days: days)}
+        end
+      end
+
+      # Used by the audit logging feature
+      json_type = case database_type
+      when :postgres
+        :jsonb
+      when :sqlite, :mysql
+        :json
+      else
+        String
+      end
+      create_table(:account_authentication_audit_logs) do
+        primary_key :id, type: :Bignum
+        foreign_key :account_id, :accounts, null: false, type: :Bignum
+        DateTime :at, null: false, default: Sequel::CURRENT_TIMESTAMP
+        String :message, null: false
+        column :metadata, json_type
+        index [:account_id, :at], name: :audit_account_at_idx
+        index :at, name: :audit_at_idx
+      end
+
+      # Used by the password reset feature
+      create_table(:account_password_reset_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        DateTime :deadline, deadline_opts[1]
+        DateTime :email_last_sent, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the jwt refresh feature
+      create_table(:account_jwt_refresh_keys) do
+        primary_key :id, type: :Bignum
+        foreign_key :account_id, :accounts, null: false, type: :Bignum
+        String :key, null: false
+        DateTime :deadline, deadline_opts[1]
+        index :account_id, name: :account_jwt_rk_account_id_idx
+      end
+
+      # Used by the account verification feature
+      create_table(:account_verification_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        DateTime :requested_at, null: false, default: Sequel::CURRENT_TIMESTAMP
+        DateTime :email_last_sent, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the verify login change feature
+      create_table(:account_login_change_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        String :login, null: false
+        DateTime :deadline, deadline_opts[1]
+      end
+
+      # Used by the remember me feature
+      create_table(:account_remember_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        DateTime :deadline, deadline_opts[14]
+      end
+
+      # Used by the lockout feature
+      create_table(:account_login_failures) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        Integer :number, null: false, default: 1
+      end
+      create_table(:account_lockouts) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        DateTime :deadline, deadline_opts[1]
+        DateTime :email_last_sent
+      end
+
+      # Used by the email auth feature
+      create_table(:account_email_auth_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        DateTime :deadline, deadline_opts[1]
+        DateTime :email_last_sent, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the password expiration feature
+      create_table(:account_password_change_times) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        DateTime :changed_at, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the account expiration feature
+      create_table(:account_activity_times) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        DateTime :last_activity_at, null: false
+        DateTime :last_login_at, null: false
+        DateTime :expired_at
+      end
+
+      # Used by the single session feature
+      create_table(:account_session_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+      end
+
+      # Used by the active sessions feature
+      create_table(:account_active_session_keys) do
+        foreign_key :account_id, :accounts, type: :Bignum
+        String :session_id
+        Time :created_at, null: false, default: Sequel::CURRENT_TIMESTAMP
+        Time :last_use, null: false, default: Sequel::CURRENT_TIMESTAMP
+        primary_key [:account_id, :session_id]
+      end
+
+      # Used by the webauthn feature
+      create_table(:account_webauthn_user_ids) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :webauthn_id, null: false
+      end
+      create_table(:account_webauthn_keys) do
+        foreign_key :account_id, :accounts, type: :Bignum
+        String :webauthn_id
+        String :public_key, null: false
+        Integer :sign_count, null: false
+        Time :last_use, null: false, default: Sequel::CURRENT_TIMESTAMP
+        primary_key [:account_id, :webauthn_id]
+      end
+
+      # Used by the otp feature
+      create_table(:account_otp_keys) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :key, null: false
+        Integer :num_failures, null: false, default: 0
+        Time :last_use, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the otp_unlock feature
+      create_table(:account_otp_unlocks) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        Integer :num_successes, null: false, default: 1
+        Time :next_auth_attempt_after, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      # Used by the recovery codes feature
+      create_table(:account_recovery_codes) do
+        foreign_key :id, :accounts, type: :Bignum
+        String :code
+        primary_key [:id, :code]
+      end
+
+      # Used by the sms codes feature
+      create_table(:account_sms_codes) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :phone_number, null: false
+        Integer :num_failures
+        String :code
+        DateTime :code_issued_at, null: false, default: Sequel::CURRENT_TIMESTAMP
+      end
+
+      case database_type
+      when :postgres
+        user = get(Sequel.lit('current_user')) + '_password'
+        run "GRANT REFERENCES ON accounts TO #{user}"
+      when :mysql, :mssql
+        user = if database_type == :mysql
+          get(Sequel.lit('current_user')).sub(/_password@/, '@')
+        else
+          get(Sequel.function(:DB_NAME))
+        end
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_statuses TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON accounts TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_authentication_audit_logs TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_password_reset_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_jwt_refresh_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_verification_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_login_change_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_remember_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_login_failures TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_email_auth_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_lockouts TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_password_change_times TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_activity_times TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_session_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_active_session_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_webauthn_user_ids TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_webauthn_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_otp_keys TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_otp_unlocks TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_recovery_codes TO #{user}"
+        run "GRANT SELECT, INSERT, UPDATE, DELETE ON account_sms_codes TO #{user}"
+      end
+    end
+
+    down do
+      drop_table(:account_sms_codes,
+                 :account_recovery_codes,
+                 :account_otp_unlocks,
+                 :account_otp_keys,
+                 :account_webauthn_keys,
+                 :account_webauthn_user_ids,
+                 :account_session_keys,
+                 :account_active_session_keys,
+                 :account_activity_times,
+                 :account_password_change_times,
+                 :account_email_auth_keys,
+                 :account_lockouts,
+                 :account_login_failures,
+                 :account_remember_keys,
+                 :account_login_change_keys,
+                 :account_verification_keys,
+                 :account_jwt_refresh_keys,
+                 :account_password_reset_keys,
+                 :account_authentication_audit_logs,
+                 :accounts,
+                 :account_statuses)
+    end
+  end
+
+Second migration, run using the +ph+ account:
+
+  require 'rodauth/migrations'
+
+  Sequel.migration do
+    up do
+      create_table(:account_password_hashes) do
+        foreign_key :id, :accounts, primary_key: true, type: :Bignum
+        String :password_hash, null: false
+      end
+      Rodauth.create_database_authentication_functions(self)
+      case database_type
+      when :postgres
+        user = get(Sequel.lit('current_user')).sub(/_password\z/, '')
+        run "REVOKE ALL ON account_password_hashes FROM public"
+        run "REVOKE ALL ON FUNCTION rodauth_get_salt(int8) FROM public"
+        run "REVOKE ALL ON FUNCTION rodauth_valid_password_hash(int8, text) FROM public"
+        run "GRANT INSERT, UPDATE, DELETE ON account_password_hashes TO #{user}"
+        run "GRANT SELECT(id) ON account_password_hashes TO #{user}"
+        run "GRANT EXECUTE ON FUNCTION rodauth_get_salt(int8) TO #{user}"
+        run "GRANT EXECUTE ON FUNCTION rodauth_valid_password_hash(int8, text) TO #{user}"
+      when :mysql
+        user = get(Sequel.lit('current_user')).sub(/_password@/, '@')
+        db_name = get(Sequel.function(:database))
+        run "GRANT EXECUTE ON #{db_name}.* TO #{user}"
+        run "GRANT INSERT, UPDATE, DELETE ON account_password_hashes TO #{user}"
+        run "GRANT SELECT (id) ON account_password_hashes TO #{user}"
+      when :mssql
+        user = get(Sequel.function(:DB_NAME))
+        run "GRANT EXECUTE ON rodauth_get_salt TO #{user}"
+        run "GRANT EXECUTE ON rodauth_valid_password_hash TO #{user}"
+        run "GRANT INSERT, UPDATE, DELETE ON account_password_hashes TO #{user}"
+        run "GRANT SELECT ON account_password_hashes(id) TO #{user}"
+      end
+
+      # Used by the disallow_password_reuse feature
+      create_table(:account_previous_password_hashes) do
+        primary_key :id, type: :Bignum
+        foreign_key :account_id, :accounts, type: :Bignum
+        String :password_hash, null: false
+      end
+      Rodauth.create_database_previous_password_check_functions(self)
+
+      case database_type
+      when :postgres
+        user = get(Sequel.lit('current_user')).sub(/_password\z/, '')
+        run "REVOKE ALL ON account_previous_password_hashes FROM public"
+        run "REVOKE ALL ON FUNCTION rodauth_get_previous_salt(int8) FROM public"
+        run "REVOKE ALL ON FUNCTION rodauth_previous_password_hash_match(int8, text) FROM public"
+        run "GRANT INSERT, UPDATE, DELETE ON account_previous_password_hashes TO #{user}"
+        run "GRANT SELECT(id, account_id) ON account_previous_password_hashes TO #{user}"
+        run "GRANT USAGE ON account_previous_password_hashes_id_seq TO #{user}"
+        run "GRANT EXECUTE ON FUNCTION rodauth_get_previous_salt(int8) TO #{user}"
+        run "GRANT EXECUTE ON FUNCTION rodauth_previous_password_hash_match(int8, text) TO #{user}"
+      when :mysql
+        user = get(Sequel.lit('current_user')).sub(/_password@/, '@')
+        db_name = get(Sequel.function(:database))
+        run "GRANT EXECUTE ON #{db_name}.* TO #{user}"
+        run "GRANT INSERT, UPDATE, DELETE ON account_previous_password_hashes TO #{user}"
+        run "GRANT SELECT (id, account_id) ON account_previous_password_hashes TO #{user}"
+      when :mssql
+        user = get(Sequel.function(:DB_NAME))
+        run "GRANT EXECUTE ON rodauth_get_previous_salt TO #{user}"
+        run "GRANT EXECUTE ON rodauth_previous_password_hash_match TO #{user}"
+        run "GRANT INSERT, UPDATE, DELETE ON account_previous_password_hashes TO #{user}"
+        run "GRANT SELECT ON account_previous_password_hashes(id, account_id) TO #{user}"
+      end
+    end
+
+    down do
+      Rodauth.drop_database_previous_password_check_functions(self)
+      Rodauth.drop_database_authentication_functions(self)
+      drop_table(:account_previous_password_hashes, :account_password_hashes)
+    end
+  end
+
+To support multiple separate migration users, you can run the migration
+for the password user using Sequel's migration API: 
+
+  Sequel.extension :migration
+  Sequel.postgres('DATABASE_NAME', user: 'PASSWORD_USER_NAME') do |db|
+    Sequel::Migrator.run(db, 'path/to/password_user/migrations', table: 'schema_info_password')
+  end
+
+If the database is not PostgreSQL, MySQL, or Microsoft SQL Server, or you
+cannot use multiple user accounts, just combine the two migrations into a
+single migration, removing all the code related to database permissions
+and database functions.
+
+One thing to notice in the above migrations is that Rodauth uses additional
+tables for additional features, instead of additional columns in a single
+table.
+
+=== Revoking schema rights (PostgreSQL 15+)
+
+If you explicit granted access to the public schema before running the
+migration, revoke it afterward:
+
+  psql -U postgres -c "REVOKE CREATE ON SCHEMA public FROM ${DATABASE_NAME}_password" ${DATABASE_NAME}
+
+=== Locking Down (PostgreSQL only)
+
+After running the migrations, you can increase security slightly by making
+it not possible for the +ph+ account to login to the database directly.
+This can be accomplished by modifying the +pg_hba.conf+ file.  You can also
+consider restricting access using GRANT/REVOKE.
+
+You can restrict access to the database itself to just the +app+ account.  You
+can run this using the +app+ account, since that account owns the database:
+
+  GRANT ALL ON DATABASE ${DATABASE_NAME} TO ${DATABASE_NAME};
+  REVOKE ALL ON DATABASE ${DATABASE_NAME} FROM public;
+
+You can also restrict access to the public schema (this is not needed if you
+are using a custom schema).  Note that by default, the database superuser
+owns the public schema, so you have to run this as the database superuser
+account (generally +postgres+):
+
+  GRANT ALL ON SCHEMA public TO ${DATABASE_NAME};
+  GRANT USAGE ON SCHEMA public TO ${DATABASE_NAME}_password;
+  REVOKE ALL ON SCHEMA public FROM public;
+
+If you are using MySQL or Microsoft SQL Server, please consult their
+documentation for how to restrict access so that the +ph+ account cannot
+login directly.
+
+== Usage
+
+=== Basic Usage
+
+Rodauth is a Roda plugin and loaded the same way other Roda plugins
+are loaded:
+
+  plugin :rodauth do
+  end
+
+The block passed to the plugin call uses the Rodauth configuration DSL.
+The one configuration method that should always be used is +enable+,
+which chooses which features you would like to load:
+
+  plugin :rodauth do
+    enable :login, :logout
+  end
+
+Once features are loaded, you can use any of the configuration methods
+supported by the features.  There are two types of configuration
+methods.  The first type are called auth methods, and they take a
+block which overrides the default method that Rodauth uses.  Inside the
+block, you can call super if you want to get the default behavior, though
+you must provide explicit arguments to super.  There is no need to
+call super in before or after hooks, though. For example, if you want to
+add additional logging when a user logs in:
+
+  plugin :rodauth do
+    enable :login, :logout
+    after_login do
+      LOGGER.info "#{account[:email]} logged in!"
+    end
+  end
+
+Inside the block, you are in the context of the Rodauth::Auth
+instance related to the request.  This object has access to everything
+related to the request via methods:
+
+request :: RodaRequest instance
+response :: RodaResponse instance
+scope :: Roda instance
+session :: session hash
+flash :: flash message hash
+account :: account hash (if set by an earlier Rodauth method)
+current_route :: route name symbol (if Rodauth is handling the route)
+
+So if you want to log the IP address for the user during login:
+
+  plugin :rodauth do
+    enable :login, :logout
+    after_login do
+      LOGGER.info "#{account[:email]} logged in from #{request.ip}"
+    end
+  end
+
+The second type of configuration methods are called auth value
+methods.  They are similar to auth methods, but instead of just
+accepting a block, they can optionally accept a single argument
+without a block, which will be treated as a block that just returns
+that value.  For example, the accounts_table method sets the database
+table storing accounts, so to override it, you can call the method
+with a symbol for the table:
+
+  plugin :rodauth do
+    enable :login, :logout
+    accounts_table :users
+  end
+
+Note that all auth value methods can still take a block, allowing
+overriding for all behavior, using any information from the request:
+
+  plugin :rodauth do
+    enable :login, :logout
+    accounts_table do
+      request.ip.start_with?("192.168.1.") ? :admins : :users
+    end
+  end
+
+By allowing every configuration method to take a block, Rodauth
+should be flexible enough to integrate into most legacy systems.
+
+=== Plugin Options
+
+When loading the rodauth plugin, you can also pass an options hash,
+which configures which dependent plugins should be loaded. Options:
+
+:csrf :: Set to +false+ to not load a csrf plugin.  Set to +:rack_csrf+
+         to use the csrf plugin instead of the route_csrf plugin.
+:flash :: Set to +false+ to not load the flash plugin
+:render :: Set to +false+ to not load the render plugin. This is useful
+           to avoid the dependency on tilt when using alternative view libraries.
+:json :: Set to +true+ to load the json and json_parser plugins. Set
+         to +:only+ to only load those plugins and not any other plugins.
+         Note that if you are enabling features that send email, you
+         still need to load the render plugin manually.
+:name :: Provide a name for the given Rodauth configuration, used to
+         support multiple Rodauth configurations in a given Roda application.
+:auth_class :: Provide a specific Rodauth::Auth subclass that should be set
+               on the Roda application. By default, an anonymous
+               Rodauth::Auth subclass is created.
+
+=== Feature Documentation
+
+The options/methods for the supported features are listed on a
+separate page per feature.  If these links are not active, please
+view the appropriate file in the doc directory.
+
+* {Base}[rdoc-ref:doc/base.rdoc] (this feature is autoloaded)
+* {Login Password Requirements Base}[rdoc-ref:doc/login_password_requirements_base.rdoc] (this feature is autoloaded by features that set logins/passwords)
+* {Email Base}[rdoc-ref:doc/email_base.rdoc] (this feature is autoloaded by features that send email)
+* {Two Factor Base}[rdoc-ref:doc/two_factor_base.rdoc] (this feature is autoloaded by 2 factor authentication features)
+* {Account Expiration}[rdoc-ref:doc/account_expiration.rdoc]
+* {Active Sessions}[rdoc-ref:doc/active_sessions.rdoc]
+* {Audit Logging}[rdoc-ref:doc/audit_logging.rdoc]
+* {Argon2}[rdoc-ref:doc/argon2.rdoc]
+* {Change Login}[rdoc-ref:doc/change_login.rdoc]
+* {Change Password}[rdoc-ref:doc/change_password.rdoc]
+* {Change Password Notify}[rdoc-ref:doc/change_password_notify.rdoc]
+* {Close Account}[rdoc-ref:doc/close_account.rdoc]
+* {Confirm Password}[rdoc-ref:doc/confirm_password.rdoc]
+* {Create Account}[rdoc-ref:doc/create_account.rdoc]
+* {Disallow Common Passwords}[rdoc-ref:doc/disallow_common_passwords.rdoc]
+* {Disallow Password Reuse}[rdoc-ref:doc/disallow_password_reuse.rdoc]
+* {Email Authentication}[rdoc-ref:doc/email_auth.rdoc]
+* {HTTP Basic Auth}[rdoc-ref:doc/http_basic_auth.rdoc]
+* {Internal Request}[rdoc-ref:doc/internal_request.rdoc]
+* {JSON}[rdoc-ref:doc/json.rdoc]
+* {JWT CORS}[rdoc-ref:doc/jwt_cors.rdoc]
+* {JWT Refresh}[rdoc-ref:doc/jwt_refresh.rdoc]
+* {JWT}[rdoc-ref:doc/jwt.rdoc]
+* {Lockout}[rdoc-ref:doc/lockout.rdoc]
+* {Login}[rdoc-ref:doc/login.rdoc]
+* {Logout}[rdoc-ref:doc/logout.rdoc]
+* {OTP}[rdoc-ref:doc/otp.rdoc]
+* {OTP Lockout Email}[rdoc-ref:doc/otp_lockout_email.rdoc]
+* {OTP Modify Email}[rdoc-ref:doc/otp_modify_email.rdoc]
+* {OTP Unlock}[rdoc-ref:doc/otp_unlock.rdoc]
+* {Password Complexity}[rdoc-ref:doc/password_complexity.rdoc]
+* {Password Expiration}[rdoc-ref:doc/password_expiration.rdoc]
+* {Password Grace Period}[rdoc-ref:doc/password_grace_period.rdoc]
+* {Password Pepper}[rdoc-ref:doc/password_pepper.rdoc]
+* {Path Class Methods}[rdoc-ref:doc/path_class_methods.rdoc]
+* {Recovery Codes}[rdoc-ref:doc/recovery_codes.rdoc]
+* {Remember}[rdoc-ref:doc/remember.rdoc]
+* {Reset Password}[rdoc-ref:doc/reset_password.rdoc]
+* {Reset Password Notify}[rdoc-ref:doc/reset_password_notify.rdoc]
+* {Session Expiration}[rdoc-ref:doc/session_expiration.rdoc]
+* {Single Session}[rdoc-ref:doc/single_session.rdoc]
+* {SMS Codes}[rdoc-ref:doc/sms_codes.rdoc]
+* {Update Password Hash}[rdoc-ref:doc/update_password_hash.rdoc]
+* {Verify Account}[rdoc-ref:doc/verify_account.rdoc]
+* {Verify Account Grace Period}[rdoc-ref:doc/verify_account_grace_period.rdoc]
+* {Verify Login Change}[rdoc-ref:doc/verify_login_change.rdoc]
+* {WebAuthn}[rdoc-ref:doc/webauthn.rdoc]
+* {WebAuthn Autofill}[rdoc-ref:doc/webauthn_autofill.rdoc]
+* {WebAuthn Login}[rdoc-ref:doc/webauthn_login.rdoc]
+* {WebAuthn Modify Email}[rdoc-ref:doc/webauthn_modify_email.rdoc]
+* {WebAuthn Verify Account}[rdoc-ref:doc/webauthn_verify_account.rdoc]
+
+=== Calling Rodauth in the Routing Tree
+
+In general, you will usually want to call +r.rodauth+ early in your
+route block:
+
+  route do |r|
+    r.rodauth
+
+    # ...
+  end
+
+Note that will allow Rodauth to run, but it won't force people
+to login or add any security to your site.  If you want to force
+all users to login, you need to redirect to them login page if
+they are not already logged in:
+
+  route do |r|
+    r.rodauth
+    rodauth.require_authentication
+
+    # ...
+  end
+
+If only certain parts of your site require logins, then you can
+only redirect if they are not logged in certain branches of the
+routing tree:
+
+  route do |r|
+    r.rodauth
+
+    r.on "admin" do
+      rodauth.require_authentication
+
+      # ...
+    end
+
+    # ...
+  end
+
+In some cases you may want to have rodauth run inside a branch of
+the routing tree, instead of in the root.  You can do this by
+setting a +:prefix+ when configuring Rodauth, and calling +r.rodauth+
+inside a matching routing tree branch:
+
+  plugin :rodauth do
+    enable :login, :logout
+    prefix "/auth"
+  end
+
+  route do |r|
+    r.on "auth" do
+      r.rodauth
+    end
+
+    rodauth.require_authentication
+
+    # ...
+  end
+
+=== +rodauth+ Methods
+
+Most of Rodauth's functionality is exposed via +r.rodauth+, which allows
+Rodauth to handle routes for the features you have enabled (such as +/login+
+for login).  However, as you have seen above, you may want to call methods on
+the +rodauth+ object, such as for checking if the current request has been
+authenticated.
+
+Here are methods designed to be callable on the +rodauth+ object outside
++r.rodauth+:
+
+require_login :: Require the session be logged in, redirecting the request to the
+                 login page if the request has not been logged in.
+require_authentication :: Similar to +require_login+, but also requires
+                          two factor authentication if the account has setup
+                          two factor authentication.  Redirects the request to
+                          the two factor authentication page if logged in but not
+                          authenticated via two factors.
+require_account :: Similar to +require_authentication+, but also loads the logged
+                   in account to ensure it exists in the database.  If the account
+                   doesn't exist, or if it exists but isn't verified, the session
+                   is cleared and the request redirected to the login page.
+logged_in? :: Whether the session has been logged in.
+authenticated? :: Similar to +logged_in?+, but if the account has setup two
+                  factor authentication, whether the session has authenticated
+                  via two factors.
+account! :: Returns the current account record if it has already been loaded,
+            otherwise retrieves the account from session if logged in.
+authenticated_by :: An array of strings for successful authentication methods for
+                    the current session (e.g. password/remember/webauthn).
+possible_authentication_methods :: An array of strings for possible authentication
+                                   types that can be used for the account.
+autologin_type :: If the current session was authenticated via autologin, the
+                  type of autologin used.
+require_two_factor_setup :: (two_factor_base feature) Require the session to have
+                            setup two factor authentication, redirecting the
+                            request to the two factor authentication setup page
+                            if not.
+two_factor_partially_authenticated? :: (two_factor_base feature) Returns true if
+                                       the session is logged in, the account has
+                                       setup two factor authentication, but has
+                                       not yet authenticated with a second factor.
+uses_two_factor_authentication? :: (two_factor_base feature) Whether the account
+                                   for the current session has setup two factor
+                                   authentication.
+update_last_activity :: (account_expiration feature) Update the last activity
+                        time for the current account.  Only makes sense to use
+                        this if you are expiring accounts based on last activity.
+require_current_password :: (password_expiration feature) Require a current
+                            password, redirecting the request to the change
+                            password page if the password for the account has
+                            expired.
+require_password_authentication :: (confirm_password feature) If not authenticated
+                                   via password and the account has a password,
+                                   redirect to the password confirmation page,
+                                   saving the current location to redirect back
+                                   to after password has been successfully
+                                   confirmed. If the password_grace_period feature
+                                   is used, also redirect if the password has not
+                                   been recently entered.
+load_memory :: (remember feature) If the session has not been authenticated, look
+               for the remember cookie.  If present and valid, automatically
+               log the session in, but mark that it was logged in via a remember
+               key.
+logged_in_via_remember_key? :: (remember feature) Whether the current session has
+                               been logged in via a remember key.  For security
+                               sensitive actions where you want to require the user
+                               to reenter the password, you can use the
+                               confirm_password feature.
+http_basic_auth :: (http_basic_auth feature) Use HTTP Basic Authentication information
+                   to login the user if provided.
+require_http_basic_auth :: (http_basic_auth feature) Require that HTTP Basic
+                           Authentication be provided in the request.
+check_session_expiration :: (session_expiration feature) Check whether the current
+                            session has expired, automatically logging the session
+                            out if so.
+check_active_session :: (active_sessions feature) Check whether the current session
+                        is still active, automatically logging the session out if not.
+check_single_session :: (single_session feature) Check whether the current
+                        session is still the only valid session, automatically logging
+                        the session out if not.
+verified_account? :: (verify_grace_period feature) Whether the account is currently
+                     verified.  If false, it is because the account is allowed to
+                     login as they are in the grace period.
+locked_out? :: (lockout feature) Whether the account for the current session has been
+               locked out.
+authenticated_webauthn_id :: (webauthn feature) If the current session was
+                             authenticated via webauthn, the webauthn id of the
+                             credential used.
+*_path :: One of these is added for each of the routes added by Rodauth, giving the
+          relative path to the route. Any options passed to this method will be
+          converted into query parameters.
+*_url :: One of these is added for each of the routes added by Rodauth, giving the
+         URL to the route. Any options passed to this method will be converted
+         into query parameters.
+
+=== Calling Rodauth Methods for Other Accounts
+
+In some cases, you may want to interact with Rodauth directly on behalf
+of a user.  For example, let's say you want to create accounts or change passwords
+for existing accounts.  Using Rodauth's internal_request feature, you can do this
+by:
+
+  plugin :rodauth do
+    enable :create_account, :change_password, :internal_request
+  end
+  rodauth.create_account(login: 'foo@example.com', password: '...')
+  rodauth.change_password(account_id: 24601, password: '...')
+
+Here the +rodauth+ method is called as the Roda class level, which returns
+the appropriate <tt>Rodauth::Auth</tt> subclass.  You call internal request
+methods on that class to perform actions on behalf of a user. See the
+{internal request feature documentation}[rdoc-ref:doc/internal_request.rdoc]
+for details.
+
+== Using Rodauth as a Library
+
+Rodauth was designed to serve as an authentication framework for Rack applications.
+However, Rodauth can be used purely as a library outside of a web application. You
+can do this by requiring +rodauth+, and using the +Rodauth.lib+ method to return
+a <tt>Rodauth::Auth</tt> subclass, which you can call methods on.  You pass the
++Rodauth.lib+ method an optional hash of Rodauth plugin options and a Rodauth
+configuration block:
+
+  require 'rodauth'
+  rodauth = Rodauth.lib do
+    enable :create_account, :change_password
+  end
+  rodauth.create_account(login: 'foo@example.com', password: '...')
+  rodauth.change_password(account_id: 24601, password: '...')
+
+This supports builds on top of the internal_request support (it implicitly loads
+the internal_request feature before processing the configuration block), and
+allows the use of Rodauth in non-web applications. Note that you still have to
+setup a Sequel::Database connection for Rodauth to use for data storage.
+
+=== With Multiple Configurations
+
+Rodauth supports using multiple rodauth configurations in the same
+application.  You just need to load the plugin a second time,
+providing a name for any alternate configuration:
+
+  plugin :rodauth do
+  end
+  plugin :rodauth, name: :secondary do
+  end
+
+Then in your routing code, any time you call rodauth, you can provide
+the name as an argument to use that configuration:
+
+  route do |r|
+    r.on 'secondary' do
+      r.rodauth(:secondary)
+    end
+
+    r.rodauth
+  end
+
+To prevent having to specify the name manually in all cases where you are
+using it, you can define a +default_rodauth_name+ method in your Roda
+application that returns the name that should be used:
+
+  attr_reader :default_rodauth_name
+
+  route do |r|
+    r.on 'secondary' do
+      @default_rodauth_name = :secondary
+      r.rodauth # will use the :secondary configuration
+    end
+
+    r.rodauth # will use the default configuration
+  end
+
+By default, alternate configurations will use the same session keys as the
+primary configuration, which may be undesirable. To ensure session state is
+separated between configurations, you can set a session key prefix for
+alternate configurations.  If you are using the remember feature in both
+configurations, you may also want to set a different remember key in the
+alternate configuration:
+
+  plugin :rodauth, name: :secondary do
+    session_key_prefix "secondary_"
+    remember_cookie_key "_secondary_remember"
+  end
+
+=== With Password Hashes Inside the Accounts Table
+
+You can use Rodauth if you are storing password hashes in the same
+table as the accounts.  You just need to specify which column
+stores the password hash:
+
+  plugin :rodauth do
+    account_password_hash_column :password_hash
+  end
+
+When this option is set, Rodauth will do the password hash check
+in ruby.
+  
+=== When Using PostgreSQL/MySQL/Microsoft SQL Server without Database Functions
+
+If you want to use Rodauth on PostgreSQL, MySQL, or Microsoft SQL Server
+without using database functions for authentication, but still storing password
+hashes in a separate table, you can do so:
+
+  plugin :rodauth do
+    use_database_authentication_functions? false
+  end
+
+Conversely, if you implement the rodauth_get_salt and
+rodauth_valid_password_hash functions on a database that isn't
+PostgreSQL, MySQL, or Microsoft SQL Server, you can set this value to true.
+
+=== With Custom Authentication
+
+You can use Rodauth with other authentication types, by using some
+of Rodauth's configuration methods.
+
+Note that when using custom authentication, using some of Rodauth's
+features such as change login and change password either would not
+make sense or would require some additional custom configuration.
+The login and logout features should work correctly with the examples
+below, though.
+
+==== Using LDAP Authentication
+
+If you have accounts stored in the database, but authentication happens
+via LDAP, you can use the +simple_ldap_authenticator+ library:
+
+  require 'simple_ldap_authenticator'
+  plugin :rodauth do
+    enable :login, :logout
+    require_bcrypt? false
+    password_match? do |password|
+      SimpleLdapAuthenticator.valid?(account[:email], password)
+    end
+  end
+
+If you aren't storing accounts in the database, but want to allow
+any valid LDAP user to login, you can do something like this:
+
+  require 'simple_ldap_authenticator'
+  plugin :rodauth do
+    enable :login, :logout
+
+    # Don't require the bcrypt library, since using LDAP for auth
+    require_bcrypt? false
+
+    # Store session value in :login key, since the :account_id
+    # default wouldn't make sense
+    session_key :login
+
+    # Use the login provided as the session value
+    account_session_value{account}
+
+    # Treat the login itself as the account
+    account_from_login{|l| l.to_s}
+
+    password_match? do |password|
+      SimpleLdapAuthenticator.valid?(account, password)
+    end
+  end
+
+==== Using Facebook Authentication
+
+Here's an example of authentication using Facebook with a JSON API.
+This setup assumes you have client-side code to submit JSON POST requests
+to +/login+ with an +access_token+ parameter that is set to the user's
+Facebook OAuth access token.
+
+
+  require 'koala'
+  plugin :rodauth do
+    enable :login, :logout, :jwt
+     
+    require_bcrypt? false
+    session_key :facebook_email
+    account_session_value{account}
+
+    login_param 'access_token'
+
+    account_from_login do |access_token|
+      fb = Koala::Facebook::API.new(access_token)
+      if me = fb.get_object('me', fields: [:email])
+        me['email']
+      end
+    end
+
+    # there is no password!
+    password_match? do |pass|
+      true
+    end
+  end
+
+=== With Rails
+
+If you're using Rails, you can use the
+{rodauth-rails}[https://github.com/janko/rodauth-rails] gem which provides
+Rails integration for Rodauth. Some of its features include:
+
+* generators for Rodauth & Sequel configuration, as well as views and mailers
+* uses Rails' flash messages and CSRF protection
+* automatically sets HMAC secret to Rails' secret key base
+* uses Action Controller & Action View for rendering templates
+* uses Action Mailer for sending emails
+
+Follow the instructions in the rodauth-rails README to get started.
+
+=== With Other Web Frameworks
+
+You can use Rodauth even if your application does not use the Roda web
+framework.  This is possible by adding a Roda middleware that uses
+Rodauth:
+
+  require 'roda'
+
+  class RodauthApp < Roda
+    plugin :middleware
+    plugin :rodauth do
+      enable :login
+    end
+
+    route do |r|
+      r.rodauth
+      rodauth.require_authentication
+      env['rodauth'] = rodauth
+    end
+  end
+
+  use RodauthApp
+
+Note that Rodauth expects the Roda app it is used in to provide a
+layout.  So if you are using Rodauth as middleware for another app,
+if you don't have a +views/layout.erb+ file that Rodauth can use,
+you should probably also add load Roda's +render+ plugin
+with the appropriate settings that allow Rodauth to use the same
+layout as the application.
+
+By setting <tt>env['rodauth'] = rodauth</tt> in the route block
+inside the middleware, you can easily provide a way for your
+application to call Rodauth methods.
+
+If you're using the remember feature with +extend_remember_deadline?+ set to
+true, you'll want to load roda's middleware plugin with
+<tt>forward_response_headers: true</tt> option, so that +Set-Cookie+ header changes
+from the +load_memory+ call in the route block are propagated when the request
+is forwarded to the main app.
+
+Here are some examples of integrating Rodauth into applications that
+don't use Roda:
+
+* {Ginatra, a Sinatra-based git repository viewer}[https://github.com/jeremyevans/ginatra/commit/28108ebec96e8d42596ee55b01c3f7b50c155dd1] 
+* {Rodauth's demo site as a Rails 6 application}[https://github.com/janko/rodauth-demo-rails]
+* {Grape application}[https://github.com/davydovanton/grape-rodauth]
+* {Hanami application}[https://github.com/davydovanton/rodauth_hanami]
+
+=== Using 2 Factor Authentication
+
+Rodauth ships with 2 factor authentication support via the following
+methods:
+
+* WebAuthn
+* TOTP (Time-Based One-Time Passwords, RFC 6238).
+* SMS Codes
+* Recovery Codes
+
+There are multiple ways to integrate 2 factor authentication with
+Rodauth, based on the needs of the application.  By default, SMS
+codes and recovery codes are treated only as backup 2nd factors,
+a user cannot enable them without first enabling another 2nd factor
+authentication method.  However, you can change this by using
+a configuration method.
+
+If you want to support but not require 2 factor authentication:
+
+  plugin :rodauth do
+    enable :login, :logout, :otp, :recovery_codes, :sms_codes
+  end
+  route do |r|
+    r.rodauth
+    rodauth.require_authentication
+
+    # ...
+  end
+
+If you want to force all users to use 2 factor authentication, requiring users
+that don't currently have two authentication to set it up:
+
+  route do |r|
+    r.rodauth
+    rodauth.require_authentication
+    rodauth.require_two_factor_setup
+
+    # ...
+  end
+
+Similarly to requiring authentication in general, it's possible to require
+login authentication for most of the site, but require 2 factor
+authentication only for particular branches:
+
+  route do |r|
+    r.rodauth
+    rodauth.require_login
+
+    r.on "admin" do
+      rodauth.require_two_factor_authenticated
+    end
+
+    # ...
+  end
+
+=== JSON API Support
+
+To add support for handling JSON responses, you can pass the +:json+
+option to the plugin, and enable the JWT feature in addition to
+other features you plan to use:
+
+  plugin :rodauth, json: true do
+    enable :login, :logout, :jwt
+  end
+
+If you do not want to load the HTML plugins that Rodauth usually loads
+(render, csrf, flash, h), because you are building a JSON-only API,
+pass <tt>:json => :only</tt>
+
+  plugin :rodauth, json: :only do
+    enable :login, :logout, :jwt
+  end
+
+Note that by default, the features that send email depend on the
+render plugin, so if using the <tt>json: :only</tt> option, you
+either need to load the render plugin manually or you need to
+use the necessary *_email_body configuration options to specify
+the body of the emails.
+
+The JWT feature enables JSON API support for all of the other features
+that Rodauth ships with. If you would like JSON API access that still uses
+rack session for storing session data, enable the JSON feature instead:
+
+  plugin :rodauth, json: true do
+    enable :login, :logout, :json
+    only_json? true # if you want to only handle JSON requests
+  end
+
+=== Adding Custom Methods to the +rodauth+ Object
+
+Inside the configuration block, you can use +auth_class_eval+ to add
+custom methods that will be callable on the +rodauth+ object.
+
+  plugin :rodauth do
+    enable :login
+
+    auth_class_eval do
+      def require_admin
+        request.redirect("/") unless account[:admin]
+      end
+    end
+  end
+
+  route do |r|
+    r.rodauth
+
+    r.on "admin" do
+      rodauth.require_admin
+    end
+  end
+
+=== Using External Features
+
+The +enable+ configuration method is able to load features external to
+Rodauth.  You need to place the external feature file where it can be
+required via rodauth/features/feature_name. That file should
+use the following basic structure
+
+  module Rodauth
+    # :feature_name will be the argument given to enable to
+    # load the feature, :FeatureName is optional and will be used to
+    # set a constant name for prettier inspect output.
+    Feature.define(:feature_name, :FeatureName) do
+      # Shortcut for defining auth value methods with static values
+      auth_value_method :method_name, 1 # method_value
+
+      auth_value_methods # one argument per auth value method
+
+      auth_methods # one argument per auth method
+ 
+      route do |r|
+        # This block is taken for requests to the feature's route.
+        # This block is evaluated in the scope of the Rodauth::Auth instance.
+        # r is the Roda::RodaRequest instance for the request
+        
+        r.get do
+        end
+
+        r.post do
+        end
+      end
+
+      configuration_module_eval do
+        # define additional configuration specific methods here, if any
+      end
+
+      # define the default behavior for the auth_methods
+      # and auth_value_methods
+      # ...
+    end
+  end
+
+See the {internals guide}[rdoc-ref:doc/guides/internals.rdoc] for a more complete
+example of how to construct features.
+
+=== Overriding Route-Level Behavior
+
+All of Rodauth's configuration methods change the behavior of the
+Rodauth::Auth instance.  However, in some cases you may want to
+overriding handling at the routing layer.  You can do this easily
+by adding an appropriate route before calling +r.rodauth+:
+
+  route do |r|
+    r.post 'login' do
+      # Custom POST /login handling here
+    end
+
+    r.rodauth
+  end
+
+=== Precompiling Rodauth Templates
+
+Rodauth serves templates from it's gem folder.  If you are using
+a forking webserver and want to preload the compiled templates
+to save memory, or if you are chrooting your application, you can
+benefit from precompiling your rodauth templates:
+
+  plugin :rodauth do
+    # ...
+  end
+  precompile_rodauth_templates
+
+== Ruby Support Policy
+
+Rodauth fully supports the currently supported versions of Ruby (MRI) and JRuby.  It may
+support unsupported versions of Ruby or JRuby, but such support may be dropped in any
+minor version if keeping it becomes a support issue.  The minimum Ruby version
+required to run the current version of Rodauth is 1.9.2.
+
+== Similar Projects
+
+All of these are Rails-specific:
+
+* {Devise}[https://github.com/heartcombo/devise]
+* {Authlogic}[https://github.com/binarylogic/authlogic]
+* {Sorcery}[https://github.com/Sorcery/sorcery]
+
+== Author
+
+Jeremy Evans <code@jeremyevans.net>

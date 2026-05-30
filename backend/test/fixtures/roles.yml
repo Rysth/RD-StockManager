@@ -1,0 +1,56 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# Global roles without resource association
+admin:
+  name: admin
+  resource_type: 
+  resource_id: 
+
+manager:
+  name: manager
+  resource_type: 
+  resource_id: 
+
+operator:
+  name: operator
+  resource_type: 
+  resource_id: 
+
+user:
+  name: user
+  resource_type: 
+  resource_id: 
+
+# Custom roles for specific scenarios
+moderator:
+  name: moderator
+  resource_type: 
+  resource_id: 
+
+viewer:
+  name: viewer
+  resource_type: 
+  resource_id: 
+
+# Polymorphic resource-specific roles (examples)
+business_admin:
+  name: admin
+  resource_type: Business
+  resource_id: 1
+
+business_manager:
+  name: manager
+  resource_type: Business
+  resource_id: 1
+
+# Role for testing polymorphic associations with User resource
+user_admin:
+  name: admin
+  resource_type: User
+  resource_id: 1
+
+# Role with invalid resource type for validation testing
+invalid_resource_role:
+  name: custom
+  resource_type: InvalidResource
+  resource_id: 1

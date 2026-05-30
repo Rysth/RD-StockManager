@@ -1,0 +1,14 @@
+🎉 NUEVO USUARIO REGISTRADO
+
+Información del Usuario:
+- Nombre Completo: <%= @user.fullname %>
+- Username: <%= @user.username %>
+- Email: <%= @user.account.email %>
+<% if @user.identification.present? %>- Identificación: <%= @user.identification %><% end %>
+<% if @user.phone_number.present? %>- Teléfono: <%= @user.phone_number %><% end %>
+- Roles: <%= @user.roles.pluck(:name).join(', ').presence || 'user' %>
+- Estado: <%= @user.account.status == 'verified' ? 'Confirmado' : 'Pendiente de confirmación' %>
+- Fecha de registro: <%= @user.created_at.strftime('%d/%m/%Y a las %H:%M') %>
+
+Puedes gestionar este usuario desde el panel de administración:
+<%= FrontendUrls.admin_url %>/dashboard/users

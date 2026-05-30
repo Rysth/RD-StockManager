@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+      .container { max-width: 600px; margin: 0 auto; padding: 24px; }
+      .btn-primary {
+        background-color: #3b82f6; color: white; padding: 12px 24px;
+        border-radius: 6px; text-decoration: none; display: inline-block;
+        font-weight: 600;
+      }
+      .btn-primary:hover { background-color: #2563eb; }
+    </style>
+  </head>
+  <body class="bg-gray-100">
+    <div class="container">
+      <div class="p-8 bg-white rounded-lg shadow-md">
+        <div class="mb-6 text-center">
+          <h1 class="text-3xl font-bold text-blue-600">🎉 ¡Bienvenido a R&R Template!</h1>
+        </div>
+
+        <p class="mb-4 text-gray-700">Hola <strong><%= @fullname %></strong>,</p>
+        
+        <p class="mb-4 text-gray-700">
+          Has sido invitado a formar parte de <strong>R&R Template</strong>, nuestra plataforma en línea.
+        </p>
+
+        <div class="p-4 mb-6 rounded-lg bg-blue-50">
+          <p class="mb-2 text-gray-700"><strong>📧 Tu correo de acceso:</strong></p>
+          <p class="font-mono text-lg text-blue-600"><%= @email %></p>
+        </div>
+
+        <div class="p-4 mb-6 border-l-4 border-yellow-400 bg-yellow-50">
+          <p class="text-sm text-gray-700">
+            <strong>⚠️ Importante:</strong> Si no se te proporcionó una contraseña, 
+            deberás usar la opción <strong>"Olvidé mi contraseña"</strong> en la página de inicio de sesión 
+            para crear tu contraseña y acceder a la plataforma.
+          </p>
+        </div>
+
+        <div class="mb-6 text-center">
+          <a href="<%= @frontend_url %>/auth/signin" class="btn-primary">
+            Ir a NoviSchool
+          </a>
+        </div>
+
+        <div class="p-4 rounded-lg bg-gray-50">
+          <p class="mb-2 text-sm text-gray-600"><strong>¿Necesitas restablecer tu contraseña?</strong></p>
+          <p class="text-sm text-gray-600">
+            Visita: <a href="<%= @frontend_url %>/auth/forgot-password" class="text-blue-600 hover:underline"><%= @frontend_url %>/auth/forgot-password</a>
+          </p>
+        </div>
+
+        <hr class="my-6 border-gray-200">
+
+        <p class="text-xs text-center text-gray-500">
+          Este correo fue enviado de manera automática.<br>
+          Creado por RysthDesign - <a href="https://rysthdesign.com/" class="text-blue-600 hover:underline">https://rysthdesign.com/</a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
