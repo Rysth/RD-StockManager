@@ -143,14 +143,14 @@ layer(base);
   --chart-5: oklch(0.80 0.10 222);
 
   /* Sidebar — navy profundo */
-  --sidebar: oklch(0.20 0.07 258);
-  --sidebar-foreground: oklch(0.94 0.008 248);
-  --sidebar-primary: oklch(0.63 0.18 252);
+  --sidebar: oklch(0.12 0.04 258);
+  --sidebar-foreground: oklch(0.92 0.008 248);
+  --sidebar-primary: oklch(0.60 0.18 252);
   --sidebar-primary-foreground: oklch(0.99 0.004 248);
-  --sidebar-accent: oklch(0.28 0.07 258);
-  --sidebar-accent-foreground: oklch(0.94 0.008 248);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.63 0.18 252);
+  --sidebar-accent: oklch(0.20 0.06 258);
+  --sidebar-accent-foreground: oklch(0.92 0.008 248);
+  --sidebar-border: oklch(1 0 0 / 6%);
+  --sidebar-ring: oklch(0.60 0.18 252);
 }
 
 /* Auth theme — EDLU Store login / register
