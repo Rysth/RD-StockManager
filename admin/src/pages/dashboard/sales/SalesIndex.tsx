@@ -419,31 +419,59 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const variantResults = useMemo(() => {
+  // Un producto por card; al hacer clic se elige la variante (talla/color)
+  const [selectedProduct, setSelectedProduct] = useState<{
+    id: number;
+    name: string;
+    brand?: string | null;
+    base_price: number;
+    wholesale_price: number | null;
+    wholesale_min_quantity: number;
+    thumb?: string;
+    variants: { id: number; size?: string | null; color?: string | null; stock: number; sku: string; thumb?: string }[];
+  } | null>(null);
+
+  const productGroups = useMemo(() => {
     const q = variantQuery.trim().toLowerCase();
-    const rows: {
-      id: number; label: string; sku: string; thumb?: string; stock: number;
-      base_price: number; wholesale_price: number | null; wholesale_min_quantity: number;
-    }[] = [];
-    products.forEach((p) => {
-      if (categoryFilter !== "all" && p.category_id !== categoryFilter) return;
-      p.variants.forEach((v) => {
-        if (v.stock <= 0) return;
-        const label = `${p.name} — ${v.size || ""}/${v.color || ""}`;
-        if (q && !`${label} ${v.sku} ${p.brand ?? ""}`.toLowerCase().includes(q)) return;
-        rows.push({
-          id: v.id, label, sku: v.sku, stock: v.stock,
-          thumb: v.images?.[0]?.url || p.images?.[0]?.url,
-          base_price: p.base_price,
-          wholesale_price: p.wholesale_price ?? null,
-          wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
-        });
-      });
-    });
-    return rows.slice(0, 60);
+    return products
+      .filter((p) => {
+        if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
+        if (!p.variants.some((v) => v.stock > 0)) return false;
+        if (!q) return true;
+        const productMatch = `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(q);
+        const variantMatch = p.variants.some((v) =>
+          `${v.sku} ${v.size ?? ""} ${v.color ?? ""}`.toLowerCase().includes(q)
+        );
+        return productMatch || variantMatch;
+      })
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        brand: p.brand,
+        base_price: p.base_price,
+        wholesale_price: p.wholesale_price ?? null,
+        wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
+        thumb: p.images?.[0]?.url,
+        variantCount: p.variants.filter((v) => v.stock > 0).length,
+        variants: p.variants
+          .filter((v) => v.stock > 0)
+          .map((v) => ({
+            id: v.id,
+            size: v.size,
+            color: v.color,
+            stock: v.stock,
+            sku: v.sku,
+            thumb: v.images?.[0]?.url || p.images?.[0]?.url,
+          })),
+      }));
   }, [products, variantQuery, categoryFilter]);
 
-  const addToCart = (v: (typeof variantResults)[number]) => {
+  interface VariantOption {
+    id: number; label: string; sku: string; thumb?: string; stock: number;
+    base_price: number; wholesale_price: number | null; wholesale_min_quantity: number;
+  }
+
+  const addToCart = (v: VariantOption) => {
     setCart((prev) => {
       const existing = prev.find((i) => i.product_variant_id === v.id);
       if (existing) {
@@ -552,38 +580,52 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
           ))}
         </div>
 
-        {/* Grilla de variantes con stock */}
+        {/* Grilla de productos — un card por producto */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {variantResults.length ? (
-            variantResults.map((v) => (
-              <button
-                key={v.id}
-                type="button"
-                onClick={() => addToCart(v)}
-                className="group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
-              >
-                <div className="relative aspect-square w-full bg-muted">
-                  {v.thumb ? (
-                    <img src={v.thumb} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                      <ImageIcon className="h-8 w-8" />
-                    </div>
-                  )}
-                  <Badge
-                    variant="secondary"
-                    className="absolute right-1.5 top-1.5 bg-green-100 text-green-800"
-                  >
-                    {v.stock}
-                  </Badge>
-                </div>
-                <div className="flex flex-1 flex-col gap-1 p-2.5">
-                  <p className="line-clamp-2 text-sm font-medium leading-tight">{v.label}</p>
-                  <p className="truncate text-[11px] text-muted-foreground">{v.sku}</p>
-                  <p className="mt-auto pt-1 font-semibold text-primary">{money(v.base_price)}</p>
-                </div>
-              </button>
-            ))
+          {productGroups.length ? (
+            productGroups.map((p) => {
+              const inCartCount = cart.filter((c) =>
+                p.variants.some((v) => v.id === c.product_variant_id)
+              ).reduce((sum, c) => sum + c.quantity, 0);
+              return (
+                <button
+                  key={p.id}
+                  type="button"
+                  onClick={() => setSelectedProduct(p)}
+                  className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
+                >
+                  <div className="relative aspect-square w-full bg-muted">
+                    {p.thumb ? (
+                      <img src={p.thumb} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <ImageIcon className="h-8 w-8" />
+                      </div>
+                    )}
+                    {/* Cantidad de variantes disponibles */}
+                    <Badge
+                      variant="secondary"
+                      className="absolute left-1.5 top-1.5 bg-background/85 text-foreground backdrop-blur-sm text-[10px]"
+                    >
+                      {p.variantCount} {p.variantCount === 1 ? "talla" : "tallas"}
+                    </Badge>
+                    {/* Indicador si ya hay algo en el carrito */}
+                    {inCartCount > 0 && (
+                      <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
+                        {inCartCount}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-1 flex-col gap-0.5 p-2.5">
+                    <p className="line-clamp-2 text-sm font-medium leading-tight">{p.name}</p>
+                    {p.brand && (
+                      <p className="truncate text-[11px] text-muted-foreground">{p.brand}</p>
+                    )}
+                    <p className="mt-auto pt-1 font-semibold text-primary">{money(p.base_price)}</p>
+                  </div>
+                </button>
+              );
+            })
           ) : (
             <p className="col-span-full px-3 py-12 text-center text-sm text-muted-foreground">
               Sin resultados con stock disponible.
@@ -717,6 +759,95 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* ── Selector de variante (talla / color) ── */}
+      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{selectedProduct?.name}</DialogTitle>
+            <DialogDescription>
+              {selectedProduct?.brand && `${selectedProduct.brand} · `}
+              Desde {money(selectedProduct?.base_price ?? 0)}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Imagen del producto */}
+          {selectedProduct?.thumb && (
+            <img
+              src={selectedProduct.thumb}
+              alt={selectedProduct.name}
+              className="h-36 w-full rounded-lg object-cover"
+            />
+          )}
+
+          {/* Variantes disponibles */}
+          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
+            {selectedProduct?.variants.map((v) => {
+              const sizeLabel = [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
+              const inCart = cart.find((c) => c.product_variant_id === v.id);
+              return (
+                <div
+                  key={v.id}
+                  className={`flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
+                    inCart ? "border-primary/40 bg-primary/5" : ""
+                  }`}
+                >
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-sm">{sizeLabel}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {v.stock} en stock · <span className="font-mono">{v.sku}</span>
+                    </p>
+                  </div>
+                  {inCart ? (
+                    <div className="flex items-center gap-0.5 rounded-md border bg-background">
+                      <button
+                        type="button"
+                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
+                        onClick={() => setQuantity(v.id, inCart.quantity - 1)}
+                      >
+                        <Minus className="h-3 w-3" />
+                      </button>
+                      <span className="w-8 text-center text-sm font-semibold">{inCart.quantity}</span>
+                      <button
+                        type="button"
+                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                        onClick={() => setQuantity(v.id, inCart.quantity + 1)}
+                        disabled={inCart.quantity >= inCart.max}
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ) : (
+                    <Button
+                      size="sm"
+                      onClick={() =>
+                        addToCart({
+                          id: v.id,
+                          label: `${selectedProduct.name} — ${sizeLabel}`,
+                          sku: v.sku,
+                          thumb: v.thumb,
+                          stock: v.stock,
+                          base_price: selectedProduct.base_price,
+                          wholesale_price: selectedProduct.wholesale_price,
+                          wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
+                        })
+                      }
+                    >
+                      <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
+                    </Button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" className="w-full" onClick={() => setSelectedProduct(null)}>
+              Cerrar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Modal de confirmación antes de enviar ── */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
