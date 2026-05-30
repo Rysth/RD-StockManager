@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Plus, Pencil, Trash2, ChevronRight, ChevronDown, X, ImagePlus, ImageIcon } from "lucide-react";
+import { Plus, Pencil, ChevronRight, ChevronDown, X, ImagePlus, ImageIcon, Archive, Upload, FileSpreadsheet, Download } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useAuthStore } from "../../../stores/authStore";
@@ -79,7 +79,7 @@ interface VariantForm {
 
 interface ProductForm {
   name: string;
-  brand: string;
+  brand_id: string;
   base_price: string;
   cost: string;
   wholesale_price: string;
@@ -102,7 +102,7 @@ const emptyVariant = (): VariantForm => ({
 
 const EMPTY_FORM: ProductForm = {
   name: "",
-  brand: "",
+  brand_id: "",
   base_price: "",
   cost: "",
   wholesale_price: "",
@@ -192,10 +192,12 @@ export default function ProductsIndex() {
   const {
     products,
     categories,
+    brands,
     pagination,
     isLoading,
     fetchProducts,
     fetchCategories,
+    fetchBrands,
     createProduct,
     updateProduct,
     deleteProduct,
@@ -203,12 +205,15 @@ export default function ProductsIndex() {
     deleteProductImage,
     uploadVariantImages,
     deleteVariantImage,
+    importProducts,
+    downloadImportTemplate,
   } = useInventoryStore();
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
 
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
@@ -216,20 +221,33 @@ export default function ProductsIndex() {
   const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Product | null>(null);
 
+  // Importación masiva por Excel
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
+
+  const productFilters = () => ({
+    search,
+    category_id: categoryFilter,
+    ...(showArchived ? { active: false } : {}),
+  });
+
   useEffect(() => {
     fetchCategories();
+    fetchBrands();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    fetchProducts(1, pagination.per_page, { search, category_id: categoryFilter }).catch((e) =>
+    fetchProducts(1, pagination.per_page, productFilters()).catch((e) =>
       toast.error(e.message || "Error al cargar productos"),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, categoryFilter]);
+  }, [search, categoryFilter, showArchived]);
 
   const reload = () =>
-    fetchProducts(pagination.current_page, pagination.per_page, { search, category_id: categoryFilter });
+    fetchProducts(pagination.current_page, pagination.per_page, productFilters());
 
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
@@ -249,7 +267,7 @@ export default function ProductsIndex() {
     setEditing(product);
     setForm({
       name: product.name,
-      brand: product.brand ?? "",
+      brand_id: product.brand_id != null ? String(product.brand_id) : "",
       base_price: String(product.base_price),
       cost: String(product.cost ?? ""),
       wholesale_price: product.wholesale_price != null ? String(product.wholesale_price) : "",
@@ -314,7 +332,7 @@ export default function ProductsIndex() {
 
     const payload = {
       name: form.name,
-      brand: form.brand,
+      brand_id: form.brand_id ? Number(form.brand_id) : null,
       base_price: parseFloat(form.base_price) || 0,
       cost: parseFloat(form.cost) || 0,
       wholesale_price: form.wholesale_price ? parseFloat(form.wholesale_price) : null,
@@ -361,10 +379,33 @@ export default function ProductsIndex() {
     if (!toDelete) return;
     try {
       await deleteProduct(toDelete.id);
-      toast.success("Producto eliminado correctamente");
+      toast.success("Producto archivado correctamente");
       setToDelete(null);
     } catch (e) {
-      toast.error(errorMessage(e, "Error al eliminar el producto"));
+      toast.error(errorMessage(e, "Error al archivar el producto"));
+    }
+  };
+
+  const handleImport = async () => {
+    if (!importFile) return toast.error("Selecciona un archivo .xlsx");
+    setImporting(true);
+    try {
+      const result = await importProducts(importFile);
+      const errors = result.errors?.length
+        ? ` · ${result.errors.length} con error`
+        : "";
+      toast.success(
+        `Importación: ${result.products_created} productos, ${result.variants_created} variantes${errors}`,
+      );
+      if (result.errors?.length) {
+        result.errors.slice(0, 3).forEach((msg) => toast.error(msg));
+      }
+      setImportOpen(false);
+      setImportFile(null);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al importar"));
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -379,9 +420,14 @@ export default function ProductsIndex() {
           <p className="text-sm text-muted-foreground">Productos, precios, costos e imágenes</p>
         </div>
         {canManage && (
-          <Button onClick={openCreate} size="sm">
-            <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
+              <Upload className="w-4 h-4 mr-2" /> Importar Excel
+            </Button>
+            <Button onClick={openCreate} size="sm">
+              <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
+            </Button>
+          </div>
         )}
       </div>
 
@@ -402,6 +448,14 @@ export default function ProductsIndex() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <label className="flex items-center gap-2 text-sm text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(e) => setShowArchived(e.target.checked)}
+          />
+          Ver archivados
+        </label>
       </div>
 
       <Card className="p-0 rounded-xl">
@@ -450,8 +504,8 @@ export default function ProductsIndex() {
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setToDelete(p)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setToDelete(p)} title="Archivar">
+                            <Archive className="h-4 w-4" />
                           </Button>
                         </TableCell>
                       )}
@@ -521,7 +575,12 @@ export default function ProductsIndex() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="p-brand">Marca</Label>
-                <Input id="p-brand" value={form.brand} onChange={(e) => setForm({ ...form, brand: e.target.value })} />
+                <select id="p-brand" value={form.brand_id}
+                  onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+                  <option value="">Sin marca</option>
+                  {brands.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                </select>
               </div>
             </div>
 
@@ -639,24 +698,74 @@ export default function ProductsIndex() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
+      {/* Archive confirmation */}
       <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">Eliminar producto</AlertDialogTitle>
+            <AlertDialogTitle>Archivar producto</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas eliminar {toDelete?.name}? Se eliminarán también sus variantes e imágenes.
+              ¿Seguro que deseas archivar {toDelete?.name}? No se eliminará: quedará inactivo
+              y podrás consultarlo con el filtro "Ver archivados".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Eliminar
+            <AlertDialogAction onClick={handleDelete}>
+              Archivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Importación masiva por Excel */}
+      <Dialog open={importOpen} onOpenChange={(o) => { setImportOpen(o); if (!o) setImportFile(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Importar productos desde Excel</DialogTitle>
+            <DialogDescription>
+              Cada fila es una variante (producto, marca, categoría, precios, talla, color, stock).
+              Las marcas y categorías nuevas se crean automáticamente.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <Button variant="outline" className="w-full" onClick={() => downloadImportTemplate().catch((e) => toast.error(errorMessage(e, "Error al descargar")))}>
+              <Download className="mr-2 h-4 w-4" /> Descargar plantilla
+            </Button>
+
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              className="flex w-full flex-col items-center justify-center gap-2 rounded-lg border border-dashed p-6 text-sm text-muted-foreground hover:bg-muted/50"
+            >
+              <FileSpreadsheet className="h-8 w-8" />
+              {importFile ? (
+                <span className="font-medium text-foreground">{importFile.name}</span>
+              ) : (
+                <span>Haz clic para seleccionar un archivo .xlsx</span>
+              )}
+            </button>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept=".xlsx"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) setImportFile(file);
+                e.target.value = "";
+              }}
+            />
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setImportOpen(false)}>Cancelar</Button>
+            <Button onClick={handleImport} disabled={importing || !importFile}>
+              {importing ? "Importando..." : "Importar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

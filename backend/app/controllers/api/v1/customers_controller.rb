@@ -43,12 +43,12 @@ module Api
         end
       end
 
-      # DELETE /api/v1/customers/:id
+      # DELETE /api/v1/customers/:id — archive (no physical delete, for traceability)
       def destroy
-        if @customer.destroy
-          render_success({}, "Cliente eliminado correctamente")
+        if @customer.update(active: false)
+          render_success({ customer: serialize(@customer) }, "Cliente archivado correctamente")
         else
-          render_error("No se pudo eliminar el cliente", :unprocessable_entity, @customer.errors.full_messages)
+          render_error("No se pudo archivar el cliente", :unprocessable_entity, @customer.errors.full_messages)
         end
       end
 
@@ -61,12 +61,19 @@ module Api
       end
 
       def customer_params
-        params.require(:customer).permit(:name, :phone, :city, :id_type, :id_number, :country, :address)
+        params.require(:customer).permit(:name, :phone, :city, :id_type, :id_number, :country, :address, :active)
       end
 
       def search_params
         search = {}
         search[:name_or_phone_cont] = params[:search] if params[:search].present?
+        if params[:active].present?
+          search[:active_eq] = params[:active]
+        elsif params[:archived].to_s == "true"
+          search[:active_eq] = false
+        else
+          search[:active_eq] = true
+        end
         search
       end
 
@@ -80,6 +87,7 @@ module Api
           id_number: customer.id_number,
           country: customer.country,
           address: customer.address,
+          active: customer.active,
           sales_count: customer.sales.size,
           created_at: customer.created_at,
           updated_at: customer.updated_at

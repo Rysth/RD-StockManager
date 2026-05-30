@@ -2,6 +2,8 @@ class ProductVariant < ApplicationRecord
   LOW_STOCK_THRESHOLD = 5
   MAX_IMAGES = 3
 
+  audited associated_with: :product
+
   belongs_to :product
   has_many :sale_items, dependent: :restrict_with_error
   has_many_attached :images
@@ -53,7 +55,7 @@ class ProductVariant < ApplicationRecord
   def generate_sku
     return if sku.present?
 
-    prefix = product&.brand.presence || product&.name.presence || "PRD"
+    prefix = product&.brand&.name.presence || product&.name.presence || "PRD"
     base = [prefix[0, 3], size, color].compact.join("-").upcase.gsub(/[^A-Z0-9\-]/, "")
     candidate = "#{base}-#{SecureRandom.hex(2).upcase}"
     candidate = "#{base}-#{SecureRandom.hex(2).upcase}" while ProductVariant.exists?(sku: candidate)

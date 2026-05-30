@@ -1,4 +1,6 @@
 class SaleItem < ApplicationRecord
+  audited associated_with: :sale
+
   belongs_to :sale
   belongs_to :product_variant
 

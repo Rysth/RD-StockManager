@@ -108,7 +108,12 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     set({ isSubmitting: true, error: null });
     try {
       const response = await api.post("/api/v1/sales", {
-        sale: { customer_id: data.customer_id ?? null, status: data.status ?? "completed" },
+        sale: {
+          customer_id: data.customer_id ?? null,
+          status: data.status ?? "completed",
+          payment_method: data.payment_method ?? "cash",
+          cash_on_delivery: data.cash_on_delivery ?? false,
+        },
         items: data.items,
       });
       set({ isSubmitting: false });

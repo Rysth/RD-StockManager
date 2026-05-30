@@ -1,7 +1,10 @@
 class Product < ApplicationRecord
   MAX_IMAGES = 3
 
+  audited
+
   belongs_to :category
+  belongs_to :brand, optional: true
   has_many :product_variants, dependent: :destroy
   has_many_attached :images
 
@@ -32,11 +35,11 @@ class Product < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id name brand base_price cost wholesale_price description active category_id created_at updated_at]
+    %w[id name base_price cost wholesale_price description active category_id brand_id created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)
-    %w[category product_variants]
+    %w[category brand product_variants]
   end
 
   private

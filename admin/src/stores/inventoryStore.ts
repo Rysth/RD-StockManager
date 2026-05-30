@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import api from "../utils/api";
 import type {
+  Brand,
   Category,
   Product,
   LowStockVariant,
@@ -16,7 +17,7 @@ interface ProductFilters {
 
 interface ProductInput {
   name: string;
-  brand?: string;
+  brand_id?: number | null;
   base_price: number;
   cost?: number;
   wholesale_price?: number | null;
@@ -37,6 +38,19 @@ interface CategoryInput {
   name: string;
   description?: string;
   active?: boolean;
+}
+
+interface BrandInput {
+  name: string;
+  description?: string;
+  active?: boolean;
+}
+
+export interface ImportResult {
+  rows: number;
+  products_created: number;
+  variants_created: number;
+  errors: string[];
 }
 
 type ApiError = {
@@ -73,6 +87,7 @@ function toMessage(error: unknown, fallback: string): string {
 interface InventoryState {
   products: Product[];
   categories: Category[];
+  brands: Brand[];
   lowStock: LowStockVariant[];
   stats: InventoryStats | null;
   pagination: Pagination;
@@ -89,11 +104,18 @@ interface InventoryState {
   deleteProductImage: (id: number, imageId: number) => Promise<void>;
   uploadVariantImages: (variantId: number, files: File[]) => Promise<void>;
   deleteVariantImage: (variantId: number, imageId: number) => Promise<void>;
+  importProducts: (file: File) => Promise<ImportResult>;
+  downloadImportTemplate: () => Promise<void>;
 
   fetchCategories: () => Promise<void>;
   createCategory: (data: CategoryInput) => Promise<void>;
   updateCategory: (id: number, data: CategoryInput) => Promise<void>;
   deleteCategory: (id: number) => Promise<void>;
+
+  fetchBrands: () => Promise<void>;
+  createBrand: (data: BrandInput) => Promise<void>;
+  updateBrand: (id: number, data: BrandInput) => Promise<void>;
+  deleteBrand: (id: number) => Promise<void>;
 
   fetchStats: () => Promise<void>;
 }
@@ -101,6 +123,7 @@ interface InventoryState {
 export const useInventoryStore = create<InventoryState>((set, get) => ({
   products: [],
   categories: [],
+  brands: [],
   lowStock: [],
   stats: null,
   pagination: DEFAULT_PAGINATION,
@@ -199,6 +222,39 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     }
   },
 
+  importProducts: async (file) => {
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await api.post("/api/v1/products/import", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const { pagination, currentFilters } = get();
+      await get().fetchProducts(1, pagination.per_page, currentFilters);
+      return response.data as ImportResult;
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al importar los productos"));
+    }
+  },
+
+  downloadImportTemplate: async () => {
+    try {
+      const response = await api.get("/api/v1/products/import_template", {
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "plantilla_productos.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al descargar la plantilla"));
+    }
+  },
+
   deleteProduct: async (id) => {
     set({ isLoading: true, error: null });
     try {
@@ -269,7 +325,56 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       await get().fetchCategories();
       set({ isLoading: false });
     } catch (error) {
-      const msg = toMessage(error, "Error al eliminar la categoría");
+      const msg = toMessage(error, "Error al archivar la categoría");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  fetchBrands: async () => {
+    set({ error: null });
+    try {
+      const response = await api.get("/api/v1/brands", { params: { per_page: 100 } });
+      set({ brands: response.data.brands });
+    } catch (error) {
+      set({ error: toMessage(error, "Error al obtener las marcas") });
+    }
+  },
+
+  createBrand: async (data) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.post("/api/v1/brands", { brand: data });
+      await get().fetchBrands();
+      set({ isLoading: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al crear la marca");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  updateBrand: async (id, data) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/brands/${id}`, { brand: data });
+      await get().fetchBrands();
+      set({ isLoading: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al actualizar la marca");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  deleteBrand: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.delete(`/api/v1/brands/${id}`);
+      await get().fetchBrands();
+      set({ isLoading: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al archivar la marca");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
     }

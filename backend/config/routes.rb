@@ -47,9 +47,12 @@ Rails.application.routes.draw do
 
       # Inventory & Sales (Tienda)
       resources :categories
+      resources :brands
       resources :products do
         collection do
           get :low_stock
+          get :import_template
+          post :import
         end
         member do
           post :images

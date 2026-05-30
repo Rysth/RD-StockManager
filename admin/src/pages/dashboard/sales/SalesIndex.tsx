@@ -1,13 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Minus, Trash2, ShoppingCart, Search, Eye, ImageIcon } from "lucide-react";
+import {
+  Plus,
+  Minus,
+  Trash2,
+  ShoppingCart,
+  Search,
+  Eye,
+  ImageIcon,
+  Banknote,
+  ArrowLeftRight,
+  Truck,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useCustomerStore } from "../../../stores/customerStore";
-import type { SaleStatus } from "../../../types/inventory";
+import type { SaleStatus, PaymentMethod } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -47,6 +59,11 @@ const STATUS_META: Record<SaleStatus, { label: string; className: string }> = {
   completed: { label: "Completada", className: "bg-green-100 text-green-800 hover:bg-green-100" },
   pending: { label: "Pendiente", className: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
   cancelled: { label: "Cancelada", className: "bg-red-100 text-red-800 hover:bg-red-100" },
+};
+
+const PAYMENT_LABEL: Record<string, string> = {
+  cash: "Efectivo",
+  transfer: "Transferencia",
 };
 
 function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
@@ -193,6 +210,12 @@ function SalesListTab() {
                     {STATUS_META[selectedSale.status].label}
                   </Badge>
                 </div>
+                <div><p className="text-muted-foreground">Método de pago</p>
+                  <p className="font-medium">
+                    {PAYMENT_LABEL[selectedSale.payment_method ?? "cash"] || "—"}
+                    {selectedSale.cash_on_delivery ? " · Contra entrega" : ""}
+                  </p>
+                </div>
               </div>
 
               <div className="rounded-lg border">
@@ -284,17 +307,21 @@ function suggestedPrice(item: Pick<CartItem, "base_price" | "wholesale_price" | 
 }
 
 function NewSale({ onComplete }: { onComplete: () => void }) {
-  const { products, fetchProducts } = useInventoryStore();
+  const { products, categories, fetchProducts, fetchCategories } = useInventoryStore();
   const { customers, fetchCustomers } = useCustomerStore();
   const { createSale, isSubmitting } = useSaleStore();
 
   const [customerId, setCustomerId] = useState<string>("");
   const [variantQuery, setVariantQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
+  const [cashOnDelivery, setCashOnDelivery] = useState(false);
 
   useEffect(() => {
     fetchProducts(1, 100, {});
     fetchCustomers(1, 100, "");
+    fetchCategories();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -305,6 +332,7 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
       base_price: number; wholesale_price: number | null; wholesale_min_quantity: number;
     }[] = [];
     products.forEach((p) => {
+      if (categoryFilter !== "all" && p.category_id !== categoryFilter) return;
       p.variants.forEach((v) => {
         if (v.stock <= 0) return;
         const label = `${p.name} — ${v.size || ""}/${v.color || ""}`;
@@ -318,8 +346,8 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
         });
       });
     });
-    return rows.slice(0, 10);
-  }, [products, variantQuery]);
+    return rows.slice(0, 60);
+  }, [products, variantQuery, categoryFilter]);
 
   const addToCart = (v: (typeof variantResults)[number]) => {
     setCart((prev) => {
@@ -352,15 +380,11 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
   const setQuantity = (id: number, qty: number) =>
     setCart((prev) => prev.map((i) => (i.product_variant_id === id ? withQuantity(i, qty) : i)));
 
-  const setPrice = (id: number, price: number) =>
-    setCart((prev) => prev.map((i) => (i.product_variant_id === id ? { ...i, unit_price: price, price_edited: true } : i)));
-
-  const resetPrice = (id: number) =>
-    setCart((prev) => prev.map((i) => (i.product_variant_id === id ? withQuantity({ ...i, price_edited: false }, i.quantity) : i)));
-
   const removeItem = (id: number) => setCart((prev) => prev.filter((i) => i.product_variant_id !== id));
 
   const total = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+
+  const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
 
   const complete = async () => {
     if (cart.length === 0) return toast.error("Agrega al menos un producto");
@@ -368,6 +392,8 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
       await createSale({
         customer_id: customerId ? Number(customerId) : null,
         status: "completed",
+        payment_method: paymentMethod,
+        cash_on_delivery: cashOnDelivery,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
           quantity: i.quantity,
@@ -376,6 +402,7 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
       });
       toast.success("Venta completada correctamente");
       setCart([]); setCustomerId(""); setVariantQuery("");
+      setPaymentMethod("cash"); setCashOnDelivery(false);
       onComplete();
     } catch (e) {
       toast.error(errorMessage(e, "Error al completar la venta"));
@@ -383,131 +410,209 @@ function NewSale({ onComplete }: { onComplete: () => void }) {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-5">
-      {/* Buscador de productos */}
-      <div className="space-y-4 lg:col-span-3">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Cliente (opcional)</label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)}
-            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">Consumidor final</option>
-            {customers.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}{c.city ? ` (${c.city})` : ""}</option>
-            ))}
-          </select>
+    <div className="grid gap-6 lg:grid-cols-12">
+      {/* ── Catálogo de productos (grilla tipo POS) ── */}
+      <div className="space-y-4 lg:col-span-7 xl:col-span-8">
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+          <Input
+            className="pl-9"
+            placeholder="Buscar por nombre, marca o SKU..."
+            value={variantQuery}
+            onChange={(e) => setVariantQuery(e.target.value)}
+          />
         </div>
 
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Buscar producto</label>
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8" placeholder="Nombre, marca o SKU..." value={variantQuery}
-              onChange={(e) => setVariantQuery(e.target.value)} />
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {variantResults.length ? (
-              variantResults.map((v) => (
-                <button key={v.id} type="button" onClick={() => addToCart(v)}
-                  className="flex items-center gap-3 rounded-lg border p-2 text-left text-sm hover:bg-muted/50">
-                  <Thumb url={v.thumb} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{v.label}</p>
-                    <p className="text-xs text-muted-foreground">{v.sku}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium">{money(v.base_price)}</p>
-                    <Badge variant="secondary" className="bg-green-100 text-green-800">{v.stock}</Badge>
-                  </div>
-                </button>
-              ))
-            ) : (
-              <p className="col-span-full px-3 py-6 text-center text-sm text-muted-foreground">
-                Sin resultados con stock disponible.
-              </p>
-            )}
-          </div>
+        {/* Filtro por categoría (chips) */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setCategoryFilter("all")}
+            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+              categoryFilter === "all"
+                ? "border-primary bg-primary text-primary-foreground"
+                : "hover:bg-muted"
+            }`}
+          >
+            Todas
+          </button>
+          {categories.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setCategoryFilter(c.id)}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
+                categoryFilter === c.id
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "hover:bg-muted"
+              }`}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Grilla de variantes con stock */}
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          {variantResults.length ? (
+            variantResults.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => addToCart(v)}
+                className="group flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
+              >
+                <div className="relative aspect-square w-full bg-muted">
+                  {v.thumb ? (
+                    <img src={v.thumb} alt="" className="h-full w-full object-cover" />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                      <ImageIcon className="h-8 w-8" />
+                    </div>
+                  )}
+                  <Badge
+                    variant="secondary"
+                    className="absolute right-1.5 top-1.5 bg-green-100 text-green-800"
+                  >
+                    {v.stock}
+                  </Badge>
+                </div>
+                <div className="flex flex-1 flex-col gap-1 p-2.5">
+                  <p className="line-clamp-2 text-sm font-medium leading-tight">{v.label}</p>
+                  <p className="truncate text-[11px] text-muted-foreground">{v.sku}</p>
+                  <p className="mt-auto pt-1 font-semibold text-primary">{money(v.base_price)}</p>
+                </div>
+              </button>
+            ))
+          ) : (
+            <p className="col-span-full px-3 py-12 text-center text-sm text-muted-foreground">
+              Sin resultados con stock disponible.
+            </p>
+          )}
         </div>
       </div>
 
-      {/* Carrito */}
-      <Card className="rounded-xl lg:col-span-2">
-        <CardContent className="space-y-4 p-4">
-          <div className="flex items-center gap-2 font-medium">
-            <ShoppingCart className="h-4 w-4" /> Carrito ({cart.length})
-          </div>
-          {cart.length ? (
-            <div className="space-y-3">
-              {cart.map((i) => {
-                const wholesaleApplies =
-                  !!i.wholesale_price && i.wholesale_price > 0 && i.quantity >= i.wholesale_min_quantity;
-                return (
-                  <div key={i.product_variant_id} className="space-y-2 rounded-lg border p-2">
-                    <div className="flex items-start gap-2">
-                      <Thumb url={i.thumb} size="h-8 w-8" />
+      {/* ── Panel de checkout (sticky) ── */}
+      <div className="lg:col-span-5 xl:col-span-4">
+        <Card className="sticky top-4 rounded-xl">
+          <CardContent className="flex max-h-[calc(100vh-7rem)] flex-col gap-4 p-4">
+            <div className="flex items-center gap-2 font-semibold">
+              <ShoppingCart className="h-5 w-5" /> Carrito
+              <Badge variant="secondary" className="ml-auto">{itemCount}</Badge>
+            </div>
+
+            {/* Cliente */}
+            <select
+              value={customerId}
+              onChange={(e) => setCustomerId(e.target.value)}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Consumidor final</option>
+              {customers.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}{c.city ? ` (${c.city})` : ""}
+                </option>
+              ))}
+            </select>
+
+            {/* Líneas del carrito */}
+            <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
+              {cart.length ? (
+                cart.map((i) => {
+                  const wholesaleApplies =
+                    !!i.wholesale_price && i.wholesale_price > 0 && i.quantity >= i.wholesale_min_quantity;
+                  return (
+                    <div key={i.product_variant_id} className="flex items-center gap-2 rounded-lg border p-2">
+                      <Thumb url={i.thumb} size="h-10 w-10" />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm font-medium">{i.label}</p>
-                        <p className="text-xs text-muted-foreground">stock {i.max}</p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs text-muted-foreground">{money(i.unit_price)} c/u</span>
+                          {wholesaleApplies && (
+                            <Badge variant="secondary" className="bg-blue-100 px-1 py-0 text-[10px] text-blue-800">
+                              Mayoreo
+                            </Badge>
+                          )}
+                        </div>
                       </div>
+                      <div className="flex items-center rounded-md border">
+                        <button type="button" className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => setQuantity(i.product_variant_id, i.quantity - 1)}>
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-7 text-center text-sm">{i.quantity}</span>
+                        <button type="button" className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
+                          onClick={() => setQuantity(i.product_variant_id, i.quantity + 1)}>
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                      <span className="w-16 text-right text-sm font-medium">
+                        {money(i.unit_price * i.quantity)}
+                      </span>
                       <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
                         onClick={() => removeItem(i.product_variant_id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {/* stepper */}
-                      <div className="flex items-center rounded-md border">
-                        <button type="button" className="px-2 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => setQuantity(i.product_variant_id, i.quantity - 1)}>
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <input type="number" min={1} max={i.max} value={i.quantity}
-                          onChange={(e) => setQuantity(i.product_variant_id, Number(e.target.value))}
-                          className="w-12 border-x bg-transparent py-1 text-center text-sm outline-none" />
-                        <button type="button" className="px-2 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => setQuantity(i.product_variant_id, i.quantity + 1)}>
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                      {/* precio editable */}
-                      <div className="relative flex items-center">
-                        <span className="absolute left-2 text-xs text-muted-foreground">$</span>
-                        <Input type="number" step="0.01" value={i.unit_price}
-                          onChange={(e) => setPrice(i.product_variant_id, Number(e.target.value))}
-                          className="h-8 w-24 pl-5 text-sm" />
-                      </div>
-                      <span className="ml-auto text-sm font-medium">{money(i.unit_price * i.quantity)}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {wholesaleApplies && (
-                        <Badge variant="secondary" className="bg-blue-100 text-blue-800">Mayoreo</Badge>
-                      )}
-                      {i.price_edited && (
-                        <button type="button" onClick={() => resetPrice(i.product_variant_id)}
-                          className="text-xs text-muted-foreground underline">
-                          Restaurar precio sugerido
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              ) : (
+                <p className="py-10 text-center text-sm text-muted-foreground">
+                  Toca un producto para agregarlo a la venta.
+                </p>
+              )}
             </div>
-          ) : (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              Busca y agrega productos para iniciar la venta.
-            </p>
-          )}
 
-          <div className="flex items-center justify-between border-t pt-3 text-lg font-bold">
-            <span>Total</span>
-            <span>{money(total)}</span>
-          </div>
+            {/* Método de pago */}
+            <div className="space-y-2 border-t pt-3">
+              <p className="text-xs font-medium text-muted-foreground">Método de pago</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cash")}
+                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                    paymentMethod === "cash"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <Banknote className="h-4 w-4" /> Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("transfer")}
+                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                    paymentMethod === "transfer"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <ArrowLeftRight className="h-4 w-4" /> Transferencia
+                </button>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
+                <Checkbox
+                  checked={cashOnDelivery}
+                  onCheckedChange={(c) => setCashOnDelivery(c === true)}
+                />
+                <Truck className="h-4 w-4 text-muted-foreground" />
+                Pago contra entrega
+              </label>
+            </div>
 
-          <Button className="w-full" disabled={isSubmitting || cart.length === 0} onClick={complete}>
-            {isSubmitting ? "Procesando..." : "Completar Venta"}
-          </Button>
-        </CardContent>
-      </Card>
+            {/* Total + acción */}
+            <div className="space-y-3 border-t pt-3">
+              <div className="flex items-center justify-between text-lg font-bold">
+                <span>Total</span>
+                <span>{money(total)}</span>
+              </div>
+              <Button className="h-11 w-full text-base" disabled={isSubmitting || cart.length === 0} onClick={complete}>
+                {isSubmitting ? "Procesando..." : "Completar Venta"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

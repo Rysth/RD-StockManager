@@ -11,7 +11,7 @@ import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
 import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
 import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
 import SalesIndex from "../pages/dashboard/sales/SalesIndex";
-import ReportsIndex from "../pages/dashboard/reports/ReportsIndex";
+import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
 import AuthConfirm from "../pages/auth/AuthConfirm";
@@ -118,13 +118,14 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "reports",
+        path: "brands",
         element: (
-          <ProtectedRoute requiredPermission={Permissions.VIEW_REPORTS}>
-            <ReportsIndex />
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_PRODUCTS}>
+            <BrandsIndex />
           </ProtectedRoute>
         ),
       },
+      // /dashboard/reports ahora es el home (ver Dashboard.tsx)
       // Add more dashboard routes here
     ],
   },

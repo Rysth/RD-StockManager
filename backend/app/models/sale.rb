@@ -1,5 +1,8 @@
 class Sale < ApplicationRecord
+  audited
+
   enum :status, { pending: 0, completed: 1, cancelled: 2 }
+  enum :payment_method, { cash: 0, transfer: 1 }, prefix: :payment
 
   belongs_to :user
   belongs_to :customer, optional: true
@@ -44,7 +47,7 @@ class Sale < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id status total sold_at customer_id user_id created_at updated_at]
+    %w[id status total sold_at customer_id user_id payment_method cash_on_delivery created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

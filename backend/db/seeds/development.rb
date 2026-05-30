@@ -11,22 +11,26 @@ puts "🌱 Seeding development database..."
 
 # Clear existing data
 puts "Clearing existing data..."
+Audited::Audit.delete_all if defined?(Audited::Audit)
 SaleItem.delete_all
 Sale.delete_all
 Customer.delete_all
 ProductVariant.delete_all
 Product.delete_all
+Brand.delete_all
 Category.delete_all
 User.destroy_all
 Account.destroy_all
 Role.destroy_all
 
-# Create default roles
+# Create the three business roles
+#   admin             → vendedor del software (yo), acceso total
+#   business_owner    → dueño del negocio, todo excepto usuarios
+#   business_employee → empleado limitado: ventas, clientes, ver inventario
 puts "Creating roles..."
-admin_role = Role.create!(name: 'admin')
-manager_role = Role.create!(name: 'manager') 
-operator_role = Role.create!(name: 'operator')
-user_role = Role.create!(name: 'user')
+admin_role            = Role.create!(name: 'admin')
+business_owner_role   = Role.create!(name: 'business_owner')
+business_employee_role = Role.create!(name: 'business_employee')
 
 # Create permissions and assign to roles
 puts "Creating permissions..."
@@ -36,83 +40,42 @@ Permission.seed!
 require 'bcrypt'
 password_hash = BCrypt::Password.create("password123", cost: 12)
 
-# Create 1 verified admin account with user
-puts "Creating admin account..."
-admin_account = Account.create!(
-  email: "admin@example.com",
-  password_hash: password_hash,
-  status: 2 # verified status
-)
-
-admin_user = User.create!(
-  account: admin_account,
-  fullname: "System Administrator",
-  username: "admin"
-)
-admin_user.add_role(:admin)
-
-# Create 1 verified manager
-puts "Creating manager account..."
-manager_account = Account.create!(
-  email: "manager@example.com", 
-  password_hash: password_hash,
-  status: 2
-)
-
-manager_user = User.create!(
-  account: manager_account,
-  fullname: "System Manager",
-  username: "manager"
-)
-manager_user.add_role(:manager)
-
-# Create 1 verified operator
-puts "Creating operator account..."
-operator_account = Account.create!(
-  email: "operator@example.com",
-  password_hash: password_hash, 
-  status: 2
-)
-
-operator_user = User.create!(
-  account: operator_account,
-  fullname: "System Operator", 
-  username: "operator"
-)
-operator_user.add_role(:operator)
-
-# Create 20 unverified regular users
-puts "Creating 20 regular users..."
-20.times do |i|
-  account = Account.create!(
-    email: "user#{i + 1}@example.com",
-    password_hash: password_hash,
-    status: 1 # unverified status
-  )
-  
-  user = User.create!(
-    account: account,
-    fullname: "User #{i + 1}",
-    username: "user#{i + 1}"
-  )
-  user.add_role(:user)
+def create_user(email:, fullname:, username:, role:, password_hash:)
+  account = Account.create!(email: email, password_hash: password_hash, status: 2) # verified
+  user = User.create!(account: account, fullname: fullname, username: username)
+  user.add_role(role)
+  user
 end
 
+puts "Creating accounts..."
+admin_user = create_user(
+  email: "admin@example.com", fullname: "Administrador (Software)", username: "admin",
+  role: :admin, password_hash: password_hash
+)
+owner_user = create_user(
+  email: "owner@example.com", fullname: "Dueña de la Tienda", username: "owner",
+  role: :business_owner, password_hash: password_hash
+)
+employee1 = create_user(
+  email: "empleado1@example.com", fullname: "Empleada Mostrador", username: "empleado1",
+  role: :business_employee, password_hash: password_hash
+)
+employee2 = create_user(
+  email: "empleado2@example.com", fullname: "Empleado Bodega", username: "empleado2",
+  role: :business_employee, password_hash: password_hash
+)
+
 puts ""
 puts "=" * 60
-puts "✅ Development database seeded successfully!"
+puts "✅ Roles & accounts seeded!"
 puts "=" * 60
-puts ""
-puts "📋 Created roles: #{Role.pluck(:name).join(', ')}"
-puts "🔐 Created permissions: #{Permission.count} (#{Permission.pluck(:key).join(', ')})"
-puts ""
-puts "👥 Created 23 accounts with associated users:"
-puts "   • 1 verified admin: admin@example.com (admin role)"
-puts "   • 1 verified manager: manager@example.com (manager role)"  
-puts "   • 1 verified operator: operator@example.com (operator role)"
-puts "   • 20 unverified users: user1@example.com through user20@example.com (user role)"
-puts ""
-puts "🔑 All accounts have password: password123"
+puts "📋 Roles: #{Role.pluck(:name).join(', ')}"
+puts "🔐 Permissions: #{Permission.count}"
+puts "👥 Accounts (password: password123):"
+puts "   • admin@example.com        → admin (acceso total, incl. usuarios)"
+puts "   • owner@example.com        → business_owner (todo excepto usuarios)"
+puts "   • empleado1@example.com    → business_employee (ventas, clientes, ver inventario)"
+puts "   • empleado2@example.com    → business_employee"
 puts "=" * 60
 
 # ──────────────────────────────────────────────────────────────
@@ -132,6 +95,10 @@ category_names = {
 categories = category_names.map do |name, description|
   Category.create!(name: name, description: description, active: true)
 end
+
+# Marcas (ahora entidad administrable)
+brand_names = %w[Nike Adidas Puma Converse Vans Reebok Crocs Skechers]
+brands = brand_names.index_with { |name| Brand.create!(name: name, active: true) }
 
 # 10 productos
 product_defs = [
@@ -153,7 +120,7 @@ products = product_defs.map do |attrs|
   base = attrs[:base_price]
   Product.create!(
     name: attrs[:name],
-    brand: attrs[:brand],
+    brand: brands[attrs[:brand]],
     base_price: base,
     cost: (base * 0.6).round(2),                # costo ≈ 60% del precio
     wholesale_price: (base * 0.85).round(2),    # mayoreo ≈ 85% del precio
@@ -191,13 +158,15 @@ customers = 20.times.map do |i|
   Customer.create!(
     name: "#{first_names[i]} #{last_names[i]}",
     phone: "09#{rand(10000000..99999999)}",
-    city: cities.sample
+    city: cities.sample,
+    active: true
   )
 end
 
-# 30 ventas distribuidas en los últimos 60 días (mix de estados)
-sellers = [admin_user, manager_user, operator_user]
+# 30 ventas distribuidas en los últimos 60 días (mix de estados + método de pago)
+sellers = [owner_user, employee1, employee2]
 statuses = ([:completed] * 22) + ([:pending] * 5) + ([:cancelled] * 3)
+payment_methods = %i[cash transfer]
 created_sales = 0
 
 statuses.shuffle.each do |target_status|
@@ -210,6 +179,8 @@ statuses.shuffle.each do |target_status|
     customer: (rand < 0.85 ? customers.sample : nil),
     user: sellers.sample,
     status: :pending,
+    payment_method: payment_methods.sample,
+    cash_on_delivery: (rand < 0.25),
     sold_at: sold_at
   )
   available.each do |variant|
@@ -238,6 +209,7 @@ puts "=" * 60
 puts "✅ Inventory & sales demo seeded!"
 puts "=" * 60
 puts "   • Categorías:  #{Category.count}"
+puts "   • Marcas:      #{Brand.count}"
 puts "   • Productos:   #{Product.count}"
 puts "   • Variantes:   #{ProductVariant.count}"
 puts "   • Clientes:    #{Customer.count}"

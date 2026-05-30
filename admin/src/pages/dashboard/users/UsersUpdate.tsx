@@ -41,11 +41,15 @@ interface UsersUpdateProps {
 // ── Constants ────────────────────────────────────────────────
 
 const ALL_ROLES = [
-  { value: "user", label: "Usuario", description: "Acceso básico al sistema" },
   {
-    value: "manager",
-    label: "Gerente",
-    description: "Puede gestionar usuarios y configuración",
+    value: "business_employee",
+    label: "Empleado",
+    description: "Ventas, clientes y ver inventario",
+  },
+  {
+    value: "business_owner",
+    label: "Dueño del negocio",
+    description: "Acceso total excepto gestión de usuarios",
   },
   {
     value: "admin",
@@ -60,10 +64,12 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
   const { isLoading: storeLoading, updateUser } = useUserStore();
   const { user: currentUser, hasRole } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(["user"]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([
+    "business_employee",
+  ]);
 
   const isAdmin = hasRole("admin");
-  const isManager = hasRole("manager");
+  const isManager = hasRole("business_owner");
 
   const {
     register,
@@ -80,23 +86,18 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
       identification: user.identification || "",
       phone_number: user.phone_number || "",
     });
-    const userRoles = user.roles.length > 0 ? user.roles : ["user"];
-    setSelectedRoles(
-      userRoles.includes("user") ? userRoles : [...userRoles, "user"],
-    );
+    const userRoles =
+      user.roles.length > 0 ? user.roles : ["business_employee"];
+    setSelectedRoles(userRoles);
   }, [user, reset]);
 
   const handleRoleToggle = (role: string, checked: boolean) => {
-    if (role === "user" && !checked) {
-      toast.error("El rol de usuario es obligatorio y no puede ser removido");
-      return;
-    }
-    if ((role === "admin" || role === "manager") && checked && !isAdmin) {
+    if ((role === "admin" || role === "business_owner") && checked && !isAdmin) {
       toast.error("Solo los administradores pueden asignar este rol");
       return;
     }
-    if (role === "manager" && !checked && isManager && !isAdmin) {
-      toast.error("Solo los administradores pueden quitar el rol de gerente");
+    if (role === "business_owner" && !checked && isManager && !isAdmin) {
+      toast.error("Solo los administradores pueden quitar el rol de dueño");
       return;
     }
     if (user.id === currentUser?.id && isManager && !isAdmin) {
@@ -109,8 +110,7 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
   };
 
   const isRoleDisabled = (role: string) => {
-    if (role === "user") return true;
-    if ((role === "admin" || role === "manager") && !isAdmin) return true;
+    if ((role === "admin" || role === "business_owner") && !isAdmin) return true;
     return false;
   };
 
@@ -268,12 +268,8 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
                     }`}
                   >
                     {role.label}
-                    {role.value === "user" && (
-                      <span className="ml-2 text-xs text-muted-foreground">
-                        (Obligatorio)
-                      </span>
-                    )}
-                    {(role.value === "admin" || role.value === "manager") &&
+                    {(role.value === "admin" ||
+                      role.value === "business_owner") &&
                       !isAdmin && (
                         <span className="ml-2 text-xs text-muted-foreground">
                           (Solo Administradores)

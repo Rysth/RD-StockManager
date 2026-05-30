@@ -83,3 +83,6 @@ gem "aws-sdk-s3", "~> 1.0", require: false
 
 gem "caxlsx"
 gem "caxlsx_rails"
+gem "roo" # read .xlsx for bulk product import
+
+gem "audited", "~> 5.4" # audit trail (who changed what)

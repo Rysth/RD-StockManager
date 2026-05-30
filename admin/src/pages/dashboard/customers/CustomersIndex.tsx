@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Archive } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCustomerStore } from "../../../stores/customerStore";
 import type { Customer } from "../../../types/inventory";
@@ -137,10 +137,10 @@ export default function CustomersIndex() {
     if (!toDelete) return;
     try {
       await deleteCustomer(toDelete.id);
-      toast.success("Cliente eliminado correctamente");
+      toast.success("Cliente archivado correctamente");
       setToDelete(null);
     } catch (e) {
-      toast.error(errorMessage(e, "Error al eliminar el cliente"));
+      toast.error(errorMessage(e, "Error al archivar el cliente"));
     }
   };
 
@@ -223,8 +223,9 @@ export default function CustomersIndex() {
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         onClick={() => setToDelete(c)}
+                        title="Archivar"
                       >
-                        <Trash2 className="h-4 w-4" />
+                        <Archive className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -364,22 +365,20 @@ export default function CustomersIndex() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirmation */}
+      {/* Archive confirmation */}
       <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-destructive">Eliminar cliente</AlertDialogTitle>
+            <AlertDialogTitle>Archivar cliente</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas eliminar a {toDelete?.name}? Esta acción no se puede deshacer.
+              ¿Seguro que deseas archivar a {toDelete?.name}? No se eliminará: quedará inactivo
+              para conservar el historial de sus ventas.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Eliminar
+            <AlertDialogAction onClick={handleDelete}>
+              Archivar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -11,7 +11,7 @@ import {
   Package2,
   ShoppingCart,
   Users2,
-  BarChart3,
+  Tags,
 } from "lucide-react";
 import {
   Sidebar,
@@ -50,6 +50,7 @@ import logo from "../../assets/logo.svg";
 
 interface StorePermissions {
   canViewInventory: boolean;
+  canManageProducts: boolean;
   canManageCustomers: boolean;
   canManageSales: boolean;
   canViewReports: boolean;
@@ -83,10 +84,19 @@ export default function AppSidebar({
   storePermissions,
   setLogoutModalOpen,
 }: AppSidebarProps) {
-  const { canViewInventory, canManageCustomers, canManageSales, canViewReports } =
-    storePermissions;
+  const {
+    canViewInventory,
+    canManageProducts,
+    canManageCustomers,
+    canManageSales,
+    canViewReports,
+  } = storePermissions;
   const showStoreGroup =
-    canViewInventory || canManageCustomers || canManageSales || canViewReports;
+    canViewInventory ||
+    canManageProducts ||
+    canManageCustomers ||
+    canManageSales ||
+    canViewReports;
   // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
   const { isMobile, state } = useSidebar();
@@ -324,17 +334,17 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewReports && (
+                {canManageProducts && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      tooltip="Reportes"
-                      isActive={isActiveRoute("/dashboard/reports")}
+                      tooltip="Marcas y categorías"
+                      isActive={isActiveRoute("/dashboard/brands")}
                       className={activeMenuClasses}
                     >
-                      <NavLink to="/dashboard/reports">
-                        <BarChart3 />
-                        <span>Reportes</span>
+                      <NavLink to="/dashboard/brands">
+                        <Tags />
+                        <span>Marcas y Categorías</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

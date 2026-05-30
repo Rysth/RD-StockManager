@@ -116,7 +116,7 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
           : pagination.current_page;
       await get().fetchCustomers(page, pagination.per_page, currentSearch);
     } catch (error) {
-      const msg = toMessage(error, "Error al eliminar el cliente");
+      const msg = toMessage(error, "Error al archivar el cliente");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
     }

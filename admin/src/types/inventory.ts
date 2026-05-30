@@ -11,6 +11,16 @@ export interface Category {
   updated_at: string;
 }
 
+export interface Brand {
+  id: number;
+  name: string;
+  description?: string | null;
+  active: boolean;
+  products_count?: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProductImage {
   id: number;
   url: string;
@@ -30,6 +40,7 @@ export interface ProductVariant {
 export interface Product {
   id: number;
   name: string;
+  brand_id?: number | null;
   brand?: string | null;
   base_price: number;
   cost: number;
@@ -69,12 +80,14 @@ export interface Customer {
   id_number?: string | null;
   country?: string | null;
   address?: string | null;
+  active?: boolean;
   sales_count?: number;
   created_at: string;
   updated_at: string;
 }
 
 export type SaleStatus = "pending" | "completed" | "cancelled";
+export type PaymentMethod = "cash" | "transfer";
 
 export interface SaleItem {
   id: number;
@@ -98,6 +111,8 @@ export interface Sale {
   customer_id: number | null;
   customer_name?: string | null;
   seller?: string | null;
+  payment_method?: PaymentMethod;
+  cash_on_delivery?: boolean;
   items_count: number;
   items?: SaleItem[];
   profit?: number;
@@ -114,6 +129,8 @@ export interface SaleItemInput {
 export interface CreateSaleData {
   customer_id?: number | null;
   status?: SaleStatus;
+  payment_method?: PaymentMethod;
+  cash_on_delivery?: boolean;
   items: SaleItemInput[];
 }
 

@@ -47,6 +47,7 @@ export default function DashboardLayout() {
   const canManageUsers = hasPermission(Permissions.VIEW_USERS);
   const storePermissions = {
     canViewInventory: hasPermission(Permissions.VIEW_INVENTORY),
+    canManageProducts: hasPermission(Permissions.MANAGE_PRODUCTS),
     canManageCustomers: hasPermission(Permissions.MANAGE_CUSTOMERS),
     canManageSales: hasPermission(Permissions.MANAGE_SALES),
     canViewReports: hasPermission(Permissions.VIEW_REPORTS),
@@ -61,21 +62,21 @@ export default function DashboardLayout() {
   const getBreadcrumbs = () => {
     const path = location.pathname;
     if (path === "/dashboard") {
-      return { section: "Dashboard", page: "Panel de Control" };
+      return { section: "Dashboard", page: "Reportes" };
     } else if (path === "/dashboard/users") {
       return { section: "Dashboard", page: "Usuarios" };
     } else if (path === "/dashboard/settings") {
       return { section: "Dashboard", page: "Configuración" };
     } else if (path === "/dashboard/products") {
       return { section: "Tienda", page: "Inventario" };
+    } else if (path === "/dashboard/brands") {
+      return { section: "Tienda", page: "Marcas y Categorías" };
     } else if (path === "/dashboard/customers") {
       return { section: "Tienda", page: "Clientes" };
     } else if (path === "/dashboard/sales") {
       return { section: "Tienda", page: "Ventas" };
-    } else if (path === "/dashboard/reports") {
-      return { section: "Tienda", page: "Reportes" };
     }
-    return { section: "Dashboard", page: "Panel de Control" };
+    return { section: "Dashboard", page: "Reportes" };
   };
 
   const breadcrumbs = getBreadcrumbs();

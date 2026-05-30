@@ -1,10 +1,10 @@
-class Category < ApplicationRecord
+class Brand < ApplicationRecord
   audited
 
   has_many :products, dependent: :restrict_with_error
 
   validates :name, presence: { message: "El nombre es requerido" }
-  validates :name, uniqueness: { message: "Esta categoría ya existe" }
+  validates :name, uniqueness: { message: "Esta marca ya existe" }
 
   scope :active, -> { where(active: true) }
 

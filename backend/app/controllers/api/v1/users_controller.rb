@@ -171,7 +171,7 @@ module Api
         end
         
         # Prevent managers from deleting other managers
-        if @user.has_role?(:manager) && !current_rodauth_user.has_role?(:admin)
+        if @user.has_role?(:business_owner) && !current_rodauth_user.has_role?(:admin)
           return render json: { status: :error, message: 'Solo los administradores pueden eliminar usuarios gerentes' }, status: :forbidden
         end
               
@@ -297,7 +297,7 @@ module Api
 
       def authorize_show
         # Users can only show their own profile unless they're admin/manager
-        unless current_rodauth_user&.has_role?(:admin) || current_rodauth_user&.has_role?(:manager) || @user.id == current_rodauth_user&.id
+        unless current_rodauth_user&.has_role?(:admin) || current_rodauth_user&.has_role?(:business_owner) || @user.id == current_rodauth_user&.id
           render json: { status: :error, message: 'No tienes permiso para ver este usuario' }, status: :forbidden
         end
       end
@@ -362,7 +362,7 @@ module Api
         # Make sure current roles are preserved if user is updating themselves
         if @user.id == current_rodauth_user&.id
           # Manager users cannot modify their own roles
-          if current_rodauth_user.has_role?(:manager) && !current_rodauth_user.has_role?(:admin)
+          if current_rodauth_user.has_role?(:business_owner) && !current_rodauth_user.has_role?(:admin)
             return render json: { 
               status: :error, 
               message: 'Los gerentes no pueden modificar sus propios roles' 
@@ -375,13 +375,13 @@ module Api
         
         # Check if non-admin is trying to remove manager role from a manager
         if !current_rodauth_user&.has_role?(:admin) && 
-           current_rodauth_user&.has_role?(:manager) &&
-           existing_roles.include?('manager')
+           current_rodauth_user&.has_role?(:business_owner) &&
+           existing_roles.include?('business_owner')
            
           requested_roles = params[:roles].split(',').map(&:strip)
           
           # If request doesn't include 'manager' but user was a manager before
-          if !requested_roles.include?('manager')
+          if !requested_roles.include?('business_owner')
             return render json: { 
               status: :error, 
               message: 'Solo los administradores pueden quitar el rol de gerente' 

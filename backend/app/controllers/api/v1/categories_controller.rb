@@ -44,12 +44,12 @@ module Api
         end
       end
 
-      # DELETE /api/v1/categories/:id
+      # DELETE /api/v1/categories/:id — archive (no physical delete, for traceability)
       def destroy
-        if @category.destroy
-          render_success({}, "Categoría eliminada correctamente")
+        if @category.update(active: false)
+          render_success({ category: serialize(@category) }, "Categoría archivada correctamente")
         else
-          render_error("No se pudo eliminar la categoría", :unprocessable_entity, @category.errors.full_messages)
+          render_error("No se pudo archivar la categoría", :unprocessable_entity, @category.errors.full_messages)
         end
       end
 
@@ -68,7 +68,13 @@ module Api
       def search_params
         search = {}
         search[:name_cont] = params[:search] if params[:search].present?
-        search[:active_eq] = params[:active] if params[:active].present?
+        if params[:active].present?
+          search[:active_eq] = params[:active]
+        elsif params[:archived].to_s == "true"
+          search[:active_eq] = false
+        else
+          search[:active_eq] = true
+        end
         search
       end
 

@@ -35,11 +35,15 @@ interface UsersCreateProps {
 // ── Constants ────────────────────────────────────────────────
 
 const ALL_ROLES = [
-  { value: "user", label: "Usuario", description: "Acceso básico al sistema" },
   {
-    value: "manager",
-    label: "Gerente",
-    description: "Puede gestionar usuarios y configuración",
+    value: "business_employee",
+    label: "Empleado",
+    description: "Ventas, clientes y ver inventario",
+  },
+  {
+    value: "business_owner",
+    label: "Dueño del negocio",
+    description: "Acceso total excepto gestión de usuarios",
   },
   {
     value: "admin",
@@ -54,7 +58,7 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
   const { isLoading: storeLoading, createUser } = useUserStore();
   const { hasRole } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(["user"]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(["business_employee"]);
 
   const isAdmin = hasRole("admin");
 
@@ -70,16 +74,12 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
   useEffect(() => {
     if (!isOpen) {
       reset();
-      setSelectedRoles(["user"]);
+      setSelectedRoles(["business_employee"]);
     }
   }, [isOpen, reset]);
 
   const handleRoleToggle = (role: string, checked: boolean) => {
-    if (role === "user" && !checked) {
-      toast.error("El rol de usuario es obligatorio y no puede ser removido");
-      return;
-    }
-    if ((role === "admin" || role === "manager") && checked && !isAdmin) {
+    if ((role === "admin" || role === "business_owner") && checked && !isAdmin) {
       toast.error("Solo los administradores pueden asignar este rol");
       return;
     }
@@ -224,15 +224,14 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
           <div className="space-y-3">
             <Label>Roles del Usuario</Label>
             <p className="text-sm text-muted-foreground">
-              Selecciona uno o más roles. El rol de "Usuario" es obligatorio.
+              Selecciona uno o más roles para el usuario.
             </p>
             <div className="space-y-3 rounded-lg border p-4">
               {ALL_ROLES.map((role) => {
                 const isChecked = selectedRoles.includes(role.value);
                 const isDisabled =
-                  role.value === "user" ||
-                  ((role.value === "admin" || role.value === "manager") &&
-                    !isAdmin);
+                  (role.value === "admin" || role.value === "business_owner") &&
+                  !isAdmin;
                 return (
                   <div key={role.value} className="flex items-start space-x-3">
                     <Checkbox
@@ -253,13 +252,8 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
                         }`}
                       >
                         {role.label}
-                        {role.value === "user" && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            (Obligatorio)
-                          </span>
-                        )}
                         {(role.value === "admin" ||
-                          role.value === "manager") &&
+                          role.value === "business_owner") &&
                           !isAdmin && (
                             <span className="ml-2 text-xs text-muted-foreground">
                               (Solo Administradores)

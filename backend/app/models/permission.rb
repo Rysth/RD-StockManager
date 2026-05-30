@@ -39,23 +39,22 @@ class Permission < ApplicationRecord
     VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS
   ].freeze
 
-  # Default permission mapping per role
+  # Default permission mapping per role.
+  #   admin            → vendedor del software, acceso total (incluye usuarios)
+  #   business_owner   → dueño del negocio, todo EXCEPTO gestión de usuarios
+  #   business_employee→ empleado limitado: ventas, clientes y ver inventario
   ROLE_DEFAULTS = {
     "admin" => ALL_KEYS,
-    "manager" => [
+    "business_owner" => [
       VIEW_DASHBOARD,
-      VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
       VIEW_BUSINESS, EDIT_BUSINESS,
       EDIT_PROFILE,
       VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS
     ],
-    "operator" => [
+    "business_employee" => [
       VIEW_DASHBOARD,
       EDIT_PROFILE,
       VIEW_INVENTORY, MANAGE_CUSTOMERS, MANAGE_SALES
-    ],
-    "user" => [
-      EDIT_PROFILE
     ]
   }.freeze
 

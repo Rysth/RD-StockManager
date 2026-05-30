@@ -2,14 +2,14 @@ module Api
   module V1
     class ProductsController < BaseController
       before_action :authenticate_rodauth_user!
-      before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock]
-      before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy, :images, :remove_image]
+      before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock, :import_template]
+      before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy, :images, :remove_image, :import]
       before_action :set_product, only: [:show, :update, :destroy, :images, :remove_image]
-      after_action :clear_inventory_cache, only: [:create, :update, :destroy, :images, :remove_image]
+      after_action :clear_inventory_cache, only: [:create, :update, :destroy, :images, :remove_image, :import]
 
       # GET /api/v1/products
       def index
-        @q = Product.includes(:category, product_variants: { images_attachments: :blob }, images_attachments: :blob).ransack(search_params)
+        @q = Product.includes(:category, :brand, product_variants: { images_attachments: :blob }, images_attachments: :blob).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, products = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -41,7 +41,7 @@ module Api
               stock: v.stock,
               product_id: v.product_id,
               product_name: v.product.name,
-              brand: v.product.brand,
+              brand: v.product.brand&.name,
               category: v.product.category&.name
             }
           end
@@ -68,13 +68,32 @@ module Api
         end
       end
 
-      # DELETE /api/v1/products/:id
+      # DELETE /api/v1/products/:id — archive (no physical delete, for traceability)
       def destroy
-        if @product.destroy
-          render_success({}, "Producto eliminado correctamente")
+        if @product.update(active: false)
+          render_success({ product: serialize(@product) }, "Producto archivado correctamente")
         else
-          render_error("No se pudo eliminar el producto", :unprocessable_entity, @product.errors.full_messages)
+          render_error("No se pudo archivar el producto", :unprocessable_entity, @product.errors.full_messages)
         end
+      end
+
+      # GET /api/v1/products/import_template — download the .xlsx template
+      def import_template
+        send_data ProductImportService.template,
+                  filename: "plantilla_productos.xlsx",
+                  type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      end
+
+      # POST /api/v1/products/import — bulk import products + variants from .xlsx
+      def import
+        file = params[:file]
+        return render_error("Debe adjuntar un archivo .xlsx", :unprocessable_entity) if file.blank?
+
+        result = ProductImportService.import(file.tempfile)
+        clear_inventory_cache
+        render_success(result, "Importación finalizada")
+      rescue ProductImportService::InvalidFile => e
+        render_error(e.message, :unprocessable_entity)
       end
 
       # POST /api/v1/products/:id/images  (multipart, images[])
@@ -103,7 +122,7 @@ module Api
 
       def product_params
         params.require(:product).permit(
-          :name, :brand, :base_price, :cost, :wholesale_price, :wholesale_min_quantity,
+          :name, :brand_id, :base_price, :cost, :wholesale_price, :wholesale_min_quantity,
           :description, :active, :category_id,
           product_variants_attributes: [:id, :size, :color, :stock, :sku, :_destroy]
         )
@@ -111,9 +130,16 @@ module Api
 
       def search_params
         search = {}
-        search[:name_or_brand_cont] = params[:search] if params[:search].present?
+        search[:name_or_brand_name_cont] = params[:search] if params[:search].present?
         search[:category_id_eq] = params[:category_id] if params[:category_id].present?
-        search[:active_eq] = params[:active] if params[:active].present?
+        search[:brand_id_eq] = params[:brand_id] if params[:brand_id].present?
+        if params[:active].present?
+          search[:active_eq] = params[:active]
+        elsif params[:archived].to_s == "true"
+          search[:active_eq] = false
+        else
+          search[:active_eq] = true
+        end
         search
       end
 
@@ -121,7 +147,8 @@ module Api
         {
           id: product.id,
           name: product.name,
-          brand: product.brand,
+          brand_id: product.brand_id,
+          brand: product.brand&.name,
           base_price: product.base_price,
           cost: product.cost,
           wholesale_price: product.wholesale_price,

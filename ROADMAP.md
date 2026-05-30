@@ -165,11 +165,80 @@ Hora 10     Test E2E: producto → cliente → venta → reporte
 
 ## Verificación Final
 
-- [ ] `rails db:migrate && rails db:seed` sin errores
-- [ ] `/api/v1/inventory/stats` retorna métricas correctas
-- [ ] `/api/v1/products` retorna productos con variantes anidadas
-- [ ] Crear un zapato con tallas en el admin
-- [ ] Registrar una venta completa (cliente + productos + completar)
-- [ ] Verificar que el stock se descuenta al completar y se restaura al cancelar
-- [ ] Ver reportes con datos generados por los seeds
-- [ ] Sidebar muestra el grupo "Tienda" con todos los módulos
+- [x] `rails db:migrate && rails db:seed` sin errores
+- [x] `/api/v1/inventory/stats` retorna métricas correctas
+- [x] `/api/v1/products` retorna productos con variantes anidadas
+- [x] Crear un zapato con tallas en el admin
+- [x] Registrar una venta completa (cliente + productos + completar)
+- [x] Verificar que el stock se descuenta al completar y se restaura al cancelar
+- [x] Ver reportes con datos generados por los seeds
+- [x] Sidebar muestra el grupo "Tienda" con todos los módulos
+
+---
+
+## Fase 10 — Mejoras Demo Cliente (multi-tenant ready)
+
+> Segunda iteración: roles de negocio, trazabilidad, POS y catálogo administrable.
+
+### 10.1 — Roles de negocio (reemplazan admin/manager/operator/user)
+
+| Rol | Acceso |
+|-----|--------|
+| `admin` | Vendedor del software (yo). Acceso total, **incluye** gestión de usuarios. Sus cambios **no** se auditan. |
+| `business_owner` | Dueño del negocio. Todo **excepto** gestión de usuarios. |
+| `business_employee` | Empleado. Solo `view_inventory`, `manage_customers`, `manage_sales` (+ perfil). |
+
+- `Permission#ROLE_DEFAULTS` reescrito. Seeds crean 1 admin, 1 owner, 2 empleados.
+- Cuentas demo (password `password123`): `admin@example.com`, `owner@example.com`, `empleado1@example.com`, `empleado2@example.com`.
+- UI de usuarios (crear/editar/filtros) actualizada a los nuevos roles.
+
+### 10.2 — Auditoría / trazabilidad (gem `audited`)
+
+- Tabla `audits`: registra cada create/update/destroy con el `user_id` que lo hizo.
+- Modelos auditados: `Product`, `ProductVariant`, `Brand`, `Category`, `Customer`, `Sale`, `SaleItem`.
+- `ApplicationController#with_audited_user`: atribuye el cambio al usuario actual y **desactiva** la auditoría cuando el actor es `admin`.
+- Initializer `config/initializers/audited.rb` permite serializar `BigDecimal` en el YAML del audit.
+
+### 10.3 — Sin borrado físico → archivar/inactivar
+
+- `Product`, `Category`, `Brand`, `Customer`: `DELETE` ahora hace `active = false` (no se borra).
+- Índices por defecto muestran solo activos; filtro `?archived=true` (o checkbox "Ver archivados") para consultarlos.
+- Ventas: `DELETE` solo **cancela** (restaura stock), nunca elimina la fila.
+- UI: botones "Eliminar" → "Archivar" (icono `Archive`) en productos, clientes, marcas y categorías.
+
+### 10.4 — Marcas como entidad administrable
+
+- Nuevo modelo `Brand` + `brand_id` en `products` (migrado desde el texto anterior).
+- `BrandsController` (CRUD), gestionable por admin/business_owner (`manage_products`).
+- SKU de variantes y reportes (top productos) usan la relación `brand`.
+
+### 10.5 — Importación masiva de productos (Excel)
+
+- `ProductImportService`: genera plantilla `.xlsx` (gem `caxlsx`) y lee archivos (gem `roo`).
+- `GET /api/v1/products/import_template` y `POST /api/v1/products/import`.
+- Cada fila = una variante (producto, marca, categoría, precios, talla, color, stock). Marcas/categorías nuevas se crean al vuelo.
+- UI: modal "Importar Excel" en Inventario (descargar plantilla + subir + resumen de resultados).
+
+### 10.6 — POS rediseñado + método de pago
+
+- Tab "Nueva venta" rediseñado: grilla de productos (cards con imagen, precio, stock) + filtro por categoría + panel de checkout sticky.
+- Al completar: selector **Efectivo / Transferencia** + checkbox **"Pago contra entrega"**.
+- `sales.payment_method` (enum cash/transfer) y `sales.cash_on_delivery` (boolean). Se muestran en el detalle de la venta.
+
+### 10.7 — El Dashboard ahora son los Reportes
+
+- `/dashboard` (home) renderiza los Reportes de ventas. Se elimina el item/route duplicado de "Reportes".
+- Usuarios sin `view_reports` (business_employee) son redirigidos a `/dashboard/sales`.
+- Sidebar: nuevo item "Marcas y Categorías" (gateado por `manage_products`) en el grupo Tienda.
+
+### Verificación Fase 10
+
+- [x] `bundle install && rails db:migrate && rails db:seed` sin errores
+- [x] Login por rol: admin ve Usuarios; owner no; empleado solo ventas/clientes/inventario
+- [x] Cambios de owner quedan en `audits`; cambios de admin **no**
+- [x] "Eliminar" producto/cliente → queda `active=false`, consultable como archivado
+- [x] Crear marca y asignarla a un producto; gestionar categorías
+- [x] Descargar plantilla Excel e importar productos + variantes
+- [x] POS: elegir Transferencia + contra entrega, completar venta (stock baja, pago registrado)
+- [x] Home (`/dashboard`) muestra Reportes
+- [x] `npm run build` del admin sin errores de tipos

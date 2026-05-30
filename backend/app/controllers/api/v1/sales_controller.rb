@@ -39,7 +39,9 @@ module Api
           sale = Sale.new(
             customer_id: sale_params[:customer_id],
             user: current_rodauth_user,
-            status: :pending
+            status: :pending,
+            payment_method: sale_params[:payment_method].presence || :cash,
+            cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
           )
           sale.save!
 
@@ -75,16 +77,14 @@ module Api
         render_error("No se pudo actualizar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
 
-      # DELETE /api/v1/sales/:id
+      # DELETE /api/v1/sales/:id — cancel only (no physical delete, for traceability).
+      # Restores stock if the sale had discounted it.
       def destroy
-        # Restore stock if the sale had discounted it
-        @sale.cancel! if @sale.completed?
-        if @sale.destroy
-          Rails.cache.delete("inventory:stats")
-          render_success({}, "Venta eliminada correctamente")
-        else
-          render_error("No se pudo eliminar la venta", :unprocessable_entity, @sale.errors.full_messages)
-        end
+        @sale.cancel!
+        Rails.cache.delete("inventory:stats")
+        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta cancelada correctamente")
+      rescue ActiveRecord::RecordInvalid => e
+        render_error("No se pudo cancelar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
 
       # GET /api/v1/sales/report
@@ -118,7 +118,7 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :status)
+        params.fetch(:sale, {}).permit(:customer_id, :status, :payment_method, :cash_on_delivery)
       end
 
       def desired_status
@@ -141,6 +141,8 @@ module Api
           customer_id: sale.customer_id,
           customer_name: sale.customer&.name,
           seller: sale.user&.fullname,
+          payment_method: sale.payment_method,
+          cash_on_delivery: sale.cash_on_delivery,
           items_count: sale.sale_items.size,
           created_at: sale.created_at
         }
@@ -185,11 +187,12 @@ module Api
 
       def top_products
         SaleItem.joins(:sale, product_variant: :product)
+                .joins("LEFT JOIN brands ON brands.id = products.brand_id")
                 .where(sales: { status: Sale.statuses[:completed] })
-                .group("products.id", "products.name", "products.brand")
+                .group("products.id", "products.name", "brands.name")
                 .order(Arel.sql("SUM(sale_items.quantity) DESC"))
                 .limit(10)
-                .pluck("products.name", "products.brand", Arel.sql("SUM(sale_items.quantity)"), Arel.sql("SUM(sale_items.quantity * sale_items.unit_price)"))
+                .pluck("products.name", "brands.name", Arel.sql("SUM(sale_items.quantity)"), Arel.sql("SUM(sale_items.quantity * sale_items.unit_price)"))
                 .map do |name, brand, qty, revenue|
           { name: name, brand: brand, units_sold: qty.to_i, revenue: revenue.to_f }
         end

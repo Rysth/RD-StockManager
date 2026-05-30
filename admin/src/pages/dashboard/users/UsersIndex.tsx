@@ -134,10 +134,10 @@ function usersReducer(state: UsersState, action: UsersAction): UsersState {
 const getRoleConfig = (roleName: string) => {
   const roleConfig: Record<string, { label: string; variant: string }> = {
     admin: { label: "Administrador", variant: "default" },
-    manager: { label: "Gerente", variant: "secondary" },
-    user: { label: "Usuario", variant: "outline" },
+    business_owner: { label: "Dueño del negocio", variant: "secondary" },
+    business_employee: { label: "Empleado", variant: "outline" },
   };
-  return roleConfig[roleName] || roleConfig.user;
+  return roleConfig[roleName] || { label: roleName, variant: "outline" };
 };
 
 const getInitials = (fullname: string): string => {
@@ -449,8 +449,8 @@ function UsersDataTable({
   const roleLabel: Record<string, string> = {
     "": "Todos los roles",
     admin: "Administrador",
-    manager: "Gerente",
-    user: "Usuario",
+    business_owner: "Dueño del negocio",
+    business_employee: "Empleado",
   };
 
   return (
@@ -766,11 +766,11 @@ export default function UsersIndex() {
       return;
     }
     if (
-      user.roles.includes("manager") &&
-      hasRole("manager") &&
+      user.roles.includes("business_owner") &&
+      hasRole("business_owner") &&
       !hasRole("admin")
     ) {
-      toast.error("Solo los administradores pueden eliminar usuarios gerentes");
+      toast.error("Solo los administradores pueden eliminar usuarios dueños");
       return;
     }
     dispatch({ type: "OPEN_DELETE", payload: user });

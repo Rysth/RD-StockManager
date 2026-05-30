@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_30_220004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -76,6 +76,37 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
   create_table "alembic_version", primary_key: "version_num", id: { type: :string, limit: 32 }, force: :cascade do |t|
   end
 
+  create_table "audits", force: :cascade do |t|
+    t.integer "auditable_id"
+    t.string "auditable_type"
+    t.integer "associated_id"
+    t.string "associated_type"
+    t.integer "user_id"
+    t.string "user_type"
+    t.string "username"
+    t.string "action"
+    t.text "audited_changes"
+    t.integer "version", default: 0
+    t.string "comment"
+    t.string "remote_address"
+    t.string "request_uuid"
+    t.datetime "created_at"
+    t.index ["associated_type", "associated_id"], name: "associated_index"
+    t.index ["auditable_type", "auditable_id", "version"], name: "auditable_index"
+    t.index ["created_at"], name: "index_audits_on_created_at"
+    t.index ["request_uuid"], name: "index_audits_on_request_uuid"
+    t.index ["user_id", "user_type"], name: "user_index"
+  end
+
+  create_table "brands", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "description"
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_brands_on_name", unique: true
+  end
+
   create_table "businesses", force: :cascade do |t|
     t.string "name"
     t.string "slogan"
@@ -106,6 +137,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
     t.string "id_number"
     t.string "country", default: "Ecuador"
     t.text "address"
+    t.boolean "active", default: true, null: false
+    t.index ["active"], name: "index_customers_on_active"
     t.index ["name"], name: "index_customers_on_name"
   end
 
@@ -145,7 +178,6 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
 
   create_table "products", force: :cascade do |t|
     t.string "name", null: false
-    t.string "brand"
     t.decimal "base_price", precision: 10, scale: 2, default: "0.0", null: false
     t.text "description"
     t.boolean "active", default: true, null: false
@@ -155,6 +187,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
     t.decimal "cost", precision: 10, scale: 2, default: "0.0", null: false
     t.decimal "wholesale_price", precision: 10, scale: 2
     t.integer "wholesale_min_quantity", default: 3, null: false
+    t.bigint "brand_id"
+    t.index ["brand_id"], name: "index_products_on_brand_id"
     t.index ["category_id"], name: "index_products_on_category_id"
     t.index ["name"], name: "index_products_on_name"
   end
@@ -200,6 +234,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
     t.datetime "sold_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "payment_method", default: 0, null: false
+    t.boolean "cash_on_delivery", default: false, null: false
     t.index ["customer_id"], name: "index_sales_on_customer_id"
     t.index ["sold_at"], name: "index_sales_on_sold_at"
     t.index ["status"], name: "index_sales_on_status"
@@ -233,6 +269,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_130003) do
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
   add_foreign_key "otp_codes", "accounts"
   add_foreign_key "product_variants", "products"
+  add_foreign_key "products", "brands"
   add_foreign_key "products", "categories"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
