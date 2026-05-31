@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Eye, FileText, Printer, ReceiptText } from "lucide-react";
+import { Download, Eye, FileText, Loader2, Printer, ReceiptText } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -124,8 +124,15 @@ function SalesList() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [completeId, setCompleteId] = useState<number | null>(null);
+  const [invoiceConfirmId, setInvoiceConfirmId] = useState<number | null>(null);
+  const [invoicingId, setInvoicingId] = useState<number | null>(null);
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
+  const invoiceTarget = invoiceConfirmId
+    ? selectedSale?.id === invoiceConfirmId
+      ? selectedSale
+      : sales.find((s) => s.id === invoiceConfirmId)
+    : null;
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, { status })
@@ -203,15 +210,19 @@ function SalesList() {
   };
 
   const issueElectronicInvoice = async (id: number) => {
+    setInvoicingId(id);
     try {
       const invoice = await issueInvoice(id);
       if (invoice.authorized) {
         toast.success("Factura autorizada por el SRI");
+        setInvoiceConfirmId(null);
       } else {
         toast.error(`El SRI no autorizó la factura (${invoice.estado})`);
       }
     } catch (e) {
       toast.error(errorMessage(e, "Error al emitir la factura"));
+    } finally {
+      setInvoicingId(null);
     }
   };
 
@@ -306,59 +317,6 @@ function SalesList() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
-                      {canManageInvoicing && s.status === "completed" && !s.invoice?.authorized && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
-                          disabled={isSubmitting}
-                          onClick={() => issueElectronicInvoice(s.id)}
-                        >
-                          Facturar
-                        </Button>
-                      )}
-                      {canManageInvoicing && s.invoice?.authorized && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Descargar XML autorizado"
-                            onClick={() => downloadXml(s.id)}
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            title="Descargar RIDE"
-                            onClick={() => downloadRide(s.id)}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </>
-                      )}
-                      {s.status === "pending" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
-                          onClick={() => setCompleteId(s.id)}
-                        >
-                          Confirmar entrega
-                        </Button>
-                      )}
-                      {s.status !== "cancelled" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="text-destructive"
-                          onClick={() => setCancelId(s.id)}
-                        >
-                          Cancelar
-                        </Button>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -520,7 +478,7 @@ function SalesList() {
                       <Button
                         className="flex-1 gap-2"
                         disabled={isSubmitting}
-                        onClick={() => issueElectronicInvoice(selectedSale.id)}
+                        onClick={() => setInvoiceConfirmId(selectedSale.id)}
                       >
                         <ReceiptText className="h-4 w-4" />
                         {selectedSale.invoice ? "Reintentar emisión" : "Emitir factura SRI"}
@@ -590,6 +548,58 @@ function SalesList() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Sí, cancelar venta
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={invoiceConfirmId != null}
+        onOpenChange={(open) => !open && !invoicingId && setInvoiceConfirmId(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Emitir factura electrónica SRI</AlertDialogTitle>
+            <AlertDialogDescription>
+              {invoicingId ? (
+                <span className="block space-y-3 text-left">
+                  <span className="flex items-center gap-2 font-medium text-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    Autorizando comprobante...
+                  </span>
+                  <span className="block rounded-lg border bg-muted/40 p-3 text-xs text-muted-foreground">
+                    Firmando XML, enviándolo al SRI y esperando la autorización. No cierres esta ventana.
+                  </span>
+                  <span className="grid grid-cols-3 gap-2 text-center text-[11px]">
+                    <span className="rounded-full bg-blue-50 px-2 py-1 text-blue-700">Firmando XML</span>
+                    <span className="rounded-full bg-amber-50 px-2 py-1 text-amber-700">Enviando al SRI</span>
+                    <span className="rounded-full bg-emerald-50 px-2 py-1 text-emerald-700">Autorizando</span>
+                  </span>
+                </span>
+              ) : (
+                <span className="block space-y-2 text-left">
+                  <span className="block">
+                    Se enviará esta venta al SRI en ambiente de pruebas para generar el XML autorizado y el RIDE.
+                  </span>
+                  {invoiceTarget && (
+                    <span className="block rounded-lg border bg-muted/40 p-3 text-sm text-foreground">
+                      Venta #{invoiceTarget.id} · {invoiceTarget.customer_name || "Consumidor final"} · {money(invoiceTarget.total)}
+                    </span>
+                  )}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!invoicingId}>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!invoiceTarget || !!invoicingId}
+              onClick={(event) => {
+                event.preventDefault();
+                if (invoiceTarget) issueElectronicInvoice(invoiceTarget.id);
+              }}
+            >
+              {invoicingId ? "Autorizando..." : "Sí, emitir factura"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

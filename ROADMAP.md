@@ -493,14 +493,27 @@ Seeds actualizados para demostrar versatilidad:
 
 ### 15.3 — Frontend admin
 - Configuración → Negocio permite cargar los datos legales SRI del emisor.
-- Ventas muestra estado de factura, botón **Facturar** para ventas completadas y descargas XML/RIDE
-  cuando la factura queda autorizada.
+- Ventas muestra el estado de factura en la tabla; las acciones de facturar, descargar XML/RIDE,
+  confirmar entrega y cancelar viven en el drawer de detalle para evitar acciones accidentales.
+- Antes de emitir se muestra un modal de confirmación con feedback de autorización: firma XML,
+  envío al SRI y espera de autorización.
+
+### 15.4 — RIDE y correo al cliente
+- RIDE rediseñado con encabezado fiscal, caja de autorización, QR separado, tabla de detalle,
+  bloque de totales y pie **StockManager by RysthDesign**.
+- Si la factura queda autorizada y el cliente tiene email, `InvoiceMailer` envía XML autorizado y
+  RIDE PDF adjuntos. Consumidor final o clientes sin email no reciben correo.
+
+### 15.5 — Performance y limpieza
+- `ExpensesController#index/show` carga `employee` para eliminar el warning de eager loading.
+- `SalesController` usa cargas separadas para detalle, emisión y descargas, evitando includes
+  innecesarios en acciones de facturación.
 
 ### Verificación Fase 15
 - [x] `rails db:migrate` crea campos SRI e `invoices`
-- [ ] Configurar `.env` con certificado `.p12` válido y contraseña
-- [ ] Emitir factura SRI en ambiente de pruebas (`SRI_AMBIENTE=1`)
-- [ ] Descargar XML autorizado y RIDE desde `/dashboard/sales`
+- [x] Configurar `.env` con certificado `.p12` válido y contraseña
+- [x] Emitir factura SRI en ambiente de pruebas (`SRI_AMBIENTE=1`)
+- [x] Descargar XML autorizado y RIDE desde `/dashboard/sales`
 - [x] `npm run build` del admin sin errores de tipos
 
 ---

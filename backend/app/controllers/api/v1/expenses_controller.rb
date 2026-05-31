@@ -8,7 +8,7 @@ module Api
 
       # GET /api/v1/expenses
       def index
-        @q = Expense.includes(:expense_category, :location, :user).ransack(search_params)
+        @q = Expense.includes(:expense_category, :location, :user, :employee).ransack(search_params)
         @q.sorts = "expense_date desc" if @q.sorts.empty?
 
         @pagy, expenses = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -75,7 +75,7 @@ module Api
       private
 
       def set_expense
-        @expense = Expense.includes(:expense_category, :location, :user).find(params[:id])
+        @expense = Expense.includes(:expense_category, :location, :user, :employee).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Gasto no encontrado", :not_found)
       end

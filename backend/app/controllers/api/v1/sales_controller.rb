@@ -9,7 +9,9 @@ module Api
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
       before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
-      before_action :set_sale, only: [:show, :update, :destroy, *INVOICE_ACTIONS]
+      before_action :set_sale, only: [:show, :update, :destroy]
+      before_action :set_sale_for_invoice, only: [:invoice]
+      before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride]
 
       # GET /api/v1/sales
       def index
@@ -168,6 +170,18 @@ module Api
 
       def set_sale
         @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: { product_variant: :product }).find(params[:id])
+      rescue ActiveRecord::RecordNotFound
+        render_error("Venta no encontrada", :not_found)
+      end
+
+      def set_sale_for_invoice
+        @sale = Sale.includes(:customer, sale_items: { product_variant: :product }).find(params[:id])
+      rescue ActiveRecord::RecordNotFound
+        render_error("Venta no encontrada", :not_found)
+      end
+
+      def set_sale_for_invoice_download
+        @sale = Sale.includes(:invoices).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end

@@ -1,0 +1,11 @@
+Factura electronica autorizada
+
+Gracias por tu compra en <%= @business.name_or_default %>.
+
+Comprobante: <%= @invoice.numero_comprobante %>
+Autorizacion: <%= @invoice.numero_autorizacion %>
+Total: $<%= format('%.2f', @invoice.importe_total.to_f) %>
+
+Adjuntamos el XML autorizado y el RIDE en PDF.
+
+Powered by StockManager by RysthDesign
