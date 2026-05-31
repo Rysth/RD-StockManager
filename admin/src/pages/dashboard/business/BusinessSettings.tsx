@@ -13,6 +13,7 @@ import {
   KeyRound,
   Loader2,
   Phone,
+  ReceiptText,
   Save,
   Share2,
   Shield,
@@ -44,6 +45,10 @@ interface BusinessFormData {
   punto_emision: string;
   contribuyente_especial: string;
   contribuyente_rimpe: string;
+  sri_enabled: boolean;
+  sri_ambiente: string;
+  sri_cert_password: string;
+  sri_certificate?: FileList;
   logo?: FileList;
 }
 
@@ -113,6 +118,8 @@ export default function BusinessSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canManageBusiness = hasPermission(Permissions.VIEW_BUSINESS);
+  const canEditBusiness = hasPermission(Permissions.EDIT_BUSINESS);
+  const canManageSriConfig = currentUser?.roles.includes("admin") ?? false;
 
   // ── Forms ────────────────────────────────────────────────
 
@@ -137,6 +144,9 @@ export default function BusinessSettings() {
               punto_emision: business.punto_emision || "001",
               contribuyente_especial: business.contribuyente_especial || "",
               contribuyente_rimpe: business.contribuyente_rimpe || "",
+              sri_enabled: business.sri_enabled || false,
+              sri_ambiente: business.sri_ambiente || "1",
+              sri_cert_password: "",
             };
           })()
         : undefined,
@@ -222,8 +232,17 @@ export default function BusinessSettings() {
       formData.append("punto_emision", data.punto_emision || "001");
       formData.append("contribuyente_especial", data.contribuyente_especial || "");
       formData.append("contribuyente_rimpe", data.contribuyente_rimpe || "");
+      if (canManageSriConfig) {
+        formData.append("sri_enabled", String(data.sri_enabled || false));
+        formData.append("sri_ambiente", data.sri_ambiente || "1");
+        if (data.sri_cert_password) formData.append("sri_cert_password", data.sri_cert_password);
+        if (data.sri_certificate && data.sri_certificate[0]) {
+          formData.append("sri_certificate", data.sri_certificate[0]);
+        }
+      }
       if (data.logo && data.logo[0]) formData.append("logo", data.logo[0]);
       await updateBusiness(formData);
+      businessForm.setValue("sri_cert_password", "");
       toast.success("Configuración del negocio guardada");
     } catch (error: any) {
       toast.error(error.message || "Error al guardar configuración");
@@ -273,6 +292,24 @@ export default function BusinessSettings() {
         )
           ? true
           : "Solo se permiten archivos JPG, PNG o WEBP";
+      },
+    },
+  });
+
+  const sriCertificateRegister = businessForm.register("sri_certificate", {
+    validate: {
+      fileSize: (files: FileList | null | undefined) => {
+        if (!files || files.length === 0) return true;
+        return files[0].size > 2 * 1024 * 1024
+          ? "El certificado debe ser menor a 2MB"
+          : true;
+      },
+      fileType: (files: FileList | null | undefined) => {
+        if (!files || files.length === 0) return true;
+        const name = files[0].name.toLowerCase();
+        return name.endsWith(".p12") || name.endsWith(".pfx")
+          ? true
+          : "Solo se permiten certificados .p12 o .pfx";
       },
     },
   });
@@ -929,6 +966,101 @@ export default function BusinessSettings() {
                         </div>
                       </div>
 
+                      {!canManageSriConfig && (
+                        <Alert className="mb-6 border-blue-500/30 bg-blue-500/5 text-blue-700 dark:text-blue-300 [&>svg]:text-blue-500">
+                          <ReceiptText className="w-4 h-4" />
+                          <AlertDescription className="text-xs">
+                            Puedes mantener actualizados los datos legales. Solo el administrador puede activar facturación, cambiar ambiente o cargar el certificado .p12.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+
+                      {canManageSriConfig && (
+                        <div className="mb-6 rounded-lg border bg-muted/30 p-4">
+                          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="text-sm font-medium">Emisión electrónica</p>
+                              <p className="text-xs text-muted-foreground">
+                                Desactivada por defecto. Actívala solo cuando el negocio vaya a emitir facturas SRI.
+                              </p>
+                            </div>
+                            <label className="flex items-center gap-2 text-sm font-medium">
+                              <input
+                                type="checkbox"
+                                className="h-4 w-4 rounded border-input"
+                                {...businessForm.register("sri_enabled")}
+                              />
+                              Facturación activa
+                            </label>
+                          </div>
+
+                          {business?.sri_missing_requirements?.length ? (
+                            <Alert className="mt-4 border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 [&>svg]:text-amber-500">
+                              <AlertCircle className="w-4 h-4" />
+                              <AlertDescription className="text-xs">
+                                Pendiente: {business.sri_missing_requirements.join(", ")}.
+                              </AlertDescription>
+                            </Alert>
+                          ) : null}
+
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Ambiente SRI
+                              </Label>
+                              <select
+                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                                {...businessForm.register("sri_ambiente")}
+                              >
+                                <option value="1">Pruebas</option>
+                                <option value="2">Producción</option>
+                              </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Certificado .p12/.pfx
+                              </Label>
+                              <Input
+                                type="file"
+                                accept=".p12,.pfx"
+                                className="h-9"
+                                name={sriCertificateRegister.name}
+                                onChange={sriCertificateRegister.onChange}
+                                onBlur={sriCertificateRegister.onBlur}
+                                ref={sriCertificateRegister.ref}
+                              />
+                              {business?.sri_cert_configured && (
+                                <p className="text-xs text-muted-foreground">
+                                  Actual: {business.sri_cert_filename || "certificado configurado"}
+                                </p>
+                              )}
+                              {businessForm.formState.errors.sri_certificate && (
+                                <p className="text-xs text-destructive">
+                                  {businessForm.formState.errors.sri_certificate.message}
+                                </p>
+                              )}
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Clave del certificado
+                              </Label>
+                              <Input
+                                type="password"
+                                autoComplete="new-password"
+                                className="h-9"
+                                placeholder={business?.sri_cert_configured ? "Dejar vacío para conservar" : "Clave .p12"}
+                                {...businessForm.register("sri_cert_password")}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                No se muestra ni se imprime; se guarda cifrada.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
                       <Separator className="mb-6" />
 
                       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -1055,7 +1187,7 @@ export default function BusinessSettings() {
                     <Button
                       type="submit"
                       size="sm"
-                      disabled={isLoading}
+                      disabled={isLoading || !canEditBusiness}
                       className="min-w-36"
                     >
                       {isLoading ? (

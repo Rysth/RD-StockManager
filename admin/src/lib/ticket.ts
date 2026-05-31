@@ -65,7 +65,8 @@ export function buildTicketHtml(data: TicketData): string {
 <html><head><meta charset="utf-8"><title>Ticket</title>
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',Courier,monospace;font-size:11px;width:80mm;padding:3mm}
+  html,body{width:80mm;min-width:80mm;max-width:80mm;background:#fff}
+  body{font-family:'Courier New',Courier,monospace;font-size:11px;padding:3mm;overflow:hidden}
   h1{font-size:16px;text-align:center;letter-spacing:3px;font-weight:bold}
   .sub{font-size:9px;text-align:center;color:#555;margin-bottom:5px}
   hr.dash{border:none;border-top:1px dashed #000;margin:4px 0}
@@ -80,7 +81,7 @@ export function buildTicketHtml(data: TicketData): string {
   .total{display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:3px}
   .cod{text-align:center;font-weight:bold;color:#b45309;margin:4px 0}
   .footer{text-align:center;margin-top:8px;font-size:10px}
-  @media print{body{width:80mm}@page{size:80mm auto;margin:0}}
+  @media print{html,body{width:80mm;min-width:80mm;max-width:80mm}@page{size:80mm 200mm;margin:0}}
 </style></head>
 <body>
   <h1>${escapeHtml(data.businessName.toUpperCase())}</h1>

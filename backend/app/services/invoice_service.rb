@@ -13,6 +13,7 @@ class InvoiceService
   class NotCompletedError < InvoiceError; end
   class AlreadyAuthorizedError < InvoiceError; end
   class MissingEmisorError < InvoiceError; end
+  class InvoicingDisabledError < InvoiceError; end
 
   # true  => unit_price YA incluye IVA (precio al público) -> base = price / 1.15
   # false => unit_price es base sin IVA, el IVA se SUMA encima (el total facturado sube ~15%)
@@ -41,7 +42,12 @@ class InvoiceService
     raise AlreadyAuthorizedError, "La venta ya tiene una factura autorizada" if @sale.invoices.authorized.exists?
 
     business = Business.current
-    raise MissingEmisorError, "Configura el RUC, razón social y dirección del negocio antes de facturar" unless business.sri_ready?
+    unless business.sri_ready?
+      missing = business.sri_missing_requirements.join(", ")
+      raise InvoicingDisabledError, "La facturación electrónica SRI no está lista: #{missing}"
+    end
+
+    @sri_config = build_sri_config(business)
 
     invoice = reserve_invoice(business)
     comprador = build_comprador
@@ -66,7 +72,7 @@ class InvoiceService
         secuencial: last + 1,
         establecimiento: est,
         punto_emision: pe,
-        ambiente: SriFacturacion.configuration.ambiente.to_s,
+        ambiente: @sri_config.ambiente.to_s,
         estado: Invoice::ESTADO_ERROR,
         mensajes: [{ identificador: "LOCAL", mensaje: "Secuencial reservado", tipo: "INFO" }]
       )
@@ -163,18 +169,20 @@ class InvoiceService
   end
 
   def emitir(factura)
-    SriFacturacion::Client.new.emitir!(factura, generar_ride: true)
+    SriFacturacion::Client.new(config: @sri_config).emitir!(factura, generar_ride: true)
   rescue SriFacturacion::Error => e
+    @emit_error = e.message
     Rails.logger.error("[InvoiceService] Error SRI venta=#{@sale.id}: #{e.class} #{e.message}")
     nil
   rescue StandardError => e
+    @emit_error = "Error inesperado al emitir la factura"
     Rails.logger.error("[InvoiceService] Error inesperado venta=#{@sale.id}: #{e.class} #{e.message}")
     nil
   end
 
   def persist_invoice(invoice, comprador, factura, result)
     attrs = {
-      ambiente: SriFacturacion.configuration.ambiente.to_s,
+      ambiente: @sri_config.ambiente.to_s,
       importe_total: factura.totales.importe_total,
       comprador_snapshot: {
         razon_social: comprador.razon_social,
@@ -194,12 +202,24 @@ class InvoiceService
       attrs[:mensajes]            = Array(result.mensajes)
     else
       attrs[:estado]   = Invoice::ESTADO_ERROR
-      attrs[:mensajes] = [{ identificador: "LOCAL", mensaje: "No se pudo contactar al SRI", tipo: "ERROR" }]
+      attrs[:mensajes] = [{ identificador: "LOCAL", mensaje: @emit_error.presence || "No se pudo contactar al SRI", tipo: "ERROR" }]
     end
 
     invoice.update!(attrs)
     send_authorized_email(invoice) if invoice.authorized?
     invoice
+  end
+
+  def build_sri_config(business)
+    SriFacturacion::Configuration.new.tap do |config|
+      config.ambiente = business.sri_ambiente_for_emission
+      config.cert_path = business.sri_cert_path_for_emission
+      config.cert_password = business.sri_cert_password_for_emission
+      config.max_retries = SriFacturacion.configuration.max_retries
+      config.retry_delay = SriFacturacion.configuration.retry_delay
+      config.open_timeout = SriFacturacion.configuration.open_timeout
+      config.read_timeout = SriFacturacion.configuration.read_timeout
+    end
   end
 
   def send_authorized_email(invoice)

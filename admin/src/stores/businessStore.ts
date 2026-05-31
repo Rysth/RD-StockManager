@@ -19,6 +19,13 @@ interface Business {
   punto_emision?: string | null;
   contribuyente_especial?: string | null;
   contribuyente_rimpe?: string | null;
+  sri_enabled?: boolean;
+  sri_ambiente?: string | null;
+  sri_ready?: boolean;
+  sri_missing_requirements?: string[];
+  sri_cert_configured?: boolean;
+  sri_cert_filename?: string | null;
+  sri_cert_uploaded_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -39,6 +46,9 @@ interface BusinessData {
   punto_emision?: string;
   contribuyente_especial?: string;
   contribuyente_rimpe?: string;
+  sri_enabled?: boolean;
+  sri_ambiente?: string;
+  sri_cert_password?: string;
 }
 
 interface BusinessState {

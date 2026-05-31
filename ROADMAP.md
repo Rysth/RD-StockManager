@@ -479,10 +479,14 @@ Seeds actualizados para demostrar versatilidad:
   `SRI_CERT_PASSWORD`, `SRI_MAX_RETRIES` y `SRI_RETRY_DELAY`.
 - Docker y `.env.example` documentan el certificado `.p12` dentro del contenedor
   (`/rails/storage/sri_certs/certificado.p12`).
+- La facturación electrónica queda desactivada por defecto por negocio; `.env` queda como respaldo
+  local mientras la configuración por UI guarda ambiente/certificado por negocio.
 
 ### 15.2 — Backend Rails
 - Nuevos campos SRI en `Business`: RUC, razón social, dirección matriz/establecimiento,
   establecimiento, punto de emisión y leyendas tributarias.
+- Configuración SRI por negocio: habilitado, ambiente, certificado y contraseña cifrada; solo admin
+  puede activar, subir/cambiar certificado o modificar ambiente.
 - Nuevo modelo `Invoice`: guarda clave de acceso, estado SRI, XML firmado/autorizado, RIDE PDF,
   mensajes, comprador e importe total.
 - `InvoiceService` emite facturas para ventas completadas, reserva secuenciales de forma atómica y
@@ -493,10 +497,14 @@ Seeds actualizados para demostrar versatilidad:
 
 ### 15.3 — Frontend admin
 - Configuración → Negocio permite cargar los datos legales SRI del emisor.
+- Dueño del negocio puede editar datos legales si tiene permiso; admin controla activación,
+  ambiente y certificado.
 - Ventas muestra el estado de factura en la tabla; las acciones de facturar, descargar XML/RIDE,
   confirmar entrega y cancelar viven en el drawer de detalle para evitar acciones accidentales.
+- Si SRI está desactivado se oculta la acción de emisión y se conserva nota de venta/ticket.
 - Antes de emitir se muestra un modal de confirmación con feedback de autorización: firma XML,
   envío al SRI y espera de autorización.
+- Los rechazos SRI muestran `mensaje` e `informacion_adicional` en el drawer, no solo toast.
 
 ### 15.4 — RIDE y correo al cliente
 - RIDE rediseñado con encabezado fiscal, caja de autorización, QR separado, tabla de detalle,

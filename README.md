@@ -39,7 +39,7 @@ Servicios principales:
 
 ## Facturacion Electronica SRI
 
-Variables principales en `.env`:
+La facturacion electronica es opcional y queda desactivada por defecto en cada negocio. Los valores `.env` siguen disponibles como respaldo local/desarrollo:
 
 ```env
 SRI_AMBIENTE=1
@@ -49,7 +49,7 @@ SRI_MAX_RETRIES=3
 SRI_RETRY_DELAY=2
 ```
 
-El certificado `.p12` debe vivir localmente en:
+Desde el admin tambien se puede cargar el certificado `.p12/.pfx` en `Configuracion > Negocio > Facturacion SRI`. Si usas el respaldo `.env`, el certificado debe vivir localmente en:
 
 ```txt
 backend/storage/sri_certs/certificado.p12
@@ -59,11 +59,14 @@ No subas certificados ni claves al repositorio. Los archivos `.p12` y `.pfx` est
 
 Para emitir una factura:
 
-1. Configura los datos legales en `Configuracion > Negocio > Facturacion SRI`.
-2. Registra una venta completada desde el POS.
-3. Abre la venta en `Ventas`.
-4. Desde el drawer de detalle, confirma `Emitir factura SRI`.
-5. Descarga XML/RIDE cuando quede autorizada.
+1. Como admin, activa la facturacion SRI del negocio, configura ambiente y carga certificado/clave.
+2. Configura los datos legales en `Configuracion > Negocio > Facturacion SRI`.
+3. Registra una venta completada desde el POS.
+4. Abre la venta en `Ventas`.
+5. Desde el drawer de detalle, confirma `Emitir factura SRI`.
+6. Descarga XML/RIDE cuando quede autorizada.
+
+Si SRI esta desactivado, el flujo de ventas sigue funcionando con nota de venta/ticket 80mm.
 
 Si el cliente tiene email, el sistema envia automaticamente el XML autorizado y RIDE PDF adjuntos.
 

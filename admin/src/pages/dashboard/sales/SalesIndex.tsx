@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Download, Eye, FileText, Loader2, Printer, ReceiptText } from "lucide-react";
+import { AlertCircle, Download, Eye, FileText, Loader2, Printer, ReceiptText } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,9 @@ const money = (n: number) =>
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
+
+const invoiceMessageText = (message: { mensaje?: string; informacion_adicional?: string; tipo?: string }) =>
+  [message.mensaje || message.tipo, message.informacion_adicional].filter(Boolean).join(": ");
 
 const STATUS_META: Record<SaleStatus, { label: string; className: string }> = {
   completed: {
@@ -117,7 +121,7 @@ function SalesList() {
     downloadInvoiceXml,
     downloadInvoiceRide,
   } = useSaleStore();
-  const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
+  const { business, publicBusiness, fetchBusiness, fetchPublicBusiness } = useBusinessStore();
   const { user, hasPermission, fetchUserInfo } = useAuthStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
@@ -128,6 +132,9 @@ function SalesList() {
   const [invoicingId, setInvoicingId] = useState<number | null>(null);
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
+  const sriEnabled = business?.sri_enabled === true;
+  const canUseInvoicing = canManageInvoicing && sriEnabled;
+  const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
   const invoiceTarget = invoiceConfirmId
     ? selectedSale?.id === invoiceConfirmId
       ? selectedSale
@@ -143,6 +150,10 @@ function SalesList() {
   useEffect(() => {
     fetchPublicBusiness().catch(() => {});
   }, [fetchPublicBusiness]);
+
+  useEffect(() => {
+    if (canManageInvoicing) fetchBusiness().catch(() => {});
+  }, [canManageInvoicing, fetchBusiness]);
 
   useEffect(() => {
     if (user && !canManageInvoicing && !permissionsRefreshed) {
@@ -173,6 +184,7 @@ function SalesList() {
   };
 
   const openDetail = (id: number) => {
+    setInvoiceActionError(null);
     setDrawerOpen(true);
     fetchSale(id);
   };
@@ -211,16 +223,23 @@ function SalesList() {
 
   const issueElectronicInvoice = async (id: number) => {
     setInvoicingId(id);
+    setInvoiceActionError(null);
     try {
       const invoice = await issueInvoice(id);
       if (invoice.authorized) {
         toast.success("Factura autorizada por el SRI");
         setInvoiceConfirmId(null);
       } else {
+        const details = invoice.mensajes?.map(invoiceMessageText).filter(Boolean).join(" · ");
+        setInvoiceActionError(details || `El SRI no autorizó la factura (${invoice.estado})`);
+        setInvoiceConfirmId(null);
         toast.error(`El SRI no autorizó la factura (${invoice.estado})`);
       }
     } catch (e) {
-      toast.error(errorMessage(e, "Error al emitir la factura"));
+      const message = errorMessage(e, "Error al emitir la factura");
+      setInvoiceActionError(message);
+      setInvoiceConfirmId(null);
+      toast.error(message);
     } finally {
       setInvoicingId(null);
     }
@@ -467,14 +486,37 @@ function SalesList() {
                     )}
                   </div>
 
+                  {!sriEnabled && (
+                    <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 [&>svg]:text-amber-500">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        La facturación electrónica está desactivada para este negocio. Puedes seguir usando nota de venta/ticket.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
+                  {invoiceActionError && (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">{invoiceActionError}</AlertDescription>
+                    </Alert>
+                  )}
+
                   {selectedSale.invoice?.mensajes?.length ? (
-                    <p className="text-xs text-muted-foreground">
-                      {selectedSale.invoice.mensajes.map((m) => m.mensaje || m.tipo).filter(Boolean).join(" · ")}
-                    </p>
+                    <Alert variant={selectedSale.invoice.authorized ? "default" : "destructive"}>
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="space-y-1 text-xs">
+                        {selectedSale.invoice.mensajes.map((m, index) => (
+                          <span key={`${m.identificador || m.tipo || "msg"}-${index}`} className="block">
+                            {invoiceMessageText(m)}
+                          </span>
+                        ))}
+                      </AlertDescription>
+                    </Alert>
                   ) : null}
 
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    {selectedSale.status === "completed" && !selectedSale.invoice?.authorized && (
+                    {canUseInvoicing && selectedSale.status === "completed" && !selectedSale.invoice?.authorized && (
                       <Button
                         className="flex-1 gap-2"
                         disabled={isSubmitting}

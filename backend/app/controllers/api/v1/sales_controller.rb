@@ -120,7 +120,7 @@ module Api
         end
       rescue InvoiceService::AlreadyAuthorizedError => e
         render_error(e.message, :conflict)
-      rescue InvoiceService::NotCompletedError, InvoiceService::MissingEmisorError, InvoiceService::InvoiceError => e
+      rescue InvoiceService::NotCompletedError, InvoiceService::MissingEmisorError, InvoiceService::InvoicingDisabledError, InvoiceService::InvoiceError => e
         render_error(e.message, :unprocessable_entity)
       end
 
