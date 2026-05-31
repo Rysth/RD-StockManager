@@ -20,10 +20,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sheet,
@@ -142,7 +151,7 @@ function SalesList() {
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
   const sriEnabled = business?.sri_enabled === true;
   const canUseInvoicing = canManageInvoicing && sriEnabled;
-  const [editItemsMode, setEditItemsMode] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editItems, setEditItems] = useState<{ product_variant_id: number; label: string; quantity: number; unit_price: number }[]>([]);
   const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
   const invoiceTarget = invoiceConfirmId
@@ -192,10 +201,22 @@ function SalesList() {
     try {
       await syncSaleItems(selectedSale.id, filtered);
       toast.success("Items actualizados");
-      setEditItemsMode(false);
+      setEditDialogOpen(false);
     } catch (e) {
       toast.error(errorMessage(e, "Error al actualizar los items"));
     }
+  };
+
+  const openEditDialog = () => {
+    if (!selectedSale?.items) return;
+    const items = selectedSale.items.map((it) => ({
+      product_variant_id: it.product_variant_id,
+      label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` (${[it.size, it.color].filter(Boolean).join("/")})` : ""} - ${it.sku}`,
+      quantity: it.quantity,
+      unit_price: it.unit_price,
+    }));
+    setEditItems(items);
+    setEditDialogOpen(true);
   };
 
   const reprintTicket = () => {
@@ -489,63 +510,10 @@ function SalesList() {
                       <TableHead className="text-center">Cant.</TableHead>
                       <TableHead className="text-right">Precio</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
-                      {editItemsMode && <TableHead className="w-10"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {editItemsMode
-                      ? editItems.map((it, idx) => (
-                          <TableRow key={it.product_variant_id}>
-                            <TableCell>
-                              <p className="font-medium">{it.label}</p>
-                            </TableCell>
-                            <TableCell className="text-center">
-                              <Input
-                                type="number"
-                                min={0}
-                                value={it.quantity}
-                                onChange={(e) => {
-                                  const q = Math.max(0, Number(e.target.value));
-                                  setEditItems((prev) =>
-                                    prev.map((x, i) => (i === idx ? { ...x, quantity: q } : x))
-                                  );
-                                }}
-                                className="h-8 w-16 text-center"
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Input
-                                type="number"
-                                min={0}
-                                step="0.01"
-                                value={it.unit_price}
-                                onChange={(e) => {
-                                  const p = Number(e.target.value) || 0;
-                                  setEditItems((prev) =>
-                                    prev.map((x, i) => (i === idx ? { ...x, unit_price: p } : x))
-                                  );
-                                }}
-                                className="h-8 w-24 text-right"
-                              />
-                            </TableCell>
-                            <TableCell className="text-right">{money(it.quantity * it.unit_price)}</TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-7 w-7 text-destructive"
-                                onClick={() =>
-                                  setEditItems((prev) =>
-                                    prev.map((x, i) => (i === idx ? { ...x, quantity: 0 } : x))
-                                  )
-                                }
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))
-                      : selectedSale.items?.map((it) => (
+                    {selectedSale.items?.map((it) => (
                           <TableRow key={it.id}>
                             <TableCell>
                               <p className="font-medium">{it.product_name}</p>
@@ -672,66 +640,110 @@ function SalesList() {
                 </div>
               )}
 
-              {editItemsMode ? (
-                <div className="flex flex-col gap-2">
-                  <Button className="w-full" onClick={handleSaveItems} disabled={isSubmitting}>
-                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setEditItemsMode(false)}
-                  >
-                    Cancelar
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  {selectedSale.status === "pending" && (
-                    <Button
-                      variant="outline"
-                      className="w-full gap-2"
-                      onClick={() => {
-                        const items = (selectedSale.items || []).map((it) => ({
-                          product_variant_id: it.product_variant_id,
-                          label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` (${[it.size, it.color].filter(Boolean).join("/")})` : ""} - ${it.sku}`,
-                          quantity: it.quantity,
-                          unit_price: it.unit_price,
-                        }));
-                        setEditItems(items);
-                        setEditItemsMode(true);
-                      }}
-                    >
-                      <Pencil className="h-4 w-4" /> Editar productos
-                    </Button>
-                  )}
-                  <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
-                    <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
-                  </Button>
+              {selectedSale.status === "pending" && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={openEditDialog}
+                >
+                  <Pencil className="h-4 w-4" /> Editar productos
+                </Button>
+              )}
+              <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
+                <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
+              </Button>
 
-                  {selectedSale.status === "pending" && (
-                    <Button
-                      className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
-                      onClick={() => setCompleteId(selectedSale.id)}
-                    >
-                      Confirmar entrega y pago
-                    </Button>
-                  )}
-                  {selectedSale.status !== "cancelled" && (
-                    <Button
-                      variant="outline"
-                      className="w-full text-destructive"
-                      onClick={() => setCancelId(selectedSale.id)}
-                    >
-                      Cancelar venta
-                    </Button>
-                  )}
-                </>
+              {selectedSale.status === "pending" && (
+                <Button
+                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                  onClick={() => setCompleteId(selectedSale.id)}
+                >
+                  Confirmar entrega y pago
+                </Button>
+              )}
+              {selectedSale.status !== "cancelled" && (
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive"
+                  onClick={() => setCancelId(selectedSale.id)}
+                >
+                  Cancelar venta
+                </Button>
               )}
             </div>
           )}
         </SheetContent>
       </Sheet>
+
+      {/* ── Editar productos de venta pendiente ── */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Editar productos</DialogTitle>
+            <DialogDescription>
+              Modifica cantidades o precios de la venta pendiente #{selectedSale?.id}.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+            {editItems.map((it, idx) => (
+              <div key={it.product_variant_id} className="flex items-center gap-3 rounded-lg border p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{it.label}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-20">
+                    <Label className="mb-1 block text-xs text-muted-foreground">Cant.</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      value={it.quantity}
+                      onChange={(e) => {
+                        const q = Math.max(0, Number(e.target.value));
+                        setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: q } : x)));
+                      }}
+                      className="h-8 text-center"
+                    />
+                  </div>
+                  <div className="w-24">
+                    <Label className="mb-1 block text-xs text-muted-foreground">Precio</Label>
+                    <Input
+                      type="number"
+                      min={0}
+                      step="0.01"
+                      value={it.unit_price}
+                      onChange={(e) => {
+                        const p = Number(e.target.value) || 0;
+                        setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, unit_price: p } : x)));
+                      }}
+                      className="h-8 text-right"
+                    />
+                  </div>
+                  <div className="w-20 text-right">
+                    <Label className="mb-1 block text-xs text-muted-foreground">Subtotal</Label>
+                    <p className="text-sm font-medium">{money(it.quantity * it.unit_price)}</p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="mt-5 h-8 w-8 shrink-0 text-destructive"
+                    onClick={() => setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: 0 } : x)))}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSaveItems} disabled={isSubmitting}>
+              {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={cancelId != null} onOpenChange={(open) => !open && setCancelId(null)}>
         <AlertDialogContent>
