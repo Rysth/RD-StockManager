@@ -183,50 +183,5 @@ class RodauthMain < Rodauth::Rails::Auth
     verify_account_email_subject "Verifica tu cuenta en R&R Template"
     reset_password_email_subject "Restablece tu contraseña en R&R Template"
 
-    # ==> Custom OTP Integration
-    # Override login success to require OTP verification
-    after_login do
-      # Find the Account record for OTP generation
-      account_record = Account.find(account_id)
-      
-      # Generate and send OTP code
-      otp_code = OtpCode.generate_for_account(account_record)
-      
-      # Send OTP email
-      if Rails.env.test?
-        OtpMailer.send_code(account_record.email, otp_code.code, otp_code.expires_at).deliver_now
-      else
-        OtpMailer.send_code(account_record.email, otp_code.code, otp_code.expires_at).deliver_later
-      end
-      
-      # Generate a token the frontend will send back to identify this OTP session
-      otp_token = SecureRandom.hex(32)
-
-      # Store the account_id temporarily and clear the main session
-      session[:otp_required] = true
-      session[:otp_email] = account[:email]
-      session[:partial_login_account_id] = account_id
-      
-      # Clear the authenticated session
-      clear_session
-      
-      # Restore our OTP session data after clearing
-      session[:otp_required] = true
-      session[:otp_email] = account[:email]
-      session[:partial_login_account_id] = account_id
-      session[:otp_token] = otp_token
-      
-      # Return OTP required response
-      response.status = 200
-      response['Content-Type'] = 'application/json'
-      response.write(JSON.generate({
-        otp_required: true,
-        otp_token: otp_token,
-        email: account[:email],
-        message: "Código OTP enviado a tu correo electrónico"
-      }))
-      request.halt
-    end
-
   end
 end

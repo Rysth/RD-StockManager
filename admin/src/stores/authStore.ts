@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (data) => {
         set({ isLoading: true, error: null });
         try {
-          const response = await api.post(
+          await api.post(
             "/api/v1/auth/login",
             {
               email: data.email,
@@ -141,17 +141,6 @@ export const useAuthStore = create<AuthState>()(
             },
             { withCredentials: true }
           );
-
-          // Check if OTP is required (partial authentication)
-          if (response.data?.otp_required) {
-            set({
-              isLoading: false,
-              isOtpRequired: true,
-              otpEmail: data.email,
-              otpToken: response.data?.otp_token || null,
-            });
-            return;
-          }
 
           // Fetch user info after successful login
           const fetchedUser = await get().fetchUserInfo();
