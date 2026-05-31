@@ -118,12 +118,13 @@ function SalesList() {
     downloadInvoiceRide,
   } = useSaleStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
-  const { hasPermission } = useAuthStore();
+  const { user, hasPermission, fetchUserInfo } = useAuthStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [completeId, setCompleteId] = useState<number | null>(null);
+  const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
 
   useEffect(() => {
@@ -135,6 +136,13 @@ function SalesList() {
   useEffect(() => {
     fetchPublicBusiness().catch(() => {});
   }, [fetchPublicBusiness]);
+
+  useEffect(() => {
+    if (user && !canManageInvoicing && !permissionsRefreshed) {
+      setPermissionsRefreshed(true);
+      fetchUserInfo().catch(() => {});
+    }
+  }, [canManageInvoicing, fetchUserInfo, permissionsRefreshed, user]);
 
   const reprintTicket = () => {
     if (!selectedSale?.items) return;
