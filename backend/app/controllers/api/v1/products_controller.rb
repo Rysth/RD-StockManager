@@ -151,7 +151,11 @@ module Api
       def search_params
         search = {}
         search[:name_or_brand_name_cont] = params[:search] if params[:search].present?
-        search[:category_id_eq] = params[:category_id] if params[:category_id].present?
+        if params[:category_id].present?
+          cat = Category.find_by(id: params[:category_id])
+          # Filtrar por la categoría y, si es una raíz, también por sus subcategorías
+          search[:category_id_in] = cat ? cat.self_and_descendant_ids : [params[:category_id]]
+        end
         search[:brand_id_eq] = params[:brand_id] if params[:brand_id].present?
         if params[:active].present?
           search[:active_eq] = params[:active]

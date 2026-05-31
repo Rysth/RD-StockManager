@@ -47,15 +47,18 @@ interface CatalogItem {
   description?: string | null;
   active: boolean;
   products_count?: number;
+  parent_id?: number | null;
+  parent_name?: string | null;
 }
 
 interface FormState {
   name: string;
   description: string;
   active: boolean;
+  parent_id?: string;
 }
 
-const EMPTY_FORM: FormState = { name: "", description: "", active: true };
+const EMPTY_FORM: FormState = { name: "", description: "", active: true, parent_id: "" };
 
 // Sección genérica de catálogo (sirve para Marcas y Categorías)
 function CatalogSection({
@@ -65,6 +68,7 @@ function CatalogSection({
   onCreate,
   onUpdate,
   onArchive,
+  parentOptions,
 }: {
   label: string;
   labelPlural: string;
@@ -72,6 +76,8 @@ function CatalogSection({
   onCreate: (data: FormState) => Promise<void>;
   onUpdate: (id: number, data: FormState) => Promise<void>;
   onArchive: (id: number) => Promise<void>;
+  /** Si se provee, habilita el campo "Categoría padre" (subcategorías). */
+  parentOptions?: { id: number; name: string }[];
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<CatalogItem | null>(null);
@@ -87,7 +93,12 @@ function CatalogSection({
 
   const openEdit = (item: CatalogItem) => {
     setEditing(item);
-    setForm({ name: item.name, description: item.description ?? "", active: item.active });
+    setForm({
+      name: item.name,
+      description: item.description ?? "",
+      active: item.active,
+      parent_id: item.parent_id ? String(item.parent_id) : "",
+    });
     setModalOpen(true);
   };
 
@@ -131,6 +142,7 @@ function CatalogSection({
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
+                {parentOptions && <TableHead>Categoría padre</TableHead>}
                 <TableHead>Descripción</TableHead>
                 <TableHead>Productos</TableHead>
                 <TableHead>Estado</TableHead>
@@ -141,7 +153,13 @@ function CatalogSection({
               {items.length ? (
                 items.map((item) => (
                   <TableRow key={item.id}>
-                    <TableCell className="font-medium">{item.name}</TableCell>
+                    <TableCell className="font-medium">
+                      {item.parent_name && <span className="text-muted-foreground">{item.parent_name} › </span>}
+                      {item.name}
+                    </TableCell>
+                    {parentOptions && (
+                      <TableCell className="text-muted-foreground">{item.parent_name || "—"}</TableCell>
+                    )}
                     <TableCell className="text-muted-foreground">{item.description || "—"}</TableCell>
                     <TableCell>{item.products_count ?? 0}</TableCell>
                     <TableCell>
@@ -165,7 +183,7 @@ function CatalogSection({
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={parentOptions ? 6 : 5} className="h-24 text-center text-muted-foreground">
                     No hay {labelPlural.toLowerCase()} registradas.
                   </TableCell>
                 </TableRow>
@@ -187,6 +205,27 @@ function CatalogSection({
               <Label htmlFor="c-name">Nombre</Label>
               <Input id="c-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             </div>
+            {parentOptions && (
+              <div className="space-y-2">
+                <Label htmlFor="c-parent">Categoría padre</Label>
+                <select
+                  id="c-parent"
+                  value={form.parent_id ?? ""}
+                  onChange={(e) => setForm({ ...form, parent_id: e.target.value })}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="">Ninguna (categoría principal)</option>
+                  {parentOptions
+                    .filter((p) => p.id !== editing?.id)
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                </select>
+                <p className="text-xs text-muted-foreground">
+                  Selecciona una categoría padre para crear una subcategoría.
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="c-desc">Descripción</Label>
               <Textarea id="c-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
@@ -315,8 +354,15 @@ export default function BrandsIndex() {
             label="Categoría"
             labelPlural="Categorías"
             items={categories as Category[]}
-            onCreate={(d) => createCategory(d)}
-            onUpdate={(id, d) => updateCategory(id, d)}
+            parentOptions={(categories as Category[])
+              .filter((c) => !c.parent_id)
+              .map((c) => ({ id: c.id, name: c.name }))}
+            onCreate={(d) =>
+              createCategory({ ...d, parent_id: d.parent_id ? Number(d.parent_id) : null })
+            }
+            onUpdate={(id, d) =>
+              updateCategory(id, { ...d, parent_id: d.parent_id ? Number(d.parent_id) : null })
+            }
             onArchive={(id) => deleteCategory(id)}
           />
         </TabsContent>

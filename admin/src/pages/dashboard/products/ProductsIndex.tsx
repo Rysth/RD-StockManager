@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Pencil, ChevronRight, ChevronDown, X, ImagePlus, ImageIcon, Archive, Upload, FileSpreadsheet, Download, FileDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
@@ -313,6 +313,35 @@ export default function ProductsIndex() {
   const reload = () =>
     fetchProducts(pagination.current_page, pagination.per_page, productFilters());
 
+  const categoryOptions = useMemo(() => {
+    const byParent = new Map<number | null, (typeof categories)[number][]>();
+    categories.forEach((category) => {
+      const parentId = category.parent_id ?? null;
+      byParent.set(parentId, [...(byParent.get(parentId) ?? []), category]);
+    });
+
+    const options: { id: number; name: string }[] = [];
+    const addOptions = (parentId: number | null, prefix = "") => {
+      (byParent.get(parentId) ?? []).forEach((category) => {
+        options.push({ id: category.id, name: `${prefix}${category.name}` });
+        addOptions(category.id, `${prefix}-- `);
+      });
+    };
+
+    addOptions(null);
+    return options;
+  }, [categories]);
+
+  const productLocationStock = (product: Product) => {
+    const totals = new Map<string, number>();
+    product.variants.forEach((variant) => {
+      variant.stock_by_location?.forEach((level) => {
+        totals.set(level.location_name, (totals.get(level.location_name) ?? 0) + level.quantity);
+      });
+    });
+    return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }));
+  };
+
   const toggleExpand = (id: number) =>
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -532,7 +561,7 @@ export default function ProductsIndex() {
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">Todas las categorías</option>
-          {categories.map((c) => (
+          {categoryOptions.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
@@ -586,7 +615,12 @@ export default function ProductsIndex() {
                       <TableCell>{money(p.base_price)}</TableCell>
                       <TableCell className="text-muted-foreground">{money(p.cost)}</TableCell>
                       <TableCell>{p.wholesale_price ? money(p.wholesale_price) : "—"}</TableCell>
-                      <TableCell><StockBadge stock={p.total_stock} /></TableCell>
+                      <TableCell>
+                        <StockBadge stock={p.total_stock} />
+                        {productLocationStock(p).length > 0 && (
+                          <span className="mt-1 block text-xs text-muted-foreground">Clic para ver bodegas</span>
+                        )}
+                      </TableCell>
                       {canManage && (
                         <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
@@ -603,14 +637,28 @@ export default function ProductsIndex() {
                         <TableCell />
                         <TableCell colSpan={canManage ? 7 : 6}>
                           {p.variants.length ? (
-                            <div className="flex flex-wrap gap-3 py-2">
+                            <div className="space-y-3 py-2">
+                              {productLocationStock(p).length > 0 && (
+                                <div>
+                                  <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">Stock por bodega</p>
+                                  <div className="flex flex-wrap gap-2">
+                                    {productLocationStock(p).map((level) => (
+                                      <div key={level.name} className="rounded-md border bg-background px-3 py-2 text-sm">
+                                        <span className="text-muted-foreground">{level.name}</span>
+                                        <span className="ml-2 font-semibold">{level.quantity}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+                              <div className="flex flex-wrap gap-3">
                               {p.variants.map((v) => (
                                 <div key={v.id} className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm">
                                   <Thumb url={v.images?.[0]?.url} size="h-9 w-9" />
                                   <div>
                                     <span className="font-medium">{v.size || "—"} / {v.color || "—"}</span>
                                     <span className="ml-2 text-xs text-muted-foreground">{v.sku}</span>
-                                    {(v.stock_by_location?.length ?? 0) > 1 && (
+                                    {(v.stock_by_location?.length ?? 0) > 0 && (
                                       <div className="mt-0.5 text-xs text-muted-foreground">
                                         {v.stock_by_location!
                                           .map((sl) => `${sl.location_name}: ${sl.quantity}`)
@@ -621,6 +669,7 @@ export default function ProductsIndex() {
                                   <StockBadge stock={v.stock} />
                                 </div>
                               ))}
+                              </div>
                             </div>
                           ) : (
                             <span className="text-sm text-muted-foreground">Sin variantes</span>
@@ -715,7 +764,7 @@ export default function ProductsIndex() {
                 onChange={(e) => setForm({ ...form, category_id: e.target.value })}
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                 <option value="">Selecciona...</option>
-                {categories.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+                {categoryOptions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
               </select>
             </div>
 

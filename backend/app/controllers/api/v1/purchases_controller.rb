@@ -83,7 +83,9 @@ module Api
         end
 
         if params.dig(:purchase, :paid_amount).present?
-          @purchase.update!(paid_amount: purchase_params[:paid_amount])
+          paid_amount = purchase_params[:paid_amount].to_d
+          paid_amount = 0.to_d if paid_amount.negative?
+          @purchase.update!(paid_amount: [paid_amount, @purchase.total].min)
           @purchase.sync_payment_status!
         end
 

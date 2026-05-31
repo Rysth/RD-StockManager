@@ -468,31 +468,6 @@ export default function CustomersIndex() {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="credit_limit">Límite de crédito</Label>
-                <Input
-                  id="credit_limit"
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={form.credit_limit}
-                  onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="payment_term_days">Plazo de pago (días)</Label>
-                <Input
-                  id="payment_term_days"
-                  type="number"
-                  min={0}
-                  value={form.payment_term_days}
-                  onChange={(e) => setForm({ ...form, payment_term_days: e.target.value })}
-                  placeholder="Ej. 30"
-                />
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label htmlFor="address">Dirección</Label>
               <Textarea

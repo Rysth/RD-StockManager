@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Eye, PackageCheck, Ban } from "lucide-react";
+import { Plus, Trash2, Eye, PackageCheck, Ban, DollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
@@ -90,6 +90,7 @@ export default function PurchasesIndex() {
     clearSelectedPurchase,
     createPurchase,
     updatePurchaseStatus,
+    updatePurchasePayment,
     deletePurchase,
   } = usePurchaseStore();
   const {
@@ -108,6 +109,8 @@ export default function PurchasesIndex() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [toCancel, setToCancel] = useState<Purchase | null>(null);
+  const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
+  const [paymentAmount, setPaymentAmount] = useState("");
 
   // form
   const [supplierId, setSupplierId] = useState("");
@@ -177,6 +180,25 @@ export default function PurchasesIndex() {
       })),
     [variantOptions],
   );
+
+  const categoryOptions = useMemo(() => {
+    const byParent = new Map<number | null, (typeof categories)[number][]>();
+    categories.forEach((category) => {
+      const parentId = category.parent_id ?? null;
+      byParent.set(parentId, [...(byParent.get(parentId) ?? []), category]);
+    });
+
+    const options: { id: number; name: string }[] = [];
+    const addOptions = (parentId: number | null, prefix = "") => {
+      (byParent.get(parentId) ?? []).forEach((category) => {
+        options.push({ id: category.id, name: `${prefix}${category.name}` });
+        addOptions(category.id, `${prefix}-- `);
+      });
+    };
+
+    addOptions(null);
+    return options;
+  }, [categories]);
 
   const subtotal = cart.reduce((s, l) => s + l.quantity * l.unit_cost, 0);
   const total = subtotal - Number(discount || 0) + Number(tax || 0);
@@ -308,6 +330,27 @@ export default function PurchasesIndex() {
     }
   };
 
+  const openPayment = (purchase: Purchase) => {
+    setPaymentPurchase(purchase);
+    setPaymentAmount("");
+  };
+
+  const handlePayment = async () => {
+    if (!paymentPurchase) return;
+    const amount = Number(paymentAmount || 0);
+    if (amount <= 0) return toast.error("Ingresa un monto mayor a cero");
+
+    try {
+      const nextPaid = Math.min(paymentPurchase.total, paymentPurchase.paid_amount + amount);
+      const updated = await updatePurchasePayment(paymentPurchase.id, nextPaid);
+      toast.success(updated.payment_status === "paid" ? "Compra marcada como pagada" : "Pago registrado");
+      setPaymentPurchase(null);
+      setPaymentAmount("");
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al registrar el pago"));
+    }
+  };
+
   const handleCancel = async () => {
     if (!toCancel) return;
     try {
@@ -385,6 +428,11 @@ export default function PurchasesIndex() {
                           <PackageCheck className="h-4 w-4" />
                         </Button>
                       )}
+                      {p.status !== "cancelled" && p.payment_status !== "paid" && (
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-emerald-600" title="Registrar pago" onClick={() => openPayment(p)}>
+                          <DollarSign className="h-4 w-4" />
+                        </Button>
+                      )}
                       {p.status !== "cancelled" && (
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Cancelar" onClick={() => setToCancel(p)}>
                           <Ban className="h-4 w-4" />
@@ -415,7 +463,7 @@ export default function PurchasesIndex() {
 
       {/* New purchase modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Nueva Compra</DialogTitle>
             <DialogDescription>Registra una compra a un proveedor</DialogDescription>
@@ -597,6 +645,11 @@ export default function PurchasesIndex() {
                 <div className="flex justify-between"><span>Pagado</span><span>{money(selectedPurchase.paid_amount)}</span></div>
                 <div className="flex justify-between text-destructive"><span>Saldo</span><span>{money(selectedPurchase.balance_due)}</span></div>
               </div>
+              {selectedPurchase.status !== "cancelled" && selectedPurchase.payment_status !== "paid" && (
+                <Button className="w-full" size="sm" onClick={() => openPayment(selectedPurchase)}>
+                  <DollarSign className="mr-2 h-4 w-4" /> Registrar pago
+                </Button>
+              )}
             </div>
           ) : (
             <p className="text-sm text-muted-foreground">Cargando...</p>
@@ -612,7 +665,7 @@ export default function PurchasesIndex() {
           if (!o) resetQuickForm();
         }}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-lg" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>Crear producto nuevo</DialogTitle>
             <DialogDescription>
@@ -637,7 +690,7 @@ export default function PurchasesIndex() {
                   onChange={(e) => setQuickForm({ ...quickForm, category_id: e.target.value })}
                 >
                   <option value="">Selecciona...</option>
-                  {categories.map((c) => (
+                  {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
@@ -702,6 +755,39 @@ export default function PurchasesIndex() {
             <Button onClick={handleQuickCreate} disabled={quickSaving}>
               {quickSaving ? "Creando..." : "Crear y agregar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Register payment */}
+      <Dialog open={!!paymentPurchase} onOpenChange={(open) => !open && setPaymentPurchase(null)}>
+        <DialogContent className="sm:max-w-md" onInteractOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle>Registrar pago</DialogTitle>
+            <DialogDescription>
+              {paymentPurchase?.supplier_name || "Sin proveedor"} · Saldo pendiente {money(paymentPurchase?.balance_due ?? 0)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Monto del abono</Label>
+              <Input
+                type="number"
+                min={0}
+                max={paymentPurchase?.balance_due ?? undefined}
+                step="0.01"
+                value={paymentAmount}
+                onChange={(e) => setPaymentAmount(e.target.value)}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
+              Pagado actual: {money(paymentPurchase?.paid_amount ?? 0)} · Total: {money(paymentPurchase?.total ?? 0)}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPaymentPurchase(null)}>Cancelar</Button>
+            <Button onClick={handlePayment} disabled={isSubmitting}>Registrar pago</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

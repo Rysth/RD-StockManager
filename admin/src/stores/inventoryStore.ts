@@ -38,6 +38,7 @@ interface CategoryInput {
   name: string;
   description?: string;
   active?: boolean;
+  parent_id?: number | null;
 }
 
 interface BrandInput {

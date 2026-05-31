@@ -56,6 +56,7 @@ interface PurchaseState {
   clearSelectedPurchase: () => void;
   createPurchase: (data: CreatePurchaseData) => Promise<Purchase>;
   updatePurchaseStatus: (id: number, status: PurchaseStatus) => Promise<void>;
+  updatePurchasePayment: (id: number, paidAmount: number) => Promise<Purchase>;
   deletePurchase: (id: number) => Promise<void>;
   fetchDue: () => Promise<void>;
 }
@@ -138,6 +139,23 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la compra");
       set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  updatePurchasePayment: async (id, paidAmount) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const response = await api.put(`/api/v1/purchases/${id}`, {
+        purchase: { paid_amount: paidAmount },
+      });
+      const { pagination, currentFilters } = get();
+      await get().fetchPurchases(pagination.current_page, pagination.per_page, currentFilters);
+      set({ isSubmitting: false, selectedPurchase: response.data.purchase as Purchase });
+      return response.data.purchase as Purchase;
+    } catch (error) {
+      const msg = toMessage(error, "Error al registrar el pago");
+      set({ error: msg, isSubmitting: false });
       throw new Error(msg);
     }
   },

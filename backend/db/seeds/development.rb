@@ -24,6 +24,7 @@ ProductVariant.delete_all
 Product.delete_all
 Brand.delete_all
 Category.delete_all
+User.update_all(location_id: nil) # liberar la sucursal asignada antes de borrar ubicaciones
 Location.delete_all
 User.destroy_all
 Account.destroy_all
@@ -102,6 +103,16 @@ category_names = {
 }
 categories = category_names.map do |name, description|
   Category.create!(name: name, description: description, active: true)
+end
+
+# Subcategorías de ejemplo (jerarquía de 2 niveles)
+by_name = categories.index_by(&:name)
+{
+  "Deporte" => ["Running", "Fútbol", "Básquet"],
+  "Gorras"  => ["Snapback", "Ajustable"]
+}.each do |parent_name, subs|
+  parent = by_name[parent_name]
+  subs.each { |sub| Category.create!(name: sub, parent: parent, active: true) }
 end
 
 # Marcas (ahora entidad administrable) — calzado + gorras

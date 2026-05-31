@@ -9,7 +9,7 @@ module Api
 
       # GET /api/v1/categories
       def index
-        @q = Category.ransack(search_params)
+        @q = Category.includes(:parent).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, categories = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 50)
@@ -65,7 +65,7 @@ module Api
       end
 
       def category_params
-        params.require(:category).permit(:name, :description, :active)
+        params.require(:category).permit(:name, :description, :active, :parent_id)
       end
 
       def search_params
@@ -87,6 +87,8 @@ module Api
           name: category.name,
           description: category.description,
           active: category.active,
+          parent_id: category.parent_id,
+          parent_name: category.parent&.name,
           products_count: products_count || category.products.count,
           created_at: category.created_at,
           updated_at: category.updated_at

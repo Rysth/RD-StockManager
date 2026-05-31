@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_150001) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_150002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -126,7 +126,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_150001) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "parent_id"
     t.index ["name"], name: "index_categories_on_name"
+    t.index ["parent_id"], name: "index_categories_on_parent_id"
   end
 
   create_table "customers", force: :cascade do |t|
@@ -373,6 +375,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_150001) do
   add_foreign_key "account_verification_keys", "accounts", column: "id"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "expenses", "expense_categories"
   add_foreign_key "expenses", "locations"
   add_foreign_key "expenses", "users"
