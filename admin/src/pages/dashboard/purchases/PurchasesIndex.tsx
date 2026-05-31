@@ -585,11 +585,11 @@ export default function PurchasesIndex() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => handleSubmit("draft")} disabled={isSubmitting}>
-              Guardar borrador
+            <Button variant="outline" onClick={() => setModalOpen(false)} disabled={isSubmitting}>
+              Cancelar
             </Button>
-            <Button onClick={() => handleSubmit("received")} disabled={isSubmitting}>
-              Recibir compra
+            <Button onClick={() => handleSubmit("draft")} disabled={isSubmitting}>
+              Guardar compra
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -102,6 +102,8 @@ export default function AppSidebar({
     canViewPurchases,
     canViewExpenses,
   } = storePermissions;
+  const isBusinessEmployee = user.roles?.includes("business_employee");
+
   const showStoreGroup =
     canViewInventory ||
     canManageProducts ||
@@ -178,135 +180,135 @@ export default function AppSidebar({
       <SidebarSeparator />
 
       <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Navegación</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              <SidebarMenuItem>
-                <SidebarMenuButton
-                  asChild
-                  tooltip="Dashboard"
-                  isActive={isActiveRoute("/dashboard", true)}
-                  className={activeMenuClasses}
-                >
-                  <NavLink to="/dashboard" end>
-                    <Home />
-                    <span>Dashboard</span>
-                  </NavLink>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-
-              {/* When collapsed: dropdown menu so sub-items remain accessible */}
-              {isCollapsed ? (
+        {!isBusinessEmployee && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Navegación</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
                 <SidebarMenuItem>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip="Configuración"
-                        className={activeMenuClasses}
-                        isActive={isSettingsSectionActive}
-                      >
-                        <Settings />
-                        <span>Configuración</span>
-                        <ChevronRight className="ml-auto size-4" />
-                      </SidebarMenuButton>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent
-                      side="right"
-                      align="start"
-                      sideOffset={4}
-                      className="min-w-48 rounded-lg"
-                    >
-                      <DropdownMenuLabel>Configuración</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem asChild>
-                        <NavLink
-                          to="/dashboard/settings"
-                          className="flex items-center gap-2"
+                  <SidebarMenuButton
+                    asChild
+                    tooltip="Dashboard"
+                    isActive={isActiveRoute("/dashboard", true)}
+                    className={activeMenuClasses}
+                  >
+                    <NavLink to="/dashboard" end>
+                      <Home />
+                      <span>Dashboard</span>
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+
+                {/* When collapsed: dropdown menu so sub-items remain accessible */}
+                {isCollapsed ? (
+                  <SidebarMenuItem>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <SidebarMenuButton
+                          tooltip="Configuración"
+                          className={activeMenuClasses}
+                          isActive={isSettingsSectionActive}
                         >
-                          <SlidersHorizontal className="size-4" />
-                          General
-                        </NavLink>
-                      </DropdownMenuItem>
-                      {canManageUsers ? (
+                          <Settings />
+                          <span>Configuración</span>
+                          <ChevronRight className="ml-auto size-4" />
+                        </SidebarMenuButton>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        side="right"
+                        align="start"
+                        sideOffset={4}
+                        className="min-w-48 rounded-lg"
+                      >
+                        <DropdownMenuLabel>Configuración</DropdownMenuLabel>
+                        <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
                           <NavLink
-                            to="/dashboard/users"
+                            to="/dashboard/settings"
                             className="flex items-center gap-2"
                           >
-                            <Users className="size-4" />
-                            Usuarios
+                            <SlidersHorizontal className="size-4" />
+                            General
                           </NavLink>
                         </DropdownMenuItem>
-                      ) : null}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </SidebarMenuItem>
-              ) : (
-                /* When expanded: collapsible with smooth animation */
-                <Collapsible
-                  asChild
-                  defaultOpen={isSettingsSectionActive}
-                  className="group/collapsible"
-                >
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton
-                        tooltip="Configuración"
-                        className={activeMenuClasses}
-                        isActive={isSettingsSectionActive}
-                      >
-                        <Settings />
-                        <span>Configuración</span>
-                        <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        <SidebarMenuSubItem>
-                          <SidebarMenuSubButton
-                            asChild
-                            isActive={isActiveRoute("/dashboard/settings")}
-                          >
-                            <NavLink to="/dashboard/settings">
-                              <SlidersHorizontal />
-                              <span>General</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-
                         {canManageUsers ? (
+                          <DropdownMenuItem asChild>
+                            <NavLink
+                              to="/dashboard/users"
+                              className="flex items-center gap-2"
+                            >
+                              <Users className="size-4" />
+                              Usuarios
+                            </NavLink>
+                          </DropdownMenuItem>
+                        ) : null}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </SidebarMenuItem>
+                ) : (
+                  /* When expanded: collapsible with smooth animation */
+                  <Collapsible
+                    asChild
+                    defaultOpen={isSettingsSectionActive}
+                    className="group/collapsible"
+                  >
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton
+                          tooltip="Configuración"
+                          className={activeMenuClasses}
+                          isActive={isSettingsSectionActive}
+                        >
+                          <Settings />
+                          <span>Configuración</span>
+                          <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
                           <SidebarMenuSubItem>
                             <SidebarMenuSubButton
                               asChild
-                              isActive={isActiveRoute("/dashboard/users")}
+                              isActive={isActiveRoute("/dashboard/settings")}
                             >
-                              <NavLink to="/dashboard/users">
-                                <Users />
-                                <span>Usuarios</span>
+                              <NavLink to="/dashboard/settings">
+                                <SlidersHorizontal />
+                                <span>General</span>
                               </NavLink>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
-                        ) : null}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+
+                          {canManageUsers ? (
+                            <SidebarMenuSubItem>
+                              <SidebarMenuSubButton
+                                asChild
+                                isActive={isActiveRoute("/dashboard/users")}
+                              >
+                                <NavLink to="/dashboard/users">
+                                  <Users />
+                                  <span>Usuarios</span>
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ) : null}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
 
         {showStoreGroup && (
           <SidebarGroup>
             <SidebarGroupLabel>Tienda</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {/* Orden lineal del flujo del negocio:
-                    Contactos → Compras → Inventario → Marcas → Ubicaciones →
-                    Punto de Venta → Ventas → Gastos → Informes */}
-                {canManageCustomers && (
+                {/* Para business_employee: solo POS, Ventas e Inventario */}
+                {canManageCustomers && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -321,7 +323,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewPurchases && (
+                {canViewPurchases && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -351,7 +353,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canManageProducts && (
+                {canManageProducts && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -366,7 +368,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canManageLocations && (
+                {canManageLocations && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -411,7 +413,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewExpenses && (
+                {canViewExpenses && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
@@ -426,7 +428,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewReports && (
+                {canViewReports && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
