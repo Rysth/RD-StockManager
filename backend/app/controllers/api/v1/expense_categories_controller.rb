@@ -50,7 +50,7 @@ module Api
       end
 
       def category_params
-        params.require(:expense_category).permit(:name, :active)
+        params.require(:expense_category).permit(:name, :active, :is_payroll)
       end
 
       def serialize(category)
@@ -58,6 +58,7 @@ module Api
           id: category.id,
           name: category.name,
           active: category.active,
+          is_payroll: category.is_payroll,
           created_at: category.created_at,
           updated_at: category.updated_at
         }

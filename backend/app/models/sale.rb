@@ -19,9 +19,10 @@ class Sale < ApplicationRecord
 
   scope :due_soon, -> { completed.where.not(payment_status: payment_statuses[:paid]).where(due_date: ..Date.current + 7.days) }
 
-  # Recalculate the total from the persisted line items
+  # Recalculate the total from the persisted line items (+ shipping)
   def recalculate_total!
-    update_column(:total, sale_items.sum("quantity * unit_price"))
+    items_total = sale_items.sum("quantity * unit_price")
+    update_column(:total, items_total + shipping_cost.to_d)
     sync_payment_status!
   end
 
@@ -75,7 +76,7 @@ class Sale < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id status total paid_amount payment_status due_date sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
+    %w[id status total shipping_cost paid_amount payment_status due_date sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

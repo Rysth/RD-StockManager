@@ -303,6 +303,39 @@ export default function AppSidebar({
             <SidebarGroupLabel>Tienda</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
+                {/* Orden lineal del flujo del negocio:
+                    Contactos → Compras → Inventario → Marcas → Ubicaciones →
+                    Punto de Venta → Ventas → Gastos → Informes */}
+                {canManageCustomers && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Contactos"
+                      isActive={isActiveRoute("/dashboard/customers")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/customers">
+                        <Users2 />
+                        <span>Contactos</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canViewPurchases && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Compras"
+                      isActive={isActiveRoute("/dashboard/purchases")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/purchases">
+                        <Truck />
+                        <span>Compras</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {canViewInventory && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -314,6 +347,36 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/products">
                         <Package2 />
                         <span>Inventario</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageProducts && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Marcas y categorías"
+                      isActive={isActiveRoute("/dashboard/brands")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/brands">
+                        <Tags />
+                        <span>Marcas y Categorías</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageLocations && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Ubicaciones"
+                      isActive={isActiveRoute("/dashboard/locations")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/locations">
+                        <Warehouse />
+                        <span>Ubicaciones</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -348,36 +411,6 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewPurchases && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Compras"
-                      isActive={isActiveRoute("/dashboard/purchases")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/purchases">
-                        <Truck />
-                        <span>Compras</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {canManageCustomers && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Contactos"
-                      isActive={isActiveRoute("/dashboard/customers")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/customers">
-                        <Users2 />
-                        <span>Contactos</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
                 {canViewExpenses && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -389,36 +422,6 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/expenses">
                         <Receipt />
                         <span>Gastos</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {canManageProducts && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Marcas y categorías"
-                      isActive={isActiveRoute("/dashboard/brands")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/brands">
-                        <Tags />
-                        <span>Marcas y Categorías</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {canManageLocations && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Ubicaciones"
-                      isActive={isActiveRoute("/dashboard/locations")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/locations">
-                        <Warehouse />
-                        <span>Ubicaciones</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

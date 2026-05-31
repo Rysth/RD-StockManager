@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_140003) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -156,6 +156,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
     t.boolean "active", default: true, null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.boolean "is_payroll", default: false, null: false
     t.index ["name"], name: "index_expense_categories_on_name", unique: true
   end
 
@@ -170,6 +171,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
     t.string "reference"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "employee_id"
+    t.index ["employee_id"], name: "index_expenses_on_employee_id"
     t.index ["expense_category_id"], name: "index_expenses_on_expense_category_id"
     t.index ["expense_date"], name: "index_expenses_on_expense_date"
     t.index ["location_id"], name: "index_expenses_on_location_id"
@@ -323,6 +326,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
     t.decimal "paid_amount", precision: 10, scale: 2, default: "0.0", null: false
     t.integer "payment_status", default: 0, null: false
     t.date "due_date"
+    t.decimal "shipping_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.index ["customer_id"], name: "index_sales_on_customer_id"
     t.index ["due_date"], name: "index_sales_on_due_date"
     t.index ["location_id"], name: "index_sales_on_location_id"
@@ -370,6 +374,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
   add_foreign_key "expenses", "expense_categories"
   add_foreign_key "expenses", "locations"
   add_foreign_key "expenses", "users"
+  add_foreign_key "expenses", "users", column: "employee_id"
   add_foreign_key "otp_codes", "accounts"
   add_foreign_key "product_variants", "products"
   add_foreign_key "products", "brands"

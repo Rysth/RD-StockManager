@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import api from "../utils/api";
-import type { Expense, ExpenseCategory, ExpenseInput, Pagination } from "../types/inventory";
+import type { Expense, ExpenseCategory, ExpenseInput, Employee, Pagination } from "../types/inventory";
 
 interface ExpenseFilters {
   search?: string;
@@ -42,6 +42,7 @@ interface ExpenseCategoryInput {
 interface ExpenseState {
   expenses: Expense[];
   categories: ExpenseCategory[];
+  employees: Employee[];
   pagination: Pagination;
   isLoading: boolean;
   error: string | null;
@@ -54,11 +55,14 @@ interface ExpenseState {
   fetchCategories: () => Promise<void>;
   createCategory: (data: ExpenseCategoryInput) => Promise<void>;
   deleteCategory: (id: number) => Promise<void>;
+  fetchEmployees: () => Promise<void>;
+  checkSalaryStatus: (employeeId: number, date: string) => Promise<boolean>;
 }
 
 export const useExpenseStore = create<ExpenseState>((set, get) => ({
   expenses: [],
   categories: [],
+  employees: [],
   pagination: DEFAULT_PAGINATION,
   isLoading: false,
   error: null,
@@ -154,6 +158,26 @@ export const useExpenseStore = create<ExpenseState>((set, get) => ({
       const msg = toMessage(error, "Error al archivar la categoría");
       set({ error: msg });
       throw new Error(msg);
+    }
+  },
+
+  fetchEmployees: async () => {
+    try {
+      const response = await api.get("/api/v1/expenses/employees");
+      set({ employees: response.data.employees });
+    } catch (error) {
+      set({ error: toMessage(error, "Error al obtener los empleados") });
+    }
+  },
+
+  checkSalaryStatus: async (employeeId, date) => {
+    try {
+      const response = await api.get("/api/v1/expenses/salary_status", {
+        params: { employee_id: employeeId, date },
+      });
+      return Boolean(response.data.exists);
+    } catch {
+      return false;
     }
   },
 }));

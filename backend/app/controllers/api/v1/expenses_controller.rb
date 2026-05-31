@@ -2,8 +2,8 @@ module Api
   module V1
     class ExpensesController < BaseController
       before_action :authenticate_rodauth_user!
-      before_action -> { authorize_permission!(Permission::MANAGE_EXPENSES) }, except: [:index, :show]
-      before_action -> { authorize_permission!(Permission::VIEW_EXPENSES) }, only: [:index, :show]
+      before_action -> { authorize_permission!(Permission::MANAGE_EXPENSES) }, except: [:index, :show, :employees, :salary_status]
+      before_action -> { authorize_permission!(Permission::VIEW_EXPENSES) }, only: [:index, :show, :employees, :salary_status]
       before_action :set_expense, only: [:show, :update, :destroy]
 
       # GET /api/v1/expenses
@@ -51,6 +51,27 @@ module Api
         render_success({}, "Gasto eliminado correctamente")
       end
 
+      # GET /api/v1/expenses/employees — empleados/dueños a quienes se puede pagar nómina
+      def employees
+        users = User.joins(:roles)
+                    .where(roles: { name: %w[business_owner business_employee] })
+                    .distinct
+                    .order(:fullname)
+        render_success(employees: users.map { |u| { id: u.id, fullname: u.fullname } })
+      end
+
+      # GET /api/v1/expenses/salary_status?employee_id=&date= — ¿ya hay sueldo ese mes?
+      def salary_status
+        employee_id = params[:employee_id].presence
+        date = (Date.parse(params[:date]) rescue Date.current)
+        return render_success(exists: false, count: 0) if employee_id.blank?
+
+        scope = Expense.joins(:expense_category)
+                       .where(employee_id: employee_id, expense_categories: { is_payroll: true })
+                       .where(expense_date: date.beginning_of_month..date.end_of_month)
+        render_success(exists: scope.exists?, count: scope.count)
+      end
+
       private
 
       def set_expense
@@ -60,7 +81,7 @@ module Api
       end
 
       def expense_params
-        params.require(:expense).permit(:expense_category_id, :location_id, :amount, :expense_date, :description, :payment_method, :reference)
+        params.require(:expense).permit(:expense_category_id, :location_id, :amount, :expense_date, :description, :payment_method, :reference, :employee_id)
       end
 
       def search_params
@@ -81,8 +102,11 @@ module Api
           reference: expense.reference,
           expense_category_id: expense.expense_category_id,
           category_name: expense.expense_category&.name,
+          is_payroll: expense.expense_category&.is_payroll || false,
           location_id: expense.location_id,
           location_name: expense.location&.name,
+          employee_id: expense.employee_id,
+          employee_name: expense.employee&.fullname,
           created_by: expense.user&.fullname,
           created_at: expense.created_at,
           updated_at: expense.updated_at

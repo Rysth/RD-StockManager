@@ -2,7 +2,7 @@ module Api
   module V1
     class ProductsController < BaseController
       before_action :authenticate_rodauth_user!
-      before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock, :import_template]
+      before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock, :import_template, :export]
       before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy, :images, :remove_image, :import]
       before_action :set_product, only: [:show, :update, :destroy, :images, :remove_image]
       after_action :clear_inventory_cache, only: [:create, :update, :destroy, :images, :remove_image, :import]
@@ -92,6 +92,15 @@ module Api
       def import_template
         send_data ProductImportService.template,
                   filename: "plantilla_productos.xlsx",
+                  type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+      end
+
+      # GET /api/v1/products/export(?location_id=) — export catalog + variants to .xlsx
+      def export
+        location = params[:location_id].present? ? Location.find_by(id: params[:location_id]) : nil
+        suffix = location ? location.name.parameterize : "general"
+        send_data ProductExportService.export(location: location),
+                  filename: "inventario_#{suffix}.xlsx",
                   type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
       end
 

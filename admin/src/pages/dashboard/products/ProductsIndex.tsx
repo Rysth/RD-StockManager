@@ -1,8 +1,17 @@
 import { Fragment, useEffect, useRef, useState } from "react";
-import { Plus, Pencil, ChevronRight, ChevronDown, X, ImagePlus, ImageIcon, Archive, Upload, FileSpreadsheet, Download } from "lucide-react";
+import { Plus, Pencil, ChevronRight, ChevronDown, X, ImagePlus, ImageIcon, Archive, Upload, FileSpreadsheet, Download, FileDown } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
+import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Permissions } from "../../../types/auth";
 import type { Product, ProductVariant, ProductImage } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
@@ -250,7 +259,9 @@ export default function ProductsIndex() {
     deleteVariantImage,
     importProducts,
     downloadImportTemplate,
+    exportProducts,
   } = useInventoryStore();
+  const { locations, fetchLocations } = useLocationStore();
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
 
@@ -280,8 +291,17 @@ export default function ProductsIndex() {
   useEffect(() => {
     fetchCategories();
     fetchBrands();
+    fetchLocations().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleExport = async (locationId?: number) => {
+    try {
+      await exportProducts(locationId);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al exportar"));
+    }
+  };
 
   useEffect(() => {
     fetchProducts(1, pagination.per_page, productFilters())
@@ -465,16 +485,38 @@ export default function ProductsIndex() {
           <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
           <p className="text-sm text-muted-foreground">Productos, precios, costos e imágenes</p>
         </div>
-        {canManage && (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
-              <Upload className="w-4 h-4 mr-2" /> Importar Excel
-            </Button>
-            <Button onClick={openCreate} size="sm">
-              <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
-            </Button>
-          </div>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline">
+                <FileDown className="w-4 h-4 mr-2" /> Exportar
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-48">
+              <DropdownMenuLabel>Exportar inventario</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => handleExport()}>
+                Inventario general
+              </DropdownMenuItem>
+              {locations.length > 1 &&
+                locations.map((l) => (
+                  <DropdownMenuItem key={l.id} onClick={() => handleExport(l.id)}>
+                    {l.name}
+                  </DropdownMenuItem>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {canManage && (
+            <>
+              <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
+                <Upload className="w-4 h-4 mr-2" /> Importar Excel
+              </Button>
+              <Button onClick={openCreate} size="sm">
+                <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
+              </Button>
+            </>
+          )}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2">

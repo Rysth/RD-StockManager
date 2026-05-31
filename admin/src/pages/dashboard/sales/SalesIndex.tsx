@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, Printer } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
+import { useBusinessStore } from "../../../stores/businessStore";
+import { printTicket } from "../../../lib/ticket";
 import type { SaleStatus } from "../../../types/inventory";
 import {
   AlertDialog,
@@ -100,6 +102,7 @@ function SalesList() {
     fetchSale,
     clearSelectedSale,
   } = useSaleStore();
+  const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -111,6 +114,31 @@ function SalesList() {
       .catch((e) => toast.error(errorMessage(e, "Error al cargar ventas")))
       .finally(() => setFirstLoad(false));
   }, [fetchSales, pagination.per_page, status]);
+
+  useEffect(() => {
+    fetchPublicBusiness().catch(() => {});
+  }, [fetchPublicBusiness]);
+
+  const reprintTicket = () => {
+    if (!selectedSale?.items) return;
+    const ok = printTicket({
+      businessName: publicBusiness?.name || "EDLU Store",
+      businessSlogan: publicBusiness?.slogan || "",
+      date: selectedSale.sold_at ? new Date(selectedSale.sold_at) : new Date(),
+      saleId: selectedSale.id,
+      customerName: selectedSale.customer_name || "Consumidor final",
+      lines: selectedSale.items.map((it) => ({
+        label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` — ${[it.size, it.color].filter(Boolean).join(" / ")}` : ""}`,
+        quantity: it.quantity,
+        unit_price: it.unit_price,
+      })),
+      shippingCost: selectedSale.shipping_cost ?? 0,
+      total: selectedSale.total,
+      paymentMethod: selectedSale.payment_method ?? "cash",
+      cashOnDelivery: selectedSale.cash_on_delivery ?? false,
+    });
+    if (!ok) toast.error("Permite ventanas emergentes para imprimir");
+  };
 
   const openDetail = (id: number) => {
     setDrawerOpen(true);
@@ -337,6 +365,18 @@ function SalesList() {
               </div>
 
               <div className="space-y-1 border-t pt-3 text-sm">
+                {(selectedSale.shipping_cost ?? 0) > 0 && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Subtotal</span>
+                      <span>{money(selectedSale.total - (selectedSale.shipping_cost ?? 0))}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Envío</span>
+                      <span>{money(selectedSale.shipping_cost ?? 0)}</span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total</span>
                   <span className="text-lg font-bold">{money(selectedSale.total)}</span>
@@ -350,6 +390,10 @@ function SalesList() {
                   </div>
                 )}
               </div>
+
+              <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
+                <Printer className="h-4 w-4" /> Reimprimir ticket
+              </Button>
 
               {selectedSale.status === "pending" && (
                 <Button

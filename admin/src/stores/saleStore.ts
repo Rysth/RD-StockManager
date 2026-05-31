@@ -110,9 +110,11 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const response = await api.post("/api/v1/sales", {
         sale: {
           customer_id: data.customer_id ?? null,
+          location_id: data.location_id ?? null,
           status: data.status ?? "completed",
           payment_method: data.payment_method ?? "cash",
           cash_on_delivery: data.cash_on_delivery ?? false,
+          shipping_cost: data.shipping_cost ?? 0,
         },
         items: data.items,
       });

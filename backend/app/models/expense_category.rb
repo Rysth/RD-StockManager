@@ -8,7 +8,7 @@ class ExpenseCategory < ApplicationRecord
   scope :active, -> { where(active: true) }
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id name active created_at updated_at]
+    %w[id name active is_payroll created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

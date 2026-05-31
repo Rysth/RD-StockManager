@@ -306,8 +306,9 @@ end
 # ──────────────────────────────────────────────────────────────
 puts "Creating expenses..."
 expense_categories = ["Arriendo", "Servicios básicos", "Sueldos", "Transporte", "Marketing"].map do |name|
-  ExpenseCategory.create!(name: name, active: true)
+  ExpenseCategory.create!(name: name, active: true, is_payroll: name == "Sueldos")
 end
+payroll_employees = [employee1, employee2]
 
 expense_descriptions = {
   "Arriendo" => "Pago de arriendo del local",
@@ -323,6 +324,7 @@ created_expenses = 0
     expense_category: cat,
     location: purchase_locations.sample,
     user: owner_user,
+    employee: (cat.is_payroll ? payroll_employees.sample : nil),
     amount: [25, 40, 60, 120, 250, 500].sample + rand(0..50),
     expense_date: rand(0..45).days.ago.change(hour: rand(8..18)),
     description: expense_descriptions[cat.name],

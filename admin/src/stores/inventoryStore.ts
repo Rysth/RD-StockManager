@@ -106,6 +106,7 @@ interface InventoryState {
   deleteVariantImage: (variantId: number, imageId: number) => Promise<void>;
   importProducts: (file: File) => Promise<ImportResult>;
   downloadImportTemplate: () => Promise<void>;
+  exportProducts: (locationId?: number) => Promise<void>;
 
   fetchCategories: () => Promise<void>;
   createCategory: (data: CategoryInput) => Promise<void>;
@@ -252,6 +253,25 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       window.URL.revokeObjectURL(url);
     } catch (error) {
       throw new Error(toMessage(error, "Error al descargar la plantilla"));
+    }
+  },
+
+  exportProducts: async (locationId) => {
+    try {
+      const response = await api.get("/api/v1/products/export", {
+        params: locationId ? { location_id: locationId } : {},
+        responseType: "blob",
+      });
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", locationId ? `inventario_${locationId}.xlsx` : "inventario_general.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al exportar el inventario"));
     }
   },
 

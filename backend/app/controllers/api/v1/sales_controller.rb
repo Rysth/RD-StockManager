@@ -44,6 +44,7 @@ module Api
             user: current_rodauth_user,
             status: :pending,
             payment_method: sale_params[:payment_method].presence || :cash,
+            shipping_cost: sale_params[:shipping_cost].presence || 0,
             cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
           )
           sale.save!
@@ -123,7 +124,7 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost)
       end
 
       def desired_status
@@ -143,6 +144,7 @@ module Api
           id: sale.id,
           status: sale.status,
           total: sale.total,
+          shipping_cost: sale.shipping_cost,
           sold_at: sale.sold_at,
           customer_id: sale.customer_id,
           customer_name: sale.customer&.name,

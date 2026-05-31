@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Tag } from "lucide-react";
+import { Plus, Pencil, Trash2, Tag, AlertTriangle } from "lucide-react";
 import toast from "react-hot-toast";
 import { useExpenseStore } from "../../../stores/expenseStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -53,6 +53,7 @@ interface FormState {
   description: string;
   payment_method: PaymentMethod;
   reference: string;
+  employee_id: string;
 }
 
 const todayInput = () => new Date().toISOString().slice(0, 10);
@@ -65,6 +66,7 @@ const EMPTY_FORM: FormState = {
   description: "",
   payment_method: "cash",
   reference: "",
+  employee_id: "",
 };
 
 const errorMessage = (e: unknown, fallback: string) =>
@@ -74,6 +76,7 @@ export default function ExpensesIndex() {
   const {
     expenses,
     categories,
+    employees,
     pagination,
     isLoading,
     fetchExpenses,
@@ -82,6 +85,8 @@ export default function ExpensesIndex() {
     deleteExpense,
     fetchCategories,
     createCategory,
+    fetchEmployees,
+    checkSalaryStatus,
   } = useExpenseStore();
   const { locations, fetchLocations } = useLocationStore();
 
@@ -92,12 +97,33 @@ export default function ExpensesIndex() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [salaryWarning, setSalaryWarning] = useState(false);
 
   useEffect(() => {
     fetchCategories().catch(() => {});
     fetchLocations().catch(() => {});
+    fetchEmployees().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const selectedCategory = categories.find((c) => String(c.id) === form.expense_category_id);
+  const isPayroll = selectedCategory?.is_payroll ?? false;
+
+  // Verifica si ya existe un sueldo para ese empleado en el mes seleccionado.
+  useEffect(() => {
+    if (!modalOpen || !isPayroll || !form.employee_id || !form.expense_date) {
+      setSalaryWarning(false);
+      return;
+    }
+    let active = true;
+    checkSalaryStatus(Number(form.employee_id), form.expense_date).then((exists) => {
+      if (active) setSalaryWarning(exists);
+    });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modalOpen, isPayroll, form.employee_id, form.expense_date]);
 
   useEffect(() => {
     fetchExpenses(1, pagination.per_page, {
@@ -122,6 +148,7 @@ export default function ExpensesIndex() {
       description: e.description ?? "",
       payment_method: e.payment_method,
       reference: e.reference ?? "",
+      employee_id: e.employee_id ? String(e.employee_id) : "",
     });
     setModalOpen(true);
   };
@@ -134,11 +161,16 @@ export default function ExpensesIndex() {
     description: form.description || null,
     payment_method: form.payment_method,
     reference: form.reference || null,
+    employee_id: isPayroll && form.employee_id ? Number(form.employee_id) : null,
   });
 
   const handleSubmit = async () => {
     if (!form.amount || Number(form.amount) <= 0) {
       toast.error("El monto debe ser mayor a 0");
+      return;
+    }
+    if (isPayroll && !form.employee_id) {
+      toast.error("Selecciona el empleado al que se le pagó el sueldo");
       return;
     }
     try {
@@ -228,7 +260,16 @@ export default function ExpensesIndex() {
                   <TableRow key={e.id}>
                     <TableCell>{e.expense_date ? new Date(e.expense_date).toLocaleDateString("es-EC") : "—"}</TableCell>
                     <TableCell>{e.category_name || "Sin categoría"}</TableCell>
-                    <TableCell className="max-w-xs truncate">{e.description || "—"}</TableCell>
+                    <TableCell className="max-w-xs truncate">
+                      {e.employee_name ? (
+                        <span>
+                          <span className="text-xs text-muted-foreground">Sueldo: </span>
+                          {e.employee_name}
+                        </span>
+                      ) : (
+                        e.description || "—"
+                      )}
+                    </TableCell>
                     <TableCell>{e.location_name || "—"}</TableCell>
                     <TableCell><Badge variant="secondary">{PAYMENT_LABEL[e.payment_method]}</Badge></TableCell>
                     <TableCell className="font-medium">{money(e.amount)}</TableCell>
@@ -304,6 +345,26 @@ export default function ExpensesIndex() {
                 </select>
               </div>
             </div>
+            {isPayroll && (
+              <div className="space-y-2">
+                <Label>Empleado (sueldo)</Label>
+                <select className={selectClass} value={form.employee_id} onChange={(e) => setForm({ ...form, employee_id: e.target.value })}>
+                  <option value="">Selecciona un empleado...</option>
+                  {employees.map((emp) => (
+                    <option key={emp.id} value={emp.id}>{emp.fullname}</option>
+                  ))}
+                </select>
+                {salaryWarning && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <span>
+                      Ya existe un sueldo registrado para este empleado en el mes seleccionado.
+                      Puedes registrarlo igual si es necesario (p. ej. un segundo pago).
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Método de pago</Label>
               <select className={selectClass} value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value as PaymentMethod })}>

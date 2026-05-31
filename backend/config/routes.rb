@@ -52,6 +52,7 @@ Rails.application.routes.draw do
         collection do
           get :low_stock
           get :import_template
+          get :export
           post :import
         end
         member do
@@ -78,7 +79,12 @@ Rails.application.routes.draw do
         end
       end
       resources :expense_categories
-      resources :expenses
+      resources :expenses do
+        collection do
+          get :employees
+          get :salary_status
+        end
+      end
       namespace :inventory do
         get :stats
       end

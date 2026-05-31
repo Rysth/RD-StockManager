@@ -18,7 +18,8 @@ import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
-import type { PaymentMethod } from "../../../types/inventory";
+import type { PaymentMethod, ProductVariant } from "../../../types/inventory";
+import { printTicket } from "../../../lib/ticket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,14 +41,6 @@ const money = (n: number) =>
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
-
-const escapeHtml = (value: string) =>
-  value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#039;");
 
 function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
   return url ? (
@@ -114,6 +107,7 @@ export default function PosIndex() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
+  const [shippingCost, setShippingCost] = useState(0);
 
   // Dialog state
   const [selectedProduct, setSelectedProduct] = useState<{
@@ -159,13 +153,22 @@ export default function PosIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations]);
 
+  // Stock de una variante en la ubicación seleccionada (cae al total si no hay desglose).
+  const stockAt = (v: ProductVariant): number => {
+    if (locationId && v.stock_by_location?.length) {
+      const found = v.stock_by_location.find((sl) => String(sl.location_id) === locationId);
+      return found ? found.quantity : 0;
+    }
+    return v.stock;
+  };
+
   // ── Product grid data ────────────────────────────────────────
   const productGroups = useMemo(() => {
     const q = variantQuery.trim().toLowerCase();
     return products
       .filter((p) => {
         if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
-        if (!p.variants.some((v) => v.stock > 0)) return false;
+        if (!p.variants.some((v) => stockAt(v) > 0)) return false;
         if (!q) return true;
         const productMatch = `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(q);
         const variantMatch = p.variants.some((v) =>
@@ -181,19 +184,19 @@ export default function PosIndex() {
         wholesale_price: p.wholesale_price ?? null,
         wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
         thumb: p.images?.[0]?.url,
-        variantCount: p.variants.filter((v) => v.stock > 0).length,
+        variantCount: p.variants.filter((v) => stockAt(v) > 0).length,
         variants: p.variants
-          .filter((v) => v.stock > 0)
+          .filter((v) => stockAt(v) > 0)
           .map((v) => ({
             id: v.id,
             size: v.size,
             color: v.color,
-            stock: v.stock,
+            stock: stockAt(v),
             sku: v.sku,
             thumb: v.images?.[0]?.url || p.images?.[0]?.url,
           })),
       }));
-  }, [products, variantQuery, categoryFilter]);
+  }, [products, variantQuery, categoryFilter, locationId]);
 
   // ── Cart operations ──────────────────────────────────────────
   function withQuantity(item: CartItem, quantity: number): CartItem {
@@ -240,7 +243,17 @@ export default function PosIndex() {
   const removeItem = (id: number) =>
     setCart((prev) => prev.filter((i) => i.product_variant_id !== id));
 
-  const total = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  // Al cambiar de ubicación, el stock disponible cambia: limpiamos el carrito.
+  const handleLocationChange = (value: string) => {
+    setLocationId(value);
+    if (cart.length) {
+      setCart([]);
+      toast("Carrito vaciado: cambiaste de ubicación", { icon: "🏬" });
+    }
+  };
+
+  const itemsTotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
+  const total = itemsTotal + shippingCost;
   const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
 
@@ -263,86 +276,19 @@ export default function PosIndex() {
   };
 
   // ── Print ticket ─────────────────────────────────────────────
-  const printTicket = () => {
-    const bizName = publicBusiness?.name || "EDLU Store";
-    const bizSlogan = publicBusiness?.slogan || "";
-    const now = new Date();
-    const dateStr = now.toLocaleDateString("es-EC", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
+  const handlePrintTicket = () => {
+    const ok = printTicket({
+      businessName: publicBusiness?.name || "EDLU Store",
+      businessSlogan: publicBusiness?.slogan || "",
+      date: new Date(),
+      customerName: selectedCustomer?.name || "Consumidor final",
+      lines: cart.map((i) => ({ label: i.label, quantity: i.quantity, unit_price: i.unit_price })),
+      shippingCost,
+      total,
+      paymentMethod,
+      cashOnDelivery,
     });
-    const timeStr = now.toLocaleTimeString("es-EC", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    const customerName = selectedCustomer?.name || "Consumidor final";
-
-    const rows = cart
-      .map(
-        (i) => `
-      <tr>
-        <td>${escapeHtml(i.label)}</td>
-        <td style="text-align:center">${i.quantity}</td>
-        <td style="text-align:right">${money(i.unit_price)}</td>
-        <td style="text-align:right">${money(i.unit_price * i.quantity)}</td>
-      </tr>`
-      )
-      .join("");
-
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Ticket</title>
-<style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{font-family:'Courier New',Courier,monospace;font-size:11px;width:80mm;padding:3mm}
-  h1{font-size:16px;text-align:center;letter-spacing:3px;font-weight:bold}
-  .sub{font-size:9px;text-align:center;color:#555;margin-bottom:5px}
-  hr.dash{border:none;border-top:1px dashed #000;margin:4px 0}
-  hr.solid{border:none;border-top:1px solid #000;margin:4px 0}
-  .row{display:flex;justify-content:space-between;margin:2px 0}
-  .label{color:#555}
-  table{width:100%;border-collapse:collapse}
-  th{font-size:10px;border-bottom:1px solid #000;padding-bottom:3px;text-align:left}
-  th:nth-child(n+2),td:nth-child(n+2){text-align:center}
-  th:nth-child(3),td:nth-child(3),th:nth-child(4),td:nth-child(4){text-align:right}
-  td{padding:2px 0;vertical-align:top}
-  .total{display:flex;justify-content:space-between;font-weight:bold;font-size:14px;margin-top:3px}
-  .cod{text-align:center;font-weight:bold;color:#b45309;margin:4px 0}
-  .footer{text-align:center;margin-top:8px;font-size:10px}
-  @media print{body{width:80mm}@page{size:80mm auto;margin:0}}
-</style></head>
-<body>
-  <h1>${escapeHtml(bizName.toUpperCase())}</h1>
-  ${bizSlogan ? `<p class="sub">${escapeHtml(bizSlogan)}</p>` : ""}
-  <hr class="solid">
-  <div class="row"><span class="label">Fecha</span><span>${dateStr} ${timeStr}</span></div>
-  <div class="row"><span class="label">Cliente</span><span>${escapeHtml(customerName)}</span></div>
-  <hr class="dash">
-  <table>
-    <thead><tr><th>Producto</th><th>Cant</th><th>P.Unit</th><th>Total</th></tr></thead>
-    <tbody>${rows}</tbody>
-  </table>
-  <hr class="dash">
-  <div class="total"><span>TOTAL</span><span>${money(total)}</span></div>
-  <hr class="dash">
-  <div class="row">
-    <span class="label">Método de pago</span>
-    <span>${paymentMethod === "cash" ? "Efectivo" : "Transferencia"}</span>
-  </div>
-  ${cashOnDelivery ? '<p class="cod">PAGO CONTRA ENTREGA</p>' : ""}
-  <hr class="solid">
-  <p class="footer">¡Gracias por su compra!</p>
-</body></html>`;
-
-    const win = window.open("", "_blank", "width=360,height=640,toolbar=0,menubar=0,location=0");
-    if (!win) {
-      toast.error("Permite ventanas emergentes para imprimir");
-      return;
-    }
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => win.print(), 300);
+    if (!ok) toast.error("Permite ventanas emergentes para imprimir");
   };
 
   // ── Submit sale ──────────────────────────────────────────────
@@ -354,6 +300,7 @@ export default function PosIndex() {
         status: cashOnDelivery ? "pending" : "completed",
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
+        shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
           quantity: i.quantity,
@@ -371,6 +318,7 @@ export default function PosIndex() {
       setVariantQuery("");
       setPaymentMethod("cash");
       setCashOnDelivery(false);
+      setShippingCost(0);
     } catch (e) {
       toast.error(errorMessage(e, "Error al registrar la venta"));
     }
@@ -392,7 +340,7 @@ export default function PosIndex() {
             <select
               id="pos-location"
               value={locationId}
-              onChange={(e) => setLocationId(e.target.value)}
+              onChange={(e) => handleLocationChange(e.target.value)}
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             >
               {locations.map((l) => (
@@ -638,8 +586,54 @@ export default function PosIndex() {
                 </label>
               </div>
 
+              {/* Costo de envío */}
+              <div className="space-y-2 border-t pt-3">
+                <p className="text-xs font-medium text-muted-foreground">Costo de envío</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShippingCost(0)}
+                    className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                      shippingCost === 0 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+                    }`}
+                  >
+                    Gratis
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShippingCost(3)}
+                    className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                      shippingCost === 3 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
+                    }`}
+                  >
+                    $3
+                  </button>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={shippingCost ? String(shippingCost) : ""}
+                    placeholder="Otro"
+                    className="h-8"
+                    onChange={(e) => setShippingCost(Math.max(0, Number(e.target.value) || 0))}
+                  />
+                </div>
+              </div>
+
               {/* Total + acción */}
               <div className="space-y-3 border-t pt-3">
+                {shippingCost > 0 && (
+                  <div className="space-y-0.5 text-sm">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>{money(itemsTotal)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Envío</span>
+                      <span>{money(shippingCost)}</span>
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-lg font-bold">
                   <span>Total</span>
                   <span>{money(total)}</span>
@@ -833,6 +827,19 @@ export default function PosIndex() {
 
             <Separator />
 
+            {shippingCost > 0 && (
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>{money(itemsTotal)}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Envío</span>
+                  <span>{money(shippingCost)}</span>
+                </div>
+              </div>
+            )}
+
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>
               <span>{money(total)}</span>
@@ -878,7 +885,7 @@ export default function PosIndex() {
             <Button
               variant="outline"
               className="gap-2"
-              onClick={printTicket}
+              onClick={handlePrintTicket}
               disabled={cart.length === 0}
             >
               <Printer className="h-4 w-4" /> Imprimir / PDF

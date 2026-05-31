@@ -133,6 +133,7 @@ export interface Sale {
   id: number;
   status: SaleStatus;
   total: number;
+  shipping_cost?: number;
   sold_at: string | null;
   customer_id: number | null;
   customer_name?: string | null;
@@ -160,6 +161,7 @@ export interface CreateSaleData {
   status?: SaleStatus;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  shipping_cost?: number;
   items: SaleItemInput[];
 }
 
@@ -243,8 +245,14 @@ export interface ExpenseCategory {
   id: number;
   name: string;
   active: boolean;
+  is_payroll?: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface Employee {
+  id: number;
+  fullname: string;
 }
 
 export interface Expense {
@@ -256,8 +264,11 @@ export interface Expense {
   reference?: string | null;
   expense_category_id: number | null;
   category_name?: string | null;
+  is_payroll?: boolean;
   location_id?: number | null;
   location_name?: string | null;
+  employee_id?: number | null;
+  employee_name?: string | null;
   created_by?: string | null;
   created_at: string;
   updated_at: string;
@@ -271,6 +282,7 @@ export interface ExpenseInput {
   description?: string | null;
   payment_method?: PaymentMethod;
   reference?: string | null;
+  employee_id?: number | null;
 }
 
 // ---- Informes avanzados ----
