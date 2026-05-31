@@ -52,6 +52,8 @@ export const Permissions = {
 	MANAGE_CUSTOMERS: "manage_customers",
 	MANAGE_SALES: "manage_sales",
 	VIEW_REPORTS: "view_reports",
+	VIEW_LOCATIONS: "view_locations",
+	MANAGE_LOCATIONS: "manage_locations",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

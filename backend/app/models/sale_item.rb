@@ -35,12 +35,14 @@ class SaleItem < ApplicationRecord
     self.unit_cost = product_variant&.product&.cost || 0 if unit_cost.blank? || unit_cost.zero?
   end
 
-  # Ensure there is enough stock to fulfil this line item
+  # Ensure there is enough stock at the sale's location to fulfil this line item
   def sufficient_stock
     return if product_variant.blank? || quantity.blank?
 
-    if quantity > product_variant.stock
-      errors.add(:quantity, "Stock insuficiente para #{product_variant.sku} (disponible: #{product_variant.stock})")
+    location = sale&.location || Location.default
+    available = product_variant.stock_for(location)
+    if quantity > available
+      errors.add(:quantity, "Stock insuficiente para #{product_variant.sku} (disponible: #{available})")
     end
   end
 end

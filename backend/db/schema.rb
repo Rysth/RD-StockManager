@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_30_230001) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -144,6 +144,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_230001) do
     t.index ["name"], name: "index_customers_on_name"
   end
 
+  create_table "locations", force: :cascade do |t|
+    t.string "name", null: false
+    t.string "address"
+    t.string "phone"
+    t.boolean "is_default", default: false, null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_locations_on_active"
+    t.index ["is_default"], name: "index_locations_on_is_default"
+  end
+
   create_table "otp_codes", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "code", limit: 6, null: false
@@ -238,10 +250,23 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_230001) do
     t.datetime "updated_at", null: false
     t.integer "payment_method", default: 0, null: false
     t.boolean "cash_on_delivery", default: false, null: false
+    t.bigint "location_id"
     t.index ["customer_id"], name: "index_sales_on_customer_id"
+    t.index ["location_id"], name: "index_sales_on_location_id"
     t.index ["sold_at"], name: "index_sales_on_sold_at"
     t.index ["status"], name: "index_sales_on_status"
     t.index ["user_id"], name: "index_sales_on_user_id"
+  end
+
+  create_table "stock_levels", force: :cascade do |t|
+    t.bigint "product_variant_id", null: false
+    t.bigint "location_id", null: false
+    t.integer "quantity", default: 0, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["location_id"], name: "index_stock_levels_on_location_id"
+    t.index ["product_variant_id", "location_id"], name: "index_stock_levels_on_product_variant_id_and_location_id", unique: true
+    t.index ["product_variant_id"], name: "index_stock_levels_on_product_variant_id"
   end
 
   create_table "users", force: :cascade do |t|
@@ -278,6 +303,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_30_230001) do
   add_foreign_key "sale_items", "product_variants"
   add_foreign_key "sale_items", "sales"
   add_foreign_key "sales", "customers"
+  add_foreign_key "sales", "locations"
   add_foreign_key "sales", "users"
+  add_foreign_key "stock_levels", "locations"
+  add_foreign_key "stock_levels", "product_variants"
   add_foreign_key "users", "accounts"
 end

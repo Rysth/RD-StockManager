@@ -6,6 +6,7 @@ class Sale < ApplicationRecord
 
   belongs_to :user
   belongs_to :customer, optional: true
+  belongs_to :location, optional: true
   has_many :sale_items, dependent: :destroy
 
   accepts_nested_attributes_for :sale_items
@@ -13,6 +14,7 @@ class Sale < ApplicationRecord
   validates :status, presence: true
 
   before_validation :set_sold_at, on: :create
+  before_validation :set_location, on: :create
 
   # Recalculate the total from the persisted line items
   def recalculate_total!
@@ -25,8 +27,9 @@ class Sale < ApplicationRecord
     return if completed?
 
     transaction do
+      loc = location || Location.default
       sale_items.includes(:product_variant).each do |item|
-        item.product_variant.decrement!(:stock, item.quantity)
+        StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
       end
       update!(status: :completed)
     end
@@ -38,8 +41,9 @@ class Sale < ApplicationRecord
 
     transaction do
       if completed?
+        loc = location || Location.default
         sale_items.includes(:product_variant).each do |item|
-          item.product_variant.increment!(:stock, item.quantity)
+          StockMovement.apply!(variant: item.product_variant, location: loc, delta: item.quantity)
         end
       end
       update!(status: :cancelled)
@@ -47,16 +51,20 @@ class Sale < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id status total sold_at customer_id user_id payment_method cash_on_delivery created_at updated_at]
+    %w[id status total sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)
-    %w[customer user sale_items]
+    %w[customer user location sale_items]
   end
 
   private
 
   def set_sold_at
     self.sold_at ||= Time.current
+  end
+
+  def set_location
+    self.location ||= Location.default
   end
 end

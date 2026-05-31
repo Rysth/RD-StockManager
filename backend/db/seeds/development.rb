@@ -15,10 +15,12 @@ Audited::Audit.delete_all if defined?(Audited::Audit)
 SaleItem.delete_all
 Sale.delete_all
 Customer.delete_all
+StockLevel.delete_all
 ProductVariant.delete_all
 Product.delete_all
 Brand.delete_all
 Category.delete_all
+Location.delete_all
 User.destroy_all
 Account.destroy_all
 Role.destroy_all
@@ -103,6 +105,11 @@ brand_names = %w[Nike Adidas Puma Converse Vans Reebok Crocs Skechers New\ Era V
 brand_names = ["Nike", "Adidas", "Puma", "Converse", "Vans", "Reebok", "Crocs", "Skechers", "New Era", "Volcom"]
 brands = brand_names.index_with { |name| Brand.create!(name: name, active: true) }
 
+# Ubicaciones / almacenes — el stock inicial de las variantes se asigna a la principal
+puts "Creating locations..."
+main_location = Location.create!(name: "Tienda Principal", address: "Av. 9 de Octubre y Malecón", phone: "042000000", is_default: true, active: true)
+warehouse = Location.create!(name: "Bodega Norte", address: "Vía a Daule km 10", phone: "042111111", is_default: false, active: true)
+
 # 12 productos — 10 calzado + 2 gorras
 product_defs = [
   { name: "Air Max 270",        brand: "Nike",     base_price: 129.99, category: "Deporte" },
@@ -154,6 +161,12 @@ products.each do |product|
       )
     end
   end
+end
+
+# Distribuir algo de stock a la Bodega Norte (~40% de las variantes) para demostrar
+# el inventario multi-ubicación. El stock inicial ya vive en la Tienda Principal.
+all_variants.sample((all_variants.size * 0.4).round).each do |variant|
+  StockMovement.apply!(variant: variant, location: warehouse, delta: rand(3..15))
 end
 
 # 20 clientes con ciudades ecuatorianas
@@ -216,8 +229,10 @@ puts "✅ Inventory & sales demo seeded!"
 puts "=" * 60
 puts "   • Categorías:  #{Category.count}"
 puts "   • Marcas:      #{Brand.count}"
+puts "   • Ubicaciones: #{Location.count} (#{Location.pluck(:name).join(', ')})"
 puts "   • Productos:   #{Product.count}"
 puts "   • Variantes:   #{ProductVariant.count}"
+puts "   • Niveles stock: #{StockLevel.count}"
 puts "   • Clientes:    #{Customer.count}"
 puts "   • Ventas:      #{Sale.count} (#{Sale.completed.count} completadas, #{Sale.pending.count} pendientes, #{Sale.cancelled.count} canceladas)"
 puts "=" * 60

@@ -13,6 +13,7 @@ import {
   ShoppingCart,
   Users2,
   Tags,
+  Warehouse,
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,6 +56,7 @@ interface StorePermissions {
   canManageCustomers: boolean;
   canManageSales: boolean;
   canViewReports: boolean;
+  canManageLocations: boolean;
 }
 
 interface AppSidebarProps {
@@ -91,13 +93,15 @@ export default function AppSidebar({
     canManageCustomers,
     canManageSales,
     canViewReports,
+    canManageLocations,
   } = storePermissions;
   const showStoreGroup =
     canViewInventory ||
     canManageProducts ||
     canManageCustomers ||
     canManageSales ||
-    canViewReports;
+    canViewReports ||
+    canManageLocations;
   // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
   const { isMobile, state } = useSidebar();
@@ -361,6 +365,21 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/brands">
                         <Tags />
                         <span>Marcas y Categorías</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageLocations && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Ubicaciones"
+                      isActive={isActiveRoute("/dashboard/locations")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/locations">
+                        <Warehouse />
+                        <span>Ubicaciones</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

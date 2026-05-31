@@ -9,7 +9,7 @@ module Api
 
       # GET /api/v1/products
       def index
-        @q = Product.includes(:category, :brand, product_variants: { images_attachments: :blob }, images_attachments: :blob).ransack(search_params)
+        @q = Product.includes(:category, :brand, product_variants: [{ images_attachments: :blob }, { stock_levels: :location }], images_attachments: :blob).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, products = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -25,11 +25,22 @@ module Api
         render_success(product: serialize(@product))
       end
 
-      # GET /api/v1/products/low_stock
+      # GET /api/v1/products/low_stock  (optional ?location_id= to scope to one location)
       def low_stock
-        variants = ProductVariant.includes(product: :category)
-                                 .where("stock <= ?", ProductVariant::LOW_STOCK_THRESHOLD)
-                                 .order(:stock)
+        location_id = params[:location_id].presence
+
+        if location_id
+          variants = ProductVariant.includes(product: :category)
+                                   .joins(:stock_levels)
+                                   .where(stock_levels: { location_id: location_id })
+                                   .where("stock_levels.quantity <= ?", ProductVariant::LOW_STOCK_THRESHOLD)
+                                   .select("product_variants.*, stock_levels.quantity AS location_stock")
+                                   .order("stock_levels.quantity")
+        else
+          variants = ProductVariant.includes(product: :category)
+                                   .where("stock <= ?", ProductVariant::LOW_STOCK_THRESHOLD)
+                                   .order(:stock)
+        end
 
         render_success(
           variants: variants.map do |v|
@@ -38,7 +49,7 @@ module Api
               sku: v.sku,
               size: v.size,
               color: v.color,
-              stock: v.stock,
+              stock: location_id ? v.attributes["location_stock"].to_i : v.stock,
               product_id: v.product_id,
               product_name: v.product.name,
               brand: v.product.brand&.name,
@@ -115,7 +126,7 @@ module Api
       end
 
       def set_product
-        @product = Product.includes(:category, product_variants: { images_attachments: :blob }, images_attachments: :blob).find(params[:id])
+        @product = Product.includes(:category, product_variants: [{ images_attachments: :blob }, { stock_levels: :location }], images_attachments: :blob).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Producto no encontrado", :not_found)
       end
@@ -168,6 +179,7 @@ module Api
               sku: v.sku,
               low_stock: v.low_stock?,
               out_of_stock: v.out_of_stock?,
+              stock_by_location: v.stock_levels.map { |sl| { location_id: sl.location_id, location_name: sl.location.name, quantity: sl.quantity } },
               images: image_list(v)
             }
           end,

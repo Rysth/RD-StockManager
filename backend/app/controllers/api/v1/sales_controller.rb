@@ -10,7 +10,7 @@ module Api
 
       # GET /api/v1/sales
       def index
-        @q = Sale.includes(:customer, :user).ransack(search_params)
+        @q = Sale.includes(:customer, :user, :location).ransack(search_params)
         @q.sorts = "sold_at desc" if @q.sorts.empty?
 
         @pagy, sales = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -40,6 +40,7 @@ module Api
         ActiveRecord::Base.transaction do
           sale = Sale.new(
             customer_id: sale_params[:customer_id],
+            location_id: sale_params[:location_id].presence,
             user: current_rodauth_user,
             status: :pending,
             payment_method: sale_params[:payment_method].presence || :cash,
@@ -92,7 +93,9 @@ module Api
       # GET /api/v1/sales/report
       def report
         now = Time.current
+        @location_id = params[:location_id].presence
         completed = Sale.completed
+        completed = completed.where(location_id: @location_id) if @location_id
 
         render_success(
           summary: {
@@ -114,13 +117,13 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, sale_items: { product_variant: :product }).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :status, :payment_method, :cash_on_delivery)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery)
       end
 
       def desired_status
@@ -131,6 +134,7 @@ module Api
         search = {}
         search[:status_eq] = Sale.statuses[params[:status]] if params[:status].present? && Sale.statuses.key?(params[:status])
         search[:customer_name_cont] = params[:search] if params[:search].present?
+        search[:location_id_eq] = params[:location_id] if params[:location_id].present?
         search
       end
 
@@ -142,6 +146,8 @@ module Api
           sold_at: sale.sold_at,
           customer_id: sale.customer_id,
           customer_name: sale.customer&.name,
+          location_id: sale.location_id,
+          location_name: sale.location&.name,
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
@@ -174,6 +180,7 @@ module Api
       # Real profit across completed sale items, optionally within a date range
       def profit_sum(date_range = nil)
         rel = SaleItem.joins(:sale).where(sales: { status: Sale.statuses[:completed] })
+        rel = rel.where(sales: { location_id: @location_id }) if @location_id
         rel = rel.where(sales: { sold_at: date_range }) if date_range
         rel.sum(Arel.sql("sale_items.quantity * (sale_items.unit_price - sale_items.unit_cost)")).to_f
       end
@@ -188,10 +195,11 @@ module Api
       end
 
       def top_products
-        SaleItem.joins(:sale, product_variant: :product)
-                .joins("LEFT JOIN brands ON brands.id = products.brand_id")
-                .where(sales: { status: Sale.statuses[:completed] })
-                .group("products.id", "products.name", "brands.name")
+        rel = SaleItem.joins(:sale, product_variant: :product)
+                      .joins("LEFT JOIN brands ON brands.id = products.brand_id")
+                      .where(sales: { status: Sale.statuses[:completed] })
+        rel = rel.where(sales: { location_id: @location_id }) if @location_id
+        rel.group("products.id", "products.name", "brands.name")
                 .order(Arel.sql("SUM(sale_items.quantity) DESC"))
                 .limit(10)
                 .pluck("products.name", "brands.name", Arel.sql("SUM(sale_items.quantity)"), Arel.sql("SUM(sale_items.quantity * sale_items.unit_price)"))

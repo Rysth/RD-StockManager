@@ -568,6 +568,13 @@ export default function ProductsIndex() {
                                   <div>
                                     <span className="font-medium">{v.size || "—"} / {v.color || "—"}</span>
                                     <span className="ml-2 text-xs text-muted-foreground">{v.sku}</span>
+                                    {(v.stock_by_location?.length ?? 0) > 1 && (
+                                      <div className="mt-0.5 text-xs text-muted-foreground">
+                                        {v.stock_by_location!
+                                          .map((sl) => `${sl.location_name}: ${sl.quantity}`)
+                                          .join(" · ")}
+                                      </div>
+                                    )}
                                   </div>
                                   <StockBadge stock={v.stock} />
                                 </div>

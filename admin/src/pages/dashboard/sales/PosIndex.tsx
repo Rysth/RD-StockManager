@@ -17,6 +17,7 @@ import { useSaleStore } from "../../../stores/saleStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
+import { useLocationStore } from "../../../stores/locationStore";
 import type { PaymentMethod } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -103,9 +104,11 @@ export default function PosIndex() {
   const { customers, fetchCustomers, createCustomer } = useCustomerStore();
   const { createSale, isSubmitting } = useSaleStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
+  const { locations, fetchLocations } = useLocationStore();
 
   // Cart state
   const [customerId, setCustomerId] = useState<string>("");
+  const [locationId, setLocationId] = useState<string>("");
   const [variantQuery, setVariantQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -142,9 +145,19 @@ export default function PosIndex() {
     fetchProducts(1, 200, {});
     fetchCustomers(1, 200, "");
     fetchCategories();
+    fetchLocations().catch(() => {});
     fetchPublicBusiness().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Default the POS to the business' main location once they load
+  useEffect(() => {
+    if (!locationId && locations.length) {
+      const fallback = locations.find((l) => l.is_default) ?? locations[0];
+      setLocationId(String(fallback.id));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locations]);
 
   // ── Product grid data ────────────────────────────────────────
   const productGroups = useMemo(() => {
@@ -337,6 +350,7 @@ export default function PosIndex() {
     try {
       await createSale({
         customer_id: customerId ? Number(customerId) : null,
+        location_id: locationId ? Number(locationId) : null,
         status: cashOnDelivery ? "pending" : "completed",
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
@@ -365,9 +379,30 @@ export default function PosIndex() {
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Punto de Venta</h1>
-        <p className="text-sm text-muted-foreground">Registra una venta nueva</p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Punto de Venta</h1>
+          <p className="text-sm text-muted-foreground">Registra una venta nueva</p>
+        </div>
+        {locations.length > 1 && (
+          <div className="flex items-center gap-2">
+            <Label htmlFor="pos-location" className="text-sm text-muted-foreground">
+              Ubicación
+            </Label>
+            <select
+              id="pos-location"
+              value={locationId}
+              onChange={(e) => setLocationId(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
@@ -806,6 +841,14 @@ export default function PosIndex() {
             <Separator />
 
             <div className="space-y-1">
+              {locations.length > 1 && locationId && (
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ubicación</span>
+                  <span className="font-medium">
+                    {locations.find((l) => String(l.id) === locationId)?.name}
+                  </span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Método de pago</span>
                 <span className="font-medium">

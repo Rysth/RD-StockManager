@@ -65,6 +65,7 @@ Rails.application.routes.draw do
           delete "images/:image_id", action: :remove_image, as: :image
         end
       end
+      resources :locations
       resources :customers
       resources :sales do
         collection do

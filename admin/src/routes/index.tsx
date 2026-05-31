@@ -13,6 +13,7 @@ import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
 import SalesIndex from "../pages/dashboard/sales/SalesIndex";
 import PosIndex from "../pages/dashboard/sales/PosIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
+import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
 import AuthConfirm from "../pages/auth/AuthConfirm";
@@ -131,6 +132,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.MANAGE_PRODUCTS}>
             <BrandsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "locations",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_LOCATIONS}>
+            <LocationsIndex />
           </ProtectedRoute>
         ),
       },

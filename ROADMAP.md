@@ -297,3 +297,62 @@ Seeds actualizados para demostrar versatilidad:
 - [x] Crear cliente → widget "Clientes" en Dashboard se actualiza
 - [x] Seeds incluyen gorras con tallas S/M/L — se pueden gestionar igual que zapatos
 - [x] `npm run build` sin errores de tipos
+
+---
+
+## Fase 12 — Multi-ubicación: Ubicaciones / Almacenes + Stock por ubicación
+
+> Primer paso de la evolución a ERP genérico (estilo Kosari / UltimatePOS). Convierte el stock
+> de un entero único por variante a un modelo por ubicación, base de Compras y Reportes futuros.
+
+### 12.1 — Modelo de datos
+
+- Migraciones: `create_locations` (`name`, `address`, `phone`, `is_default`, `active`),
+  `create_stock_levels` (`product_variant_id` × `location_id` único, `quantity`),
+  `add_location_to_sales` (`sales.location_id`), `backfill_locations_and_stock` (crea
+  **"Principal"**, copia `product_variants.stock` → `stock_levels` y asigna ventas históricas).
+- **Diseño clave:** `product_variants.stock` se conserva como **total denormalizado** (suma de
+  todas las ubicaciones), así los scopes/queries agregados existentes siguen intactos. El detalle
+  por ubicación vive en `stock_levels`.
+
+### 12.2 — Modelos y lógica
+
+- `Location` (audited, scope `active`, garantiza un solo `is_default`, `Location.default`).
+- `StockLevel` (variante × ubicación, único).
+- Servicio `StockMovement.apply!(variant:, location:, delta:)`: ajusta el `StockLevel` con bloqueo,
+  valida que no quede negativo y resincroniza el total denormalizado vía `update_column`.
+- `ProductVariant`: `stock_for(location)`, `low_stock_at(location_id)`, callbacks que crean el
+  `StockLevel` inicial y reconcilian la ubicación por defecto al editar el stock desde el formulario.
+- `Sale#complete!`/`#cancel!` mueven stock en `sale.location` vía `StockMovement`.
+  `SaleItem#sufficient_stock` valida contra el stock de esa ubicación. Las ventas obtienen la
+  ubicación por defecto si no se especifica.
+
+### 12.3 — Permisos y API
+
+- Nuevos permisos `view_locations`, `manage_locations` (admin + owner; empleado solo ver).
+- `LocationsController` (CRUD, archiva en vez de borrar, impide archivar la única activa).
+- `sales#create` acepta `location_id`; `sales#report`, `products#low_stock` e `inventory#stats`
+  aceptan `?location_id=` para filtrar por sucursal.
+
+### 12.4 — Frontend
+
+- Tipos `Location` / `VariantStockLevel`, `useLocationStore`, página `/dashboard/locations`
+  e ítem "Ubicaciones" (icono `Warehouse`) en el grupo Tienda.
+- POS: selector de ubicación (visible con >1 sucursal), enviado al registrar la venta y mostrado
+  en el diálogo de confirmación.
+- Inventario: desglose de stock por ubicación en la fila expandible de variantes.
+
+### 12.5 — Seeds
+
+- 2 ubicaciones (**Tienda Principal** por defecto + **Bodega Norte**); ~40% de las variantes
+  reciben stock extra en la bodega para demostrar el inventario multi-ubicación.
+
+### Verificación Fase 12
+
+- [x] `rails db:migrate` migra el stock existente a "Principal" sin pérdida (0 desajustes)
+- [x] `rails db:seed` sin errores: 2 ubicaciones, 97 niveles de stock, 30 ventas con ubicación
+- [x] Vender desde una ubicación descuenta su stock; cancelar lo restaura (probado vía runner)
+- [x] Vender desde una ubicación sin stock falla la validación
+- [x] `inventory/stats`, `products/low_stock` y `sales/report` filtran por `location_id`
+- [x] owner tiene `manage_locations`; empleado no
+- [x] `npm run build` del admin sin errores de tipos

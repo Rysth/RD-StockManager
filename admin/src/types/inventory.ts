@@ -26,6 +26,24 @@ export interface ProductImage {
   url: string;
 }
 
+export interface Location {
+  id: number;
+  name: string;
+  address?: string | null;
+  phone?: string | null;
+  is_default: boolean;
+  active: boolean;
+  stock_total?: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface VariantStockLevel {
+  location_id: number;
+  location_name: string;
+  quantity: number;
+}
+
 export interface ProductVariant {
   id: number;
   size?: string | null;
@@ -34,6 +52,7 @@ export interface ProductVariant {
   sku: string;
   low_stock?: boolean;
   out_of_stock?: boolean;
+  stock_by_location?: VariantStockLevel[];
   images?: ProductImage[];
 }
 
@@ -110,6 +129,8 @@ export interface Sale {
   sold_at: string | null;
   customer_id: number | null;
   customer_name?: string | null;
+  location_id?: number | null;
+  location_name?: string | null;
   seller?: string | null;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
@@ -128,6 +149,7 @@ export interface SaleItemInput {
 
 export interface CreateSaleData {
   customer_id?: number | null;
+  location_id?: number | null;
   status?: SaleStatus;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
