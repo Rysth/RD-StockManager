@@ -1,34 +1,9 @@
-import { useEffect, useMemo, useState } from "react";
-import {
-  Plus,
-  Minus,
-  Trash2,
-  ShoppingCart,
-  Search,
-  Eye,
-  ImageIcon,
-  Banknote,
-  ArrowLeftRight,
-  Truck,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Eye } from "lucide-react";
 import toast from "react-hot-toast";
+import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
-import { useInventoryStore } from "../../../stores/inventoryStore";
-import { useCustomerStore } from "../../../stores/customerStore";
-import type { SaleStatus, PaymentMethod } from "../../../types/inventory";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Card, CardContent } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
+import type { SaleStatus } from "../../../types/inventory";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -39,15 +14,17 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Separator } from "@/components/ui/separator";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -56,8 +33,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Pagination from "../../../components/common/Pagination";
-import { Skeleton } from "@/components/ui/skeleton";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
@@ -66,9 +41,18 @@ const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
 const STATUS_META: Record<SaleStatus, { label: string; className: string }> = {
-  completed: { label: "Completada", className: "bg-green-100 text-green-800 hover:bg-green-100" },
-  pending: { label: "Pendiente", className: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
-  cancelled: { label: "Cancelada", className: "bg-red-100 text-red-800 hover:bg-red-100" },
+  completed: {
+    label: "Completada",
+    className: "bg-green-100 text-green-800 hover:bg-green-100",
+  },
+  pending: {
+    label: "Pendiente",
+    className: "bg-amber-100 text-amber-800 hover:bg-amber-100",
+  },
+  cancelled: {
+    label: "Cancelada",
+    className: "bg-red-100 text-red-800 hover:bg-red-100",
+  },
 };
 
 const PAYMENT_LABEL: Record<string, string> = {
@@ -82,7 +66,7 @@ function SaleListSkeleton() {
       <Skeleton className="h-9 w-44 rounded-md" />
       <Card className="rounded-xl p-0">
         <CardContent className="p-0">
-          <div className="p-4 space-y-3">
+          <div className="space-y-3 p-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="flex items-center gap-4">
                 <Skeleton className="h-4 w-20 rounded" />
@@ -104,21 +88,17 @@ function SaleListSkeleton() {
   );
 }
 
-function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
-  return url ? (
-    <img src={url} alt="" className={`${size} rounded-md border object-cover`} />
-  ) : (
-    <div className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}>
-      <ImageIcon className="h-4 w-4" />
-    </div>
-  );
-}
-
-// ── Tab 1: lista de ventas + drawer de detalle + confirmación de cancelar ──
-function SalesListTab() {
+function SalesList() {
   const {
-    sales, pagination, isLoading, fetchSales, updateSaleStatus,
-    selectedSale, isLoadingDetail, fetchSale, clearSelectedSale,
+    sales,
+    pagination,
+    isLoading,
+    fetchSales,
+    updateSaleStatus,
+    selectedSale,
+    isLoadingDetail,
+    fetchSale,
+    clearSelectedSale,
   } = useSaleStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
@@ -128,10 +108,9 @@ function SalesListTab() {
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, { status })
-      .catch((e) => toast.error(e.message || "Error al cargar ventas"))
+      .catch((e) => toast.error(errorMessage(e, "Error al cargar ventas")))
       .finally(() => setFirstLoad(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status]);
+  }, [fetchSales, pagination.per_page, status]);
 
   const openDetail = (id: number) => {
     setDrawerOpen(true);
@@ -142,7 +121,7 @@ function SalesListTab() {
     if (cancelId == null) return;
     try {
       await updateSaleStatus(cancelId, "cancelled");
-      toast.success("Venta cancelada — stock restaurado");
+      toast.success("Venta cancelada - stock restaurado");
       if (selectedSale?.id === cancelId) {
         setDrawerOpen(false);
         clearSelectedSale();
@@ -158,7 +137,7 @@ function SalesListTab() {
     if (completeId == null) return;
     try {
       await updateSaleStatus(completeId, "completed");
-      toast.success("Pedido completado — stock descontado");
+      toast.success("Pedido completado - stock descontado");
       if (selectedSale?.id === completeId) {
         setDrawerOpen(false);
         clearSelectedSale();
@@ -185,7 +164,7 @@ function SalesListTab() {
         <option value="cancelled">Canceladas</option>
       </select>
 
-      <Card className="p-0 rounded-xl">
+      <Card className="rounded-xl p-0">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
@@ -201,13 +180,23 @@ function SalesListTab() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="h-24 text-center">Cargando ventas...</TableCell></TableRow>
+                <TableRow>
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    Cargando ventas...
+                  </TableCell>
+                </TableRow>
               ) : sales.length ? (
                 sales.map((s) => (
-                  <TableRow key={s.id} className="cursor-pointer" onClick={() => openDetail(s.id)}>
-                    <TableCell>{s.sold_at ? new Date(s.sold_at).toLocaleDateString("es-EC") : "—"}</TableCell>
+                  <TableRow
+                    key={s.id}
+                    className="cursor-pointer"
+                    onClick={() => openDetail(s.id)}
+                  >
+                    <TableCell>
+                      {s.sold_at ? new Date(s.sold_at).toLocaleDateString("es-EC") : "-"}
+                    </TableCell>
                     <TableCell>{s.customer_name || "Consumidor final"}</TableCell>
-                    <TableCell>{s.seller || "—"}</TableCell>
+                    <TableCell>{s.seller || "-"}</TableCell>
                     <TableCell>{s.items_count}</TableCell>
                     <TableCell className="font-medium">{money(s.total)}</TableCell>
                     <TableCell>
@@ -216,16 +205,32 @@ function SalesListTab() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(s.id)} title="Ver detalle">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openDetail(s.id)}
+                        title="Ver detalle"
+                      >
                         <Eye className="h-4 w-4" />
                       </Button>
                       {s.status === "pending" && (
-                        <Button variant="ghost" size="sm" className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50" onClick={() => setCompleteId(s.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-emerald-600 hover:bg-emerald-50 hover:text-emerald-700"
+                          onClick={() => setCompleteId(s.id)}
+                        >
                           Confirmar entrega
                         </Button>
                       )}
                       {s.status !== "cancelled" && (
-                        <Button variant="ghost" size="sm" className="text-destructive" onClick={() => setCancelId(s.id)}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-destructive"
+                          onClick={() => setCancelId(s.id)}
+                        >
                           Cancelar
                         </Button>
                       )}
@@ -252,8 +257,13 @@ function SalesListTab() {
         onPageChange={({ selected }) => fetchSales(selected + 1, pagination.per_page, { status })}
       />
 
-      {/* Drawer de detalle */}
-      <Sheet open={drawerOpen} onOpenChange={(o) => { setDrawerOpen(o); if (!o) clearSelectedSale(); }}>
+      <Sheet
+        open={drawerOpen}
+        onOpenChange={(open) => {
+          setDrawerOpen(open);
+          if (!open) clearSelectedSale();
+        }}
+      >
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>
             <SheetTitle>Detalle de venta {selectedSale ? `#${selectedSale.id}` : ""}</SheetTitle>
@@ -261,21 +271,38 @@ function SalesListTab() {
           </SheetHeader>
 
           {isLoadingDetail || !selectedSale ? (
-            <div className="flex h-40 items-center justify-center text-muted-foreground">Cargando...</div>
+            <div className="flex h-40 items-center justify-center text-muted-foreground">
+              Cargando...
+            </div>
           ) : (
             <div className="space-y-4 px-4 pb-6">
               <div className="grid grid-cols-2 gap-3 text-sm">
-                <div><p className="text-muted-foreground">Cliente</p><p className="font-medium">{selectedSale.customer_name || "Consumidor final"}</p></div>
-                <div><p className="text-muted-foreground">Vendedor</p><p className="font-medium">{selectedSale.seller || "—"}</p></div>
-                <div><p className="text-muted-foreground">Fecha</p><p className="font-medium">{selectedSale.sold_at ? new Date(selectedSale.sold_at).toLocaleString("es-EC") : "—"}</p></div>
-                <div><p className="text-muted-foreground">Estado</p>
+                <div>
+                  <p className="text-muted-foreground">Cliente</p>
+                  <p className="font-medium">{selectedSale.customer_name || "Consumidor final"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Vendedor</p>
+                  <p className="font-medium">{selectedSale.seller || "-"}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Fecha</p>
+                  <p className="font-medium">
+                    {selectedSale.sold_at
+                      ? new Date(selectedSale.sold_at).toLocaleString("es-EC")
+                      : "-"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Estado</p>
                   <Badge variant="secondary" className={STATUS_META[selectedSale.status].className}>
                     {STATUS_META[selectedSale.status].label}
                   </Badge>
                 </div>
-                <div><p className="text-muted-foreground">Método de pago</p>
+                <div>
+                  <p className="text-muted-foreground">Método de pago</p>
                   <p className="font-medium">
-                    {PAYMENT_LABEL[selectedSale.payment_method ?? "cash"] || "—"}
+                    {PAYMENT_LABEL[selectedSale.payment_method ?? "cash"] || "-"}
                     {selectedSale.cash_on_delivery ? " · Contra entrega" : ""}
                   </p>
                 </div>
@@ -296,7 +323,9 @@ function SalesListTab() {
                       <TableRow key={it.id}>
                         <TableCell>
                           <p className="font-medium">{it.product_name}</p>
-                          <p className="text-xs text-muted-foreground">{it.size || "—"}/{it.color || "—"} · {it.sku}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {it.size || "-"}/{it.color || "-"} · {it.sku}
+                          </p>
                         </TableCell>
                         <TableCell className="text-center">{it.quantity}</TableCell>
                         <TableCell className="text-right">{money(it.unit_price)}</TableCell>
@@ -308,22 +337,34 @@ function SalesListTab() {
               </div>
 
               <div className="space-y-1 border-t pt-3 text-sm">
-                <div className="flex justify-between"><span className="text-muted-foreground">Total</span><span className="text-lg font-bold">{money(selectedSale.total)}</span></div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total</span>
+                  <span className="text-lg font-bold">{money(selectedSale.total)}</span>
+                </div>
                 {selectedSale.profit != null && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Ganancia</span><span className="font-medium text-emerald-600">{money(selectedSale.profit)}</span></div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Ganancia</span>
+                    <span className="font-medium text-emerald-600">
+                      {money(selectedSale.profit)}
+                    </span>
+                  </div>
                 )}
               </div>
 
               {selectedSale.status === "pending" && (
                 <Button
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
                   onClick={() => setCompleteId(selectedSale.id)}
                 >
                   Confirmar entrega y pago
                 </Button>
               )}
               {selectedSale.status !== "cancelled" && (
-                <Button variant="outline" className="w-full text-destructive" onClick={() => setCancelId(selectedSale.id)}>
+                <Button
+                  variant="outline"
+                  className="w-full text-destructive"
+                  onClick={() => setCancelId(selectedSale.id)}
+                >
                   Cancelar venta
                 </Button>
               )}
@@ -332,8 +373,7 @@ function SalesListTab() {
         </SheetContent>
       </Sheet>
 
-      {/* Confirmación de cancelar */}
-      <AlertDialog open={cancelId != null} onOpenChange={(o) => !o && setCancelId(null)}>
+      <AlertDialog open={cancelId != null} onOpenChange={(open) => !open && setCancelId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="text-destructive">Cancelar venta</AlertDialogTitle>
@@ -344,16 +384,17 @@ function SalesListTab() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmCancel}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={confirmCancel}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
               Sí, cancelar venta
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmación de completar pedido contra entrega */}
-      <AlertDialog open={completeId != null} onOpenChange={(o) => !o && setCompleteId(null)}>
+      <AlertDialog open={completeId != null} onOpenChange={(open) => !open && setCompleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar entrega y pago</AlertDialogTitle>
@@ -377,586 +418,17 @@ function SalesListTab() {
   );
 }
 
-// ── Tab 2: POS / nueva venta ──
-interface CartItem {
-  product_variant_id: number;
-  label: string;
-  sku: string;
-  thumb?: string;
-  base_price: number;
-  wholesale_price: number | null;
-  wholesale_min_quantity: number;
-  quantity: number;
-  max: number;
-  unit_price: number;
-  price_edited: boolean;
-}
-
-function suggestedPrice(item: Pick<CartItem, "base_price" | "wholesale_price" | "wholesale_min_quantity" | "quantity">) {
-  if (item.wholesale_price && item.wholesale_price > 0 && item.quantity >= item.wholesale_min_quantity) {
-    return item.wholesale_price;
-  }
-  return item.base_price;
-}
-
-function NewSale({ onComplete }: { onComplete: () => void }) {
-  const { products, categories, fetchProducts, fetchCategories } = useInventoryStore();
-  const { customers, fetchCustomers } = useCustomerStore();
-  const { createSale, isSubmitting } = useSaleStore();
-
-  const [customerId, setCustomerId] = useState<string>("");
-  const [variantQuery, setVariantQuery] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
-  const [cashOnDelivery, setCashOnDelivery] = useState(false);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  useEffect(() => {
-    fetchProducts(1, 100, {});
-    fetchCustomers(1, 100, "");
-    fetchCategories();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Un producto por card; al hacer clic se elige la variante (talla/color)
-  const [selectedProduct, setSelectedProduct] = useState<{
-    id: number;
-    name: string;
-    brand?: string | null;
-    base_price: number;
-    wholesale_price: number | null;
-    wholesale_min_quantity: number;
-    thumb?: string;
-    variants: { id: number; size?: string | null; color?: string | null; stock: number; sku: string; thumb?: string }[];
-  } | null>(null);
-
-  const productGroups = useMemo(() => {
-    const q = variantQuery.trim().toLowerCase();
-    return products
-      .filter((p) => {
-        if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
-        if (!p.variants.some((v) => v.stock > 0)) return false;
-        if (!q) return true;
-        const productMatch = `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(q);
-        const variantMatch = p.variants.some((v) =>
-          `${v.sku} ${v.size ?? ""} ${v.color ?? ""}`.toLowerCase().includes(q)
-        );
-        return productMatch || variantMatch;
-      })
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        base_price: p.base_price,
-        wholesale_price: p.wholesale_price ?? null,
-        wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
-        thumb: p.images?.[0]?.url,
-        variantCount: p.variants.filter((v) => v.stock > 0).length,
-        variants: p.variants
-          .filter((v) => v.stock > 0)
-          .map((v) => ({
-            id: v.id,
-            size: v.size,
-            color: v.color,
-            stock: v.stock,
-            sku: v.sku,
-            thumb: v.images?.[0]?.url || p.images?.[0]?.url,
-          })),
-      }));
-  }, [products, variantQuery, categoryFilter]);
-
-  interface VariantOption {
-    id: number; label: string; sku: string; thumb?: string; stock: number;
-    base_price: number; wholesale_price: number | null; wholesale_min_quantity: number;
-  }
-
-  const addToCart = (v: VariantOption) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i.product_variant_id === v.id);
-      if (existing) {
-        if (existing.quantity >= existing.max) {
-          toast.error("No hay más stock disponible");
-          return prev;
-        }
-        return prev.map((i) => (i.product_variant_id === v.id ? withQuantity(i, i.quantity + 1) : i));
-      }
-      const base: CartItem = {
-        product_variant_id: v.id, label: v.label, sku: v.sku, thumb: v.thumb,
-        base_price: v.base_price, wholesale_price: v.wholesale_price,
-        wholesale_min_quantity: v.wholesale_min_quantity,
-        quantity: 1, max: v.stock, unit_price: v.base_price, price_edited: false,
-      };
-      return [...prev, withQuantity(base, 1)];
-    });
-  };
-
-  // Recalcula el precio sugerido (mayoreo) si el usuario no lo editó manualmente
-  function withQuantity(item: CartItem, quantity: number): CartItem {
-    const q = Math.max(1, Math.min(quantity, item.max));
-    const next = { ...item, quantity: q };
-    if (!item.price_edited) next.unit_price = suggestedPrice(next);
-    return next;
-  }
-
-  const setQuantity = (id: number, qty: number) =>
-    setCart((prev) => prev.map((i) => (i.product_variant_id === id ? withQuantity(i, qty) : i)));
-
-  const removeItem = (id: number) => setCart((prev) => prev.filter((i) => i.product_variant_id !== id));
-
-  const total = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-
-  const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
-
-  // Pago contra entrega → la venta queda pendiente hasta confirmar la entrega.
-  // Pago en el momento → se completa de inmediato y descuenta stock.
-  const submitSale = async () => {
-    try {
-      await createSale({
-        customer_id: customerId ? Number(customerId) : null,
-        status: cashOnDelivery ? "pending" : "completed",
-        payment_method: paymentMethod,
-        cash_on_delivery: cashOnDelivery,
-        items: cart.map((i) => ({
-          product_variant_id: i.product_variant_id,
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-        })),
-      });
-      toast.success(
-        cashOnDelivery
-          ? "Pedido registrado — pendiente de entrega y pago"
-          : "Venta completada correctamente"
-      );
-      setConfirmOpen(false);
-      setCart([]); setCustomerId(""); setVariantQuery("");
-      setPaymentMethod("cash"); setCashOnDelivery(false);
-      onComplete();
-    } catch (e) {
-      toast.error(errorMessage(e, "Error al registrar la venta"));
-    }
-  };
-
-  return (
-    <div className="grid gap-6 lg:grid-cols-12">
-      {/* ── Catálogo de productos (grilla tipo POS) ── */}
-      <div className="space-y-4 lg:col-span-7 xl:col-span-8">
-        <div className="relative">
-          <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            className="pl-9"
-            placeholder="Buscar por nombre, marca o SKU..."
-            value={variantQuery}
-            onChange={(e) => setVariantQuery(e.target.value)}
-          />
-        </div>
-
-        {/* Filtro por categoría (chips) */}
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => setCategoryFilter("all")}
-            className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-              categoryFilter === "all"
-                ? "border-primary bg-primary text-primary-foreground"
-                : "hover:bg-muted"
-            }`}
-          >
-            Todas
-          </button>
-          {categories.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => setCategoryFilter(c.id)}
-              className={`rounded-full border px-3 py-1 text-xs font-medium transition-colors ${
-                categoryFilter === c.id
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "hover:bg-muted"
-              }`}
-            >
-              {c.name}
-            </button>
-          ))}
-        </div>
-
-        {/* Grilla de productos — un card por producto */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
-          {productGroups.length ? (
-            productGroups.map((p) => {
-              const inCartCount = cart.filter((c) =>
-                p.variants.some((v) => v.id === c.product_variant_id)
-              ).reduce((sum, c) => sum + c.quantity, 0);
-              return (
-                <button
-                  key={p.id}
-                  type="button"
-                  onClick={() => setSelectedProduct(p)}
-                  className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
-                >
-                  <div className="relative aspect-square w-full bg-muted">
-                    {p.thumb ? (
-                      <img src={p.thumb} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <ImageIcon className="h-8 w-8" />
-                      </div>
-                    )}
-                    {/* Cantidad de variantes disponibles */}
-                    <Badge
-                      variant="secondary"
-                      className="absolute left-1.5 top-1.5 bg-background/85 text-foreground backdrop-blur-sm text-[10px]"
-                    >
-                      {p.variantCount} {p.variantCount === 1 ? "talla" : "tallas"}
-                    </Badge>
-                    {/* Indicador si ya hay algo en el carrito */}
-                    {inCartCount > 0 && (
-                      <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                        {inCartCount}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex flex-1 flex-col gap-0.5 p-2.5">
-                    <p className="line-clamp-2 text-sm font-medium leading-tight">{p.name}</p>
-                    {p.brand && (
-                      <p className="truncate text-[11px] text-muted-foreground">{p.brand}</p>
-                    )}
-                    <p className="mt-auto pt-1 font-semibold text-primary">{money(p.base_price)}</p>
-                  </div>
-                </button>
-              );
-            })
-          ) : (
-            <p className="col-span-full px-3 py-12 text-center text-sm text-muted-foreground">
-              Sin resultados con stock disponible.
-            </p>
-          )}
-        </div>
-      </div>
-
-      {/* ── Panel de checkout (sticky) ── */}
-      <div className="lg:col-span-5 xl:col-span-4">
-        <Card className="sticky top-4 rounded-xl">
-          <CardContent className="flex max-h-[calc(100vh-7rem)] flex-col gap-4 p-4">
-            <div className="flex items-center gap-2 font-semibold">
-              <ShoppingCart className="h-5 w-5" /> Carrito
-              <Badge variant="secondary" className="ml-auto">{itemCount}</Badge>
-            </div>
-
-            {/* Cliente */}
-            <select
-              value={customerId}
-              onChange={(e) => setCustomerId(e.target.value)}
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Consumidor final</option>
-              {customers.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}{c.city ? ` (${c.city})` : ""}
-                </option>
-              ))}
-            </select>
-
-            {/* Líneas del carrito */}
-            <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
-              {cart.length ? (
-                cart.map((i) => {
-                  const wholesaleApplies =
-                    !!i.wholesale_price && i.wholesale_price > 0 && i.quantity >= i.wholesale_min_quantity;
-                  return (
-                    <div key={i.product_variant_id} className="flex items-center gap-2 rounded-lg border p-2">
-                      <Thumb url={i.thumb} size="h-10 w-10" />
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-medium">{i.label}</p>
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs text-muted-foreground">{money(i.unit_price)} c/u</span>
-                          {wholesaleApplies && (
-                            <Badge variant="secondary" className="bg-blue-100 px-1 py-0 text-[10px] text-blue-800">
-                              Mayoreo
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
-                      <div className="flex items-center rounded-md border">
-                        <button type="button" className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => setQuantity(i.product_variant_id, i.quantity - 1)}>
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-7 text-center text-sm">{i.quantity}</span>
-                        <button type="button" className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() => setQuantity(i.product_variant_id, i.quantity + 1)}>
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                      <span className="w-16 text-right text-sm font-medium">
-                        {money(i.unit_price * i.quantity)}
-                      </span>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                        onClick={() => removeItem(i.product_variant_id)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  );
-                })
-              ) : (
-                <p className="py-10 text-center text-sm text-muted-foreground">
-                  Toca un producto para agregarlo a la venta.
-                </p>
-              )}
-            </div>
-
-            {/* Método de pago */}
-            <div className="space-y-2 border-t pt-3">
-              <p className="text-xs font-medium text-muted-foreground">Método de pago</p>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("cash")}
-                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
-                    paymentMethod === "cash"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <Banknote className="h-4 w-4" /> Efectivo
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentMethod("transfer")}
-                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
-                    paymentMethod === "transfer"
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "hover:bg-muted"
-                  }`}
-                >
-                  <ArrowLeftRight className="h-4 w-4" /> Transferencia
-                </button>
-              </div>
-              <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
-                <Checkbox
-                  checked={cashOnDelivery}
-                  onCheckedChange={(c) => setCashOnDelivery(c === true)}
-                />
-                <Truck className="h-4 w-4 text-muted-foreground" />
-                Pago contra entrega
-              </label>
-            </div>
-
-            {/* Total + acción */}
-            <div className="space-y-3 border-t pt-3">
-              <div className="flex items-center justify-between text-lg font-bold">
-                <span>Total</span>
-                <span>{money(total)}</span>
-              </div>
-              <Button
-                className="h-11 w-full text-base"
-                disabled={cart.length === 0}
-                onClick={() => setConfirmOpen(true)}
-              >
-                {cashOnDelivery ? "Registrar pedido (contra entrega)" : "Completar Venta"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* ── Selector de variante (talla / color) ── */}
-      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{selectedProduct?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedProduct?.brand && `${selectedProduct.brand} · `}
-              Desde {money(selectedProduct?.base_price ?? 0)}
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* Imagen del producto */}
-          {selectedProduct?.thumb && (
-            <img
-              src={selectedProduct.thumb}
-              alt={selectedProduct.name}
-              className="h-36 w-full rounded-lg object-cover"
-            />
-          )}
-
-          {/* Variantes disponibles */}
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-            {selectedProduct?.variants.map((v) => {
-              const sizeLabel = [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
-              const inCart = cart.find((c) => c.product_variant_id === v.id);
-              return (
-                <div
-                  key={v.id}
-                  className={`flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
-                    inCart ? "border-primary/40 bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm">{sizeLabel}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {v.stock} en stock · <span className="font-mono">{v.sku}</span>
-                    </p>
-                  </div>
-                  {inCart ? (
-                    <div className="flex items-center gap-0.5 rounded-md border bg-background">
-                      <button
-                        type="button"
-                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-                        onClick={() => setQuantity(v.id, inCart.quantity - 1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-semibold">{inCart.quantity}</span>
-                      <button
-                        type="button"
-                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
-                        onClick={() => setQuantity(v.id, inCart.quantity + 1)}
-                        disabled={inCart.quantity >= inCart.max}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        addToCart({
-                          id: v.id,
-                          label: `${selectedProduct.name} — ${sizeLabel}`,
-                          sku: v.sku,
-                          thumb: v.thumb,
-                          stock: v.stock,
-                          base_price: selectedProduct.base_price,
-                          wholesale_price: selectedProduct.wholesale_price,
-                          wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
-                        })
-                      }
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" className="w-full" onClick={() => setSelectedProduct(null)}>
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── Modal de confirmación antes de enviar ── */}
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Confirmar venta</DialogTitle>
-            <DialogDescription>
-              Revisá el resumen antes de registrar.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 text-sm">
-            {/* Cliente */}
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Cliente</span>
-              <span className="font-medium">
-                {customerId
-                  ? customers.find((c) => String(c.id) === customerId)?.name ?? "—"
-                  : "Consumidor final"}
-              </span>
-            </div>
-
-            <Separator />
-
-            {/* Líneas */}
-            <div className="space-y-2">
-              {cart.map((i) => (
-                <div key={i.product_variant_id} className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{i.label}</p>
-                    <p className="text-xs text-muted-foreground">{i.sku}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p>{i.quantity} × {money(i.unit_price)}</p>
-                    <p className="font-medium">{money(i.unit_price * i.quantity)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Separator />
-
-            {/* Totales */}
-            <div className="flex justify-between text-base font-bold">
-              <span>Total</span>
-              <span>{money(total)}</span>
-            </div>
-
-            <Separator />
-
-            {/* Pago */}
-            <div className="space-y-1">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Método de pago</span>
-                <span className="font-medium capitalize">
-                  {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
-                </span>
-              </div>
-              {cashOnDelivery && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Modalidad</span>
-                  <span className="font-medium text-amber-600">Pago contra entrega</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Estado al registrar</span>
-                <span className={`font-medium ${cashOnDelivery ? "text-amber-600" : "text-emerald-600"}`}>
-                  {cashOnDelivery ? "Pendiente" : "Completada"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter className="gap-2 sm:gap-0">
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Volver a editar
-            </Button>
-            <Button onClick={submitSale} disabled={isSubmitting}>
-              {isSubmitting ? "Procesando..." : "Confirmar y registrar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
 export default function SalesIndex() {
-  const [tab, setTab] = useState("list");
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Ventas</h1>
-        <p className="text-sm text-muted-foreground">Registra y consulta tus ventas</p>
+        <p className="text-sm text-muted-foreground">
+          Consulta ventas, pedidos contra entrega y cancelaciones.
+        </p>
       </div>
 
-      <Tabs value={tab} onValueChange={setTab}>
-        <TabsList>
-          <TabsTrigger value="list">Lista de ventas</TabsTrigger>
-          <TabsTrigger value="new">Nueva venta</TabsTrigger>
-        </TabsList>
-        <TabsContent value="list" className="mt-4">
-          <SalesListTab />
-        </TabsContent>
-        <TabsContent value="new" className="mt-4">
-          <NewSale onComplete={() => setTab("list")} />
-        </TabsContent>
-      </Tabs>
+      <SalesList />
     </div>
   );
 }

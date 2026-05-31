@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Package2,
+  ShoppingBag,
   ShoppingCart,
   Users2,
   Tags,
@@ -300,6 +301,21 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/products">
                         <Package2 />
                         <span>Inventario</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageSales && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Punto de Venta"
+                      isActive={isActiveRoute("/dashboard/pos")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/pos">
+                        <ShoppingBag />
+                        <span>Punto de Venta</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

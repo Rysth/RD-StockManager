@@ -50,7 +50,7 @@ interface CustomerState {
   currentSearch: string;
 
   fetchCustomers: (page?: number, perPage?: number, search?: string) => Promise<void>;
-  createCustomer: (data: CustomerInput) => Promise<void>;
+  createCustomer: (data: CustomerInput) => Promise<Customer>;
   updateCustomer: (id: number, data: CustomerInput) => Promise<void>;
   deleteCustomer: (id: number) => Promise<void>;
 }
@@ -82,9 +82,10 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   createCustomer: async (data) => {
     set({ isLoading: true, error: null });
     try {
-      await api.post("/api/v1/customers", { customer: data });
+      const response = await api.post("/api/v1/customers", { customer: data });
       const { pagination, currentSearch } = get();
       await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch);
+      return response.data.customer as Customer;
     } catch (error) {
       const msg = toMessage(error, "Error al crear el cliente");
       set({ error: msg, isLoading: false });

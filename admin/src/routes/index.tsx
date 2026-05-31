@@ -11,6 +11,7 @@ import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
 import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
 import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
 import SalesIndex from "../pages/dashboard/sales/SalesIndex";
+import PosIndex from "../pages/dashboard/sales/PosIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
@@ -106,6 +107,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.MANAGE_CUSTOMERS}>
             <CustomersIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "pos",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <PosIndex />
           </ProtectedRoute>
         ),
       },
