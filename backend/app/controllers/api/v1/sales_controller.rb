@@ -9,7 +9,7 @@ module Api
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
       before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
-      before_action :set_sale, only: [:show, :update, :destroy]
+      before_action :set_sale, only: [:show, :update, :destroy, :sync_items]
       before_action :set_sale_for_invoice, only: [:invoice]
       before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride]
 
@@ -103,6 +103,36 @@ module Api
         render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta cancelada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo cancelar la venta", :unprocessable_entity, e.record.errors.full_messages)
+      end
+
+      # PUT /api/v1/sales/:id/sync_items — reemplaza los items de una venta pendiente.
+      # Body: { items: [{ product_variant_id, quantity, unit_price }] }
+      def sync_items
+        unless @sale.pending?
+          return render_error("Solo se pueden modificar los items de ventas pendientes", :unprocessable_entity)
+        end
+
+        items = params[:items] || []
+        if items.empty?
+          return render_error("La venta debe tener al menos un producto", :unprocessable_entity)
+        end
+
+        ActiveRecord::Base.transaction do
+          @sale.sale_items.destroy_all
+          items.each do |item|
+            @sale.sale_items.create!(
+              product_variant_id: item[:product_variant_id],
+              quantity: item[:quantity].to_i,
+              unit_price: item[:unit_price]
+            )
+          end
+          @sale.recalculate_total!
+        end
+
+        Rails.cache.delete("inventory:stats")
+        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Items actualizados correctamente")
+      rescue ActiveRecord::RecordInvalid => e
+        render_error("No se pudieron actualizar los items", :unprocessable_entity, e.record.errors.full_messages)
       end
 
       # POST /api/v1/sales/:id/invoice — emite la factura electrónica SRI de la venta.
@@ -199,6 +229,7 @@ module Api
         search[:status_eq] = Sale.statuses[params[:status]] if params[:status].present? && Sale.statuses.key?(params[:status])
         search[:customer_name_cont] = params[:search] if params[:search].present?
         search[:location_id_eq] = params[:location_id] if params[:location_id].present?
+        search[:user_id_eq] = params[:user_id] if params[:user_id].present?
 
         # Los empleados solo ven sus propias ventas y de su sucursal asignada.
         user = current_rodauth_user

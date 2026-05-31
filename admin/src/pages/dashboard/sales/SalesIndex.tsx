@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Download, Eye, FileText, Loader2, Printer, ReceiptText } from "lucide-react";
+import { AlertCircle, Download, Eye, FileText, Loader2, Pencil, Printer, ReceiptText, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -23,6 +23,7 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Sheet,
@@ -114,6 +115,7 @@ function SalesList() {
     isLoading,
     fetchSales,
     updateSaleStatus,
+    syncSaleItems,
     selectedSale,
     isLoadingDetail,
     isSubmitting,
@@ -140,6 +142,8 @@ function SalesList() {
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
   const sriEnabled = business?.sri_enabled === true;
   const canUseInvoicing = canManageInvoicing && sriEnabled;
+  const [editItemsMode, setEditItemsMode] = useState(false);
+  const [editItems, setEditItems] = useState<{ product_variant_id: number; label: string; quantity: number; unit_price: number }[]>([]);
   const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
   const invoiceTarget = invoiceConfirmId
     ? selectedSale?.id === invoiceConfirmId
@@ -174,6 +178,25 @@ function SalesList() {
       fetchUserInfo().catch(() => {});
     }
   }, [canManageInvoicing, fetchUserInfo, permissionsRefreshed, user]);
+
+  const clearFilters = () => {
+    setStatus("");
+    setLocationFilter("");
+    setSellerFilter("");
+  };
+
+  const handleSaveItems = async () => {
+    if (!selectedSale) return;
+    const filtered = editItems.filter((i) => i.quantity > 0);
+    if (filtered.length === 0) return toast.error("La venta debe tener al menos un producto");
+    try {
+      await syncSaleItems(selectedSale.id, filtered);
+      toast.success("Items actualizados");
+      setEditItemsMode(false);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al actualizar los items"));
+    }
+  };
 
   const reprintTicket = () => {
     if (!selectedSale?.items) return;
@@ -311,6 +334,11 @@ function SalesList() {
             <option key={e.id} value={e.id}>{e.fullname}</option>
           ))}
         </select>
+        {(status || locationFilter || sellerFilter) && (
+          <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-xs">
+            Limpiar filtros
+          </Button>
+        )}
       </div>
 
       <Card className="rounded-xl p-0">
@@ -393,7 +421,13 @@ function SalesList() {
         pageCount={pagination.total_pages}
         totalCount={pagination.total_count}
         perPage={pagination.per_page}
-        onPageChange={({ selected }) => fetchSales(selected + 1, pagination.per_page, { status })}
+        onPageChange={({ selected }) =>
+          fetchSales(selected + 1, pagination.per_page, {
+            status,
+            location_id: locationFilter ? Number(locationFilter) : "",
+            user_id: sellerFilter ? Number(sellerFilter) : "",
+          })
+        }
       />
 
       <Sheet
@@ -455,22 +489,75 @@ function SalesList() {
                       <TableHead className="text-center">Cant.</TableHead>
                       <TableHead className="text-right">Precio</TableHead>
                       <TableHead className="text-right">Subtotal</TableHead>
+                      {editItemsMode && <TableHead className="w-10"></TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {selectedSale.items?.map((it) => (
-                      <TableRow key={it.id}>
-                        <TableCell>
-                          <p className="font-medium">{it.product_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {it.size || "-"}/{it.color || "-"} · {it.sku}
-                          </p>
-                        </TableCell>
-                        <TableCell className="text-center">{it.quantity}</TableCell>
-                        <TableCell className="text-right">{money(it.unit_price)}</TableCell>
-                        <TableCell className="text-right">{money(it.subtotal)}</TableCell>
-                      </TableRow>
-                    ))}
+                    {editItemsMode
+                      ? editItems.map((it, idx) => (
+                          <TableRow key={it.product_variant_id}>
+                            <TableCell>
+                              <p className="font-medium">{it.label}</p>
+                            </TableCell>
+                            <TableCell className="text-center">
+                              <Input
+                                type="number"
+                                min={0}
+                                value={it.quantity}
+                                onChange={(e) => {
+                                  const q = Math.max(0, Number(e.target.value));
+                                  setEditItems((prev) =>
+                                    prev.map((x, i) => (i === idx ? { ...x, quantity: q } : x))
+                                  );
+                                }}
+                                className="h-8 w-16 text-center"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={it.unit_price}
+                                onChange={(e) => {
+                                  const p = Number(e.target.value) || 0;
+                                  setEditItems((prev) =>
+                                    prev.map((x, i) => (i === idx ? { ...x, unit_price: p } : x))
+                                  );
+                                }}
+                                className="h-8 w-24 text-right"
+                              />
+                            </TableCell>
+                            <TableCell className="text-right">{money(it.quantity * it.unit_price)}</TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-destructive"
+                                onClick={() =>
+                                  setEditItems((prev) =>
+                                    prev.map((x, i) => (i === idx ? { ...x, quantity: 0 } : x))
+                                  )
+                                }
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      : selectedSale.items?.map((it) => (
+                          <TableRow key={it.id}>
+                            <TableCell>
+                              <p className="font-medium">{it.product_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {it.size || "-"}/{it.color || "-"} · {it.sku}
+                              </p>
+                            </TableCell>
+                            <TableCell className="text-center">{it.quantity}</TableCell>
+                            <TableCell className="text-right">{money(it.unit_price)}</TableCell>
+                            <TableCell className="text-right">{money(it.subtotal)}</TableCell>
+                          </TableRow>
+                        ))}
                   </TableBody>
                 </Table>
               </div>
@@ -585,26 +672,61 @@ function SalesList() {
                 </div>
               )}
 
-              <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
-                <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
-              </Button>
+              {editItemsMode ? (
+                <div className="flex flex-col gap-2">
+                  <Button className="w-full" onClick={handleSaveItems} disabled={isSubmitting}>
+                    {isSubmitting ? "Guardando..." : "Guardar cambios"}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setEditItemsMode(false)}
+                  >
+                    Cancelar
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {selectedSale.status === "pending" && (
+                    <Button
+                      variant="outline"
+                      className="w-full gap-2"
+                      onClick={() => {
+                        const items = (selectedSale.items || []).map((it) => ({
+                          product_variant_id: it.product_variant_id,
+                          label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` (${[it.size, it.color].filter(Boolean).join("/")})` : ""} - ${it.sku}`,
+                          quantity: it.quantity,
+                          unit_price: it.unit_price,
+                        }));
+                        setEditItems(items);
+                        setEditItemsMode(true);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" /> Editar productos
+                    </Button>
+                  )}
+                  <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
+                    <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
+                  </Button>
 
-              {selectedSale.status === "pending" && (
-                <Button
-                  className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
-                  onClick={() => setCompleteId(selectedSale.id)}
-                >
-                  Confirmar entrega y pago
-                </Button>
-              )}
-              {selectedSale.status !== "cancelled" && (
-                <Button
-                  variant="outline"
-                  className="w-full text-destructive"
-                  onClick={() => setCancelId(selectedSale.id)}
-                >
-                  Cancelar venta
-                </Button>
+                  {selectedSale.status === "pending" && (
+                    <Button
+                      className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
+                      onClick={() => setCompleteId(selectedSale.id)}
+                    >
+                      Confirmar entrega y pago
+                    </Button>
+                  )}
+                  {selectedSale.status !== "cancelled" && (
+                    <Button
+                      variant="outline"
+                      className="w-full text-destructive"
+                      onClick={() => setCancelId(selectedSale.id)}
+                    >
+                      Cancelar venta
+                    </Button>
+                  )}
+                </>
               )}
             </div>
           )}

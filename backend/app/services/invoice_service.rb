@@ -133,7 +133,7 @@ class InvoiceService
   end
 
   def build_detalles
-    @sale.sale_items.includes(product_variant: :product).map do |item|
+    @sale.sale_items.map do |item|
       base_unit = base_unit_price(item.unit_price)
       line_base = (BigDecimal(item.quantity.to_s) * base_unit).round(2)
       SriFacturacion::Detalle.new(

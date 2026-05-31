@@ -76,6 +76,7 @@ Rails.application.routes.draw do
           post :invoice         # emite la factura electrónica SRI
           get  :invoice_xml     # descarga el XML autorizado
           get  :invoice_ride    # descarga el RIDE (PDF)
+          put  :sync_items      # reemplaza los items de una venta pendiente
         end
       end
       resources :purchases do

@@ -4,6 +4,7 @@ import type {
   Sale,
   SaleStatus,
   CreateSaleData,
+  SaleItemInput,
   Invoice,
   SalesReport,
   Pagination,
@@ -90,6 +91,7 @@ interface SaleState {
   clearSelectedSale: () => void;
   createSale: (data: CreateSaleData) => Promise<Sale>;
   updateSaleStatus: (id: number, status: SaleStatus) => Promise<void>;
+  syncSaleItems: (id: number, items: SaleItemInput[]) => Promise<Sale>;
   deleteSale: (id: number) => Promise<void>;
   issueInvoice: (id: number) => Promise<Invoice>;
   downloadInvoiceXml: (id: number) => Promise<void>;
@@ -174,6 +176,24 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la venta");
       set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  syncSaleItems: async (id, items) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const response = await api.put(`/api/v1/sales/${id}/sync_items`, { items });
+      const sale = response.data.sale as Sale;
+      set((state) => ({
+        selectedSale: state.selectedSale?.id === id ? sale : state.selectedSale,
+        sales: state.sales.map((s) => (s.id === id ? sale : s)),
+        isSubmitting: false,
+      }));
+      return sale;
+    } catch (error) {
+      const msg = toMessage(error, "Error al actualizar los items");
+      set({ error: msg, isSubmitting: false });
       throw new Error(msg);
     }
   },
