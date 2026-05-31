@@ -4,7 +4,8 @@ Sistema full-stack para administrar inventario, ventas, compras, gastos, reporte
 
 ## Caracteristicas
 
-- POS con ventas completadas, pedidos contra entrega, reimpresion de ticket y control de stock.
+- POS con creacion rapida de cliente (requiere telefono + email), edicion inline desde el badge de cliente seleccionado y reimpresion de ticket.
+- Ventas completadas, pedidos contra entrega con edicion de productos antes de completar y control de stock.
 - Inventario por productos, marcas, categorias, variantes, imagenes y stock por ubicacion.
 - Compras a proveedores con recepcion de mercaderia, costos y saldos por pagar.
 - Gastos operativos y nomina por empleado.
@@ -13,7 +14,46 @@ Sistema full-stack para administrar inventario, ventas, compras, gastos, reporte
 - Facturacion electronica SRI en ambiente pruebas/produccion con XML autorizado y RIDE PDF.
 - Envio opcional de factura por email al cliente con XML y RIDE adjuntos.
 - Roles de negocio: admin, dueno del negocio y empleado restringido por sucursal.
+- Filtros combinados en listados: Ventas (estado, ubicacion, vendedor), Compras (estado, pago, ubicacion), Gastos (categoria, ubicacion).
+- Permisos granulares: solo admin y business_owner pueden emitir facturas SRI.
 - Auditoria de cambios con trazabilidad por usuario.
+
+## Filtros en listados
+
+Cada listado del panel incluye filtros combinados (`<select>`) que se aplican via Ransack al backend:
+
+| Listado    | Filtros disponibles                              |
+|------------|--------------------------------------------------|
+| Ventas     | Estado, ubicacion, vendedor (business_owner/employee, sin admin) |
+| Compras    | Estado, estado de pago, ubicacion                |
+| Gastos     | Categoria, ubicacion                             |
+
+Cada filtro incluye un boton **Limpiar filtros** que aparece solo cuando hay al menos un filtro activo, devolviendo la vista al estado por defecto.
+
+Los filtros persisten en la paginacion y se reflejan en la URL de la API via parametros Ransack (`status_eq`, `location_id_eq`, `user_id_eq`, etc.).
+
+## Editar productos en ventas pendientes
+
+Las ventas en estado **pendiente** (contra entrega) permiten modificar cantidades y precios unitarios de sus productos desde el drawer de detalle:
+
+1. Abre la venta pendiente en `Ventas`.
+2. Haz clic en **Editar productos**.
+3. En el modal, ajusta cantidades o precios, o elimina productos (cantidad 0).
+4. Confirma **Guardar cambios** — el total se recalcula automaticamente via `PUT /api/v1/sales/:id/sync_items`.
+
+Esto evita descuadrar el stock: solo se descuenta al completar la venta (`Sale#complete!`), no al crear el pedido.
+
+## Permisos de facturacion SRI
+
+La emision de facturas electronicas esta restringida por permiso `manage_invoicing`:
+
+| Rol              | Puede emitir facturas |
+|------------------|-----------------------|
+| admin            | Si                    |
+| business_owner   | Si                    |
+| business_employee| No                    |
+
+Los empleados no ven la seccion de facturacion en el drawer de detalle de venta.
 
 ## Inicio Rapido
 
