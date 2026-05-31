@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_140003) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_150001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -354,7 +354,9 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_140003) do
     t.string "identification"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.bigint "location_id"
     t.index ["account_id"], name: "index_users_on_account_id"
+    t.index ["location_id"], name: "index_users_on_location_id"
   end
 
   create_table "users_roles", id: false, force: :cascade do |t|
@@ -394,4 +396,5 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_140003) do
   add_foreign_key "stock_levels", "locations"
   add_foreign_key "stock_levels", "product_variants"
   add_foreign_key "users", "accounts"
+  add_foreign_key "users", "locations"
 end

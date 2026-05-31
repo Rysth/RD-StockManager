@@ -32,6 +32,9 @@ export interface User {
 	roles: string[];
 	permissions: string[];
 	verified: boolean;
+	location_id?: number | null;
+	location_name?: string | null;
+	restricted_to_location?: boolean;
 	created_at: string;
 	updated_at: string;
 }

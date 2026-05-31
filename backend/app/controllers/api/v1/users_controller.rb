@@ -38,12 +38,13 @@ module Api
           
           users = @users.map do |user|
             user_data = user.as_json(
-              only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at]
+              only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at]
             )
             user_data['email'] = user.account.email
             user_data['verified'] = user.account.status == 'verified'
             user_data['account_status'] = user.account.status
             user_data['roles'] = user.roles.pluck(:name)
+            user_data['location_name'] = user.location&.name
             user_data
           end
           
@@ -69,11 +70,12 @@ module Api
       def show
         cache_key = "user:#{@user.id}:#{@user.updated_at.to_i}"
         user_data = Rails.cache.fetch(cache_key, expires_in: 10.minutes) do
-          data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+          data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
           data['email'] = @user.account.email
           data['verified'] = @user.account.status == 'verified'
           data['account_status'] = @user.account.status
           data['roles'] = @user.roles.pluck(:name)
+          data['location_name'] = @user.location&.name
           data
         end
         
@@ -114,11 +116,12 @@ module Api
             # ✅ Send welcome invitation email (NOT verification email)
             EmailNotificationJob.perform_later(@user.id, 'admin_invitation')
 
-            user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+            user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
             user_data['email'] = account.email
             user_data['verified'] = true # Always true for admin-created users
             user_data['account_status'] = 'verified'
             user_data['roles'] = @user.roles.pluck(:name)
+            user_data['location_name'] = @user.location&.name
 
             render json: { status: :success, user: user_data }, status: :created
           else
@@ -152,12 +155,13 @@ module Api
           Rails.cache.delete("user:#{@user.id}:*")
           
           # Make sure to include the current data in the response
-          user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+          user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
           user_data['email'] = @user.account.email
           user_data['verified'] = @user.account.status == 'verified'
           user_data['account_status'] = @user.account.status
           user_data['roles'] = @user.roles.pluck(:name)
-          
+          user_data['location_name'] = @user.location&.name
+
           render json: { status: :success, user: user_data }
         else
           render json: { status: :error, errors: @user.errors.full_messages }, status: :unprocessable_entity
@@ -290,6 +294,7 @@ module Api
           :fullname,
           :identification,
           :phone_number,
+          :location_id,
           :password,
           :password_confirmation
         )

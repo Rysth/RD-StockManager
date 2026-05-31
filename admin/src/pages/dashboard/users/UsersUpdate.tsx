@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PasswordInput from "../../../components/shared/PasswordInput";
 import { User, useUserStore } from "../../../stores/userStore";
 import { useAuthStore } from "../../../stores/authStore";
+import { useLocationStore } from "../../../stores/locationStore";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ interface EditFormData {
   email: string;
   identification?: string;
   phone_number?: string;
+  location_id?: string;
 }
 
 interface PasswordFormData {
@@ -63,6 +65,7 @@ const ALL_ROLES = [
 function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
   const { isLoading: storeLoading, updateUser } = useUserStore();
   const { user: currentUser, hasRole } = useAuthStore();
+  const { locations, fetchLocations } = useLocationStore();
   const [isLoading, setIsLoading] = useState(false);
   const [selectedRoles, setSelectedRoles] = useState<string[]>([
     "business_employee",
@@ -79,12 +82,17 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
   } = useForm<EditFormData>();
 
   useEffect(() => {
+    fetchLocations().catch(() => {});
+  }, [fetchLocations]);
+
+  useEffect(() => {
     reset({
       fullname: user.fullname,
       username: user.username,
       email: user.email,
       identification: user.identification || "",
       phone_number: user.phone_number || "",
+      location_id: user.location_id ? String(user.location_id) : "",
     });
     const userRoles =
       user.roles.length > 0 ? user.roles : ["business_employee"];
@@ -117,7 +125,10 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
   const onSubmit = async (data: EditFormData) => {
     setIsLoading(true);
     try {
-      const updateData: any = { ...data };
+      const updateData: any = {
+        ...data,
+        location_id: data.location_id ? Number(data.location_id) : null,
+      };
       const currentRoles = [...user.roles].sort();
       const newRoles = [...selectedRoles].sort();
       if (JSON.stringify(currentRoles) !== JSON.stringify(newRoles)) {
@@ -284,6 +295,24 @@ function GeneralTab({ user, onClose }: { user: User; onClose: () => void }) {
             );
           })}
         </div>
+      </div>
+
+      {/* Sucursal asignada */}
+      <div className="space-y-2">
+        <Label htmlFor="edit-location_id">Sucursal asignada</Label>
+        <select
+          id="edit-location_id"
+          {...register("location_id")}
+          className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Sin restricción (todas)</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+        <p className="text-xs text-muted-foreground">
+          Si asignas una sucursal, los empleados solo podrán registrar ventas desde ella.
+        </p>
       </div>
 
       <div className="flex justify-end space-x-2 pt-4">

@@ -36,11 +36,20 @@ module Api
           return render_error("La venta debe tener al menos un producto", :unprocessable_entity)
         end
 
+        # Los empleados restringidos solo pueden vender desde su sucursal asignada.
+        user = current_rodauth_user
+        effective_location_id =
+          if user.restricted_to_location? && user.location_id.present?
+            user.location_id
+          else
+            sale_params[:location_id].presence
+          end
+
         sale = nil
         ActiveRecord::Base.transaction do
           sale = Sale.new(
             customer_id: sale_params[:customer_id],
-            location_id: sale_params[:location_id].presence,
+            location_id: effective_location_id,
             user: current_rodauth_user,
             status: :pending,
             payment_method: sale_params[:payment_method].presence || :cash,

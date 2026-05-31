@@ -23,6 +23,9 @@ class Api::V1::MeController < ApplicationController
         roles: user.roles.pluck(:name),
         permissions: user.permission_keys,
         verified: account.status == 'verified',
+        location_id: user.location_id,
+        location_name: user.location&.name,
+        restricted_to_location: user.restricted_to_location? && user.location_id.present?,
         created_at: user.created_at,
         updated_at: user.updated_at
       }

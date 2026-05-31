@@ -114,6 +114,10 @@ puts "Creating locations..."
 main_location = Location.create!(name: "Tienda Principal", address: "Av. 9 de Octubre y Malecón", phone: "042000000", is_default: true, active: true)
 warehouse = Location.create!(name: "Bodega Norte", address: "Vía a Daule km 10", phone: "042111111", is_default: false, active: true)
 
+# Empleado 1 queda restringido a la Tienda Principal (solo vende desde ahí).
+# Empleado 2 queda sin sucursal asignada (puede vender desde cualquiera).
+employee1.update!(location: main_location)
+
 # 12 productos — 10 calzado + 2 gorras
 product_defs = [
   { name: "Air Max 270",        brand: "Nike",     base_price: 129.99, category: "Deporte" },

@@ -18,6 +18,7 @@ import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
+import { useAuthStore } from "../../../stores/authStore";
 import type { PaymentMethod, ProductVariant } from "../../../types/inventory";
 import { printTicket } from "../../../lib/ticket";
 import { Button } from "@/components/ui/button";
@@ -98,6 +99,8 @@ export default function PosIndex() {
   const { createSale, isSubmitting } = useSaleStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
+  const { user } = useAuthStore();
+  const restrictedToBranch = !!user?.restricted_to_location && !!user?.location_id;
 
   // Cart state
   const [customerId, setCustomerId] = useState<string>("");
@@ -144,14 +147,19 @@ export default function PosIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Default the POS to the business' main location once they load
+  // Default the POS to the business' main location once they load.
+  // Empleados restringidos quedan fijados a su sucursal asignada.
   useEffect(() => {
+    if (restrictedToBranch && user?.location_id) {
+      setLocationId(String(user.location_id));
+      return;
+    }
     if (!locationId && locations.length) {
       const fallback = locations.find((l) => l.is_default) ?? locations[0];
       setLocationId(String(fallback.id));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locations]);
+  }, [locations, restrictedToBranch]);
 
   // Stock de una variante en la ubicación seleccionada (cae al total si no hay desglose).
   const stockAt = (v: ProductVariant): number => {
@@ -332,24 +340,34 @@ export default function PosIndex() {
           <h1 className="text-2xl font-bold tracking-tight">Punto de Venta</h1>
           <p className="text-sm text-muted-foreground">Registra una venta nueva</p>
         </div>
-        {locations.length > 1 && (
+        {restrictedToBranch ? (
           <div className="flex items-center gap-2">
-            <Label htmlFor="pos-location" className="text-sm text-muted-foreground">
-              Ubicación
-            </Label>
-            <select
-              id="pos-location"
-              value={locationId}
-              onChange={(e) => handleLocationChange(e.target.value)}
-              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
+            <Label className="text-sm text-muted-foreground">Sucursal</Label>
+            <Badge variant="secondary" className="gap-1.5">
+              <Truck className="h-3.5 w-3.5" />
+              {user?.location_name || "Asignada"}
+            </Badge>
           </div>
+        ) : (
+          locations.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="pos-location" className="text-sm text-muted-foreground">
+                Ubicación
+              </Label>
+              <select
+                id="pos-location"
+                value={locationId}
+                onChange={(e) => handleLocationChange(e.target.value)}
+                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )
         )}
       </div>
 

@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Table,
   TableBody,
@@ -91,7 +92,15 @@ export default function PurchasesIndex() {
     updatePurchaseStatus,
     deletePurchase,
   } = usePurchaseStore();
-  const { products, fetchProducts } = useInventoryStore();
+  const {
+    products,
+    categories,
+    brands,
+    fetchProducts,
+    fetchCategories,
+    fetchBrands,
+    createProduct,
+  } = useInventoryStore();
   const { customers, fetchCustomers } = useCustomerStore();
   const { locations, fetchLocations } = useLocationStore();
 
@@ -109,7 +118,19 @@ export default function PurchasesIndex() {
   const [dueDate, setDueDate] = useState("");
   const [reference, setReference] = useState("");
   const [cart, setCart] = useState<CartLine[]>([]);
-  const [selectedVariant, setSelectedVariant] = useState("");
+
+  // Creación rápida de producto desde la compra
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickForm, setQuickForm] = useState({
+    name: "",
+    category_id: "",
+    brand_id: "",
+    base_price: "",
+    cost: "",
+    size: "",
+    color: "",
+  });
 
   useEffect(() => {
     fetchPurchases(1, pagination.per_page, { search }).catch((e) =>
@@ -122,12 +143,14 @@ export default function PurchasesIndex() {
     fetchProducts(1, 200).catch(() => {});
     fetchCustomers(1, 100, "").catch(() => {});
     fetchLocations().catch(() => {});
+    fetchCategories().catch(() => {});
+    fetchBrands().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const suppliers = customers.filter((c) => c.is_supplier);
 
-  // flat list of variants for the selector
+  // flat list of variants for the combobox
   const variantOptions = useMemo(() => {
     const opts: { id: number; label: string; sku: string; cost: number }[] = [];
     (products as Product[]).forEach((p) => {
@@ -144,6 +167,17 @@ export default function PurchasesIndex() {
     return opts;
   }, [products]);
 
+  const comboboxOptions = useMemo(
+    () =>
+      variantOptions.map((o) => ({
+        value: String(o.id),
+        label: o.label,
+        description: o.sku,
+        keywords: o.sku,
+      })),
+    [variantOptions],
+  );
+
   const subtotal = cart.reduce((s, l) => s + l.quantity * l.unit_cost, 0);
   const total = subtotal - Number(discount || 0) + Number(tax || 0);
 
@@ -156,7 +190,6 @@ export default function PurchasesIndex() {
     setDueDate("");
     setReference("");
     setCart([]);
-    setSelectedVariant("");
   };
 
   const openCreate = () => {
@@ -166,18 +199,64 @@ export default function PurchasesIndex() {
     setModalOpen(true);
   };
 
-  const addVariant = () => {
-    const opt = variantOptions.find((o) => o.id === Number(selectedVariant));
+  const addVariantById = (idStr: string) => {
+    const opt = variantOptions.find((o) => o.id === Number(idStr));
     if (!opt) return;
     if (cart.some((l) => l.product_variant_id === opt.id)) {
       toast.error("Esa variante ya está en la compra");
       return;
     }
-    setCart([
-      ...cart,
+    setCart((prev) => [
+      ...prev,
       { product_variant_id: opt.id, quantity: 1, unit_cost: opt.cost || 0, label: opt.label, sku: opt.sku },
     ]);
-    setSelectedVariant("");
+  };
+
+  const resetQuickForm = () =>
+    setQuickForm({ name: "", category_id: "", brand_id: "", base_price: "", cost: "", size: "", color: "" });
+
+  const handleQuickCreate = async () => {
+    if (!quickForm.name.trim()) return toast.error("El nombre es requerido");
+    if (!quickForm.category_id) return toast.error("Selecciona una categoría");
+    setQuickSaving(true);
+    try {
+      const saved = await createProduct({
+        name: quickForm.name,
+        brand_id: quickForm.brand_id ? Number(quickForm.brand_id) : null,
+        base_price: Number(quickForm.base_price) || 0,
+        cost: Number(quickForm.cost) || 0,
+        wholesale_price: null,
+        wholesale_min_quantity: 3,
+        description: "",
+        active: true,
+        category_id: Number(quickForm.category_id),
+        product_variants_attributes: [
+          { size: quickForm.size, color: quickForm.color, stock: 0 },
+        ],
+      });
+      await fetchProducts(1, 200);
+      const newVariant = saved.variants?.[0];
+      if (newVariant) {
+        const attrs = [newVariant.size, newVariant.color].filter(Boolean).join(" / ");
+        setCart((prev) => [
+          ...prev,
+          {
+            product_variant_id: newVariant.id,
+            quantity: 1,
+            unit_cost: Number(quickForm.cost) || 0,
+            label: `${saved.name}${attrs ? ` (${attrs})` : ""}`,
+            sku: newVariant.sku,
+          },
+        ]);
+      }
+      toast.success("Producto creado y agregado a la compra");
+      setQuickOpen(false);
+      resetQuickForm();
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al crear el producto"));
+    } finally {
+      setQuickSaving(false);
+    }
   };
 
   const updateLine = (id: number, field: "quantity" | "unit_cost", value: number) => {
@@ -367,17 +446,15 @@ export default function PurchasesIndex() {
             {/* add product */}
             <div className="space-y-2">
               <Label>Agregar producto</Label>
-              <div className="flex gap-2">
-                <select className={selectClass} value={selectedVariant} onChange={(e) => setSelectedVariant(e.target.value)}>
-                  <option value="">Selecciona una variante...</option>
-                  {variantOptions.map((o) => (
-                    <option key={o.id} value={o.id}>{o.label} · {o.sku}</option>
-                  ))}
-                </select>
-                <Button type="button" variant="outline" onClick={addVariant} disabled={!selectedVariant}>
-                  Añadir
-                </Button>
-              </div>
+              <Combobox
+                options={comboboxOptions}
+                onSelect={addVariantById}
+                placeholder="Busca un producto o variante..."
+                searchPlaceholder="Nombre, talla, color o SKU..."
+                emptyText="No se encontró ese producto."
+                actionLabel="Crear producto nuevo"
+                onAction={() => setQuickOpen(true)}
+              />
             </div>
 
             {cart.length > 0 && (
@@ -524,6 +601,108 @@ export default function PurchasesIndex() {
           ) : (
             <p className="text-sm text-muted-foreground">Cargando...</p>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Quick product creation */}
+      <Dialog
+        open={quickOpen}
+        onOpenChange={(o) => {
+          setQuickOpen(o);
+          if (!o) resetQuickForm();
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Crear producto nuevo</DialogTitle>
+            <DialogDescription>
+              Crea el producto y una variante; se agregará automáticamente a la compra (el stock entra al recibir).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Nombre</Label>
+              <Input
+                value={quickForm.name}
+                onChange={(e) => setQuickForm({ ...quickForm, name: e.target.value })}
+                placeholder="Ej. Gorra New Era 9FORTY"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Categoría</Label>
+                <select
+                  className={selectClass}
+                  value={quickForm.category_id}
+                  onChange={(e) => setQuickForm({ ...quickForm, category_id: e.target.value })}
+                >
+                  <option value="">Selecciona...</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label>Marca</Label>
+                <select
+                  className={selectClass}
+                  value={quickForm.brand_id}
+                  onChange={(e) => setQuickForm({ ...quickForm, brand_id: e.target.value })}
+                >
+                  <option value="">Sin marca</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Precio de venta</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={quickForm.base_price}
+                  onChange={(e) => setQuickForm({ ...quickForm, base_price: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Costo</Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={quickForm.cost}
+                  onChange={(e) => setQuickForm({ ...quickForm, cost: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Talla / Variante</Label>
+                <Input
+                  value={quickForm.size}
+                  onChange={(e) => setQuickForm({ ...quickForm, size: e.target.value })}
+                  placeholder="Ej. M (opcional)"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Color</Label>
+                <Input
+                  value={quickForm.color}
+                  onChange={(e) => setQuickForm({ ...quickForm, color: e.target.value })}
+                  placeholder="Ej. Negro (opcional)"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setQuickOpen(false)}>Cancelar</Button>
+            <Button onClick={handleQuickCreate} disabled={quickSaving}>
+              {quickSaving ? "Creando..." : "Crear y agregar"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
