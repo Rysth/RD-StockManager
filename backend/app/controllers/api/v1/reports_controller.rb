@@ -12,6 +12,7 @@ module Api
         now = Time.current
         received = Purchase.received
         received = received.where(location_id: location_id) if location_id
+        ranged = apply_range(received, :purchase_date)
 
         render_success(
           summary: {
@@ -20,27 +21,25 @@ module Api
             total_month: received.where(purchase_date: now.beginning_of_month..now).sum(:total),
             payable: received.where.not(payment_status: Purchase.payment_statuses[:paid]).sum("total - paid_amount")
           },
-          by_supplier: received.joins("LEFT JOIN customers ON customers.id = purchases.customer_id")
-                               .group("customers.id", "customers.name")
-                               .order(Arel.sql("SUM(purchases.total) DESC"))
-                               .limit(10)
-                               .pluck("customers.name", Arel.sql("SUM(purchases.total)"), Arel.sql("COUNT(purchases.id)"))
-                               .map { |name, total, count| { supplier: name || "Sin proveedor", total: total.to_f, count: count.to_i } },
-          by_month: purchases_by_month(received, now)
+          by_supplier: ranged.joins("LEFT JOIN customers ON customers.id = purchases.customer_id")
+                             .group("customers.id", "customers.name")
+                             .order(Arel.sql("SUM(purchases.total) DESC"))
+                             .limit(10)
+                             .pluck("customers.name", Arel.sql("SUM(purchases.total)"), Arel.sql("COUNT(purchases.id)"))
+                             .map { |name, total, count| { supplier: name || "Sin proveedor", total: total.to_f, count: count.to_i } },
+          by_month: purchases_by_month(ranged)
         )
       end
 
       # GET /api/v1/reports/taxes — reporte fiscal (IVA cobrado en ventas, pagado en compras)
       def taxes
-        now = Time.current
         sales = Sale.completed
         sales = sales.where(location_id: location_id) if location_id
         purchases = Purchase.received
         purchases = purchases.where(location_id: location_id) if location_id
 
-        rows = (0..5).map do |i|
-          start = (now - i.months).beginning_of_month
-          finish = (now - i.months).end_of_month
+        rows = month_buckets.map do |start|
+          finish = start.end_of_month
           sales_total = sales.where(sold_at: start..finish).sum(:total).to_f
           tax_collected = (sales_total - sales_total / (1 + IVA_RATE)).round(2)
           tax_paid = purchases.where(purchase_date: start..finish).sum(:tax).to_f
@@ -52,7 +51,7 @@ module Api
             tax_paid: tax_paid.round(2),
             net_tax: (tax_collected - tax_paid).round(2)
           }
-        end.reverse
+        end
 
         render_success(by_month: rows)
       end
@@ -60,10 +59,12 @@ module Api
       # GET /api/v1/reports/contacts
       def contacts
         contacts = Customer.where(is_customer: true).or(Customer.where(is_supplier: true))
-        sold = Sale.completed.group(:customer_id).sum(:total)
-        purchased = Purchase.received.group(:customer_id).sum(:total)
-        last_sale = Sale.completed.group(:customer_id).maximum(:sold_at)
-        last_purchase = Purchase.received.group(:customer_id).maximum(:purchase_date)
+        sold_scope = apply_range(Sale.completed, :sold_at)
+        purchased_scope = apply_range(Purchase.received, :purchase_date)
+        sold = sold_scope.group(:customer_id).sum(:total)
+        purchased = purchased_scope.group(:customer_id).sum(:total)
+        last_sale = sold_scope.group(:customer_id).maximum(:sold_at)
+        last_purchase = purchased_scope.group(:customer_id).maximum(:purchase_date)
 
         rows = contacts.order(:name).map do |c|
           {
@@ -88,6 +89,7 @@ module Api
         now = Time.current
         scope = Expense.all
         scope = scope.where(location_id: location_id) if location_id
+        ranged = apply_range(scope, :expense_date)
 
         render_success(
           summary: {
@@ -95,17 +97,17 @@ module Api
             total_week: scope.where(expense_date: now.beginning_of_week..now).sum(:amount),
             total_month: scope.where(expense_date: now.beginning_of_month..now).sum(:amount)
           },
-          by_category: scope.joins("LEFT JOIN expense_categories ON expense_categories.id = expenses.expense_category_id")
+          by_category: ranged.joins("LEFT JOIN expense_categories ON expense_categories.id = expenses.expense_category_id")
                             .group("expense_categories.id", "expense_categories.name")
                             .order(Arel.sql("SUM(expenses.amount) DESC"))
                             .pluck("expense_categories.name", Arel.sql("SUM(expenses.amount)"))
                             .map { |name, total| { category: name || "Sin categoría", total: total.to_f } },
-          by_location: scope.joins("LEFT JOIN locations ON locations.id = expenses.location_id")
+          by_location: ranged.joins("LEFT JOIN locations ON locations.id = expenses.location_id")
                             .group("locations.id", "locations.name")
                             .order(Arel.sql("SUM(expenses.amount) DESC"))
                             .pluck("locations.name", Arel.sql("SUM(expenses.amount)"))
                             .map { |name, total| { location: name || "Sin ubicación", total: total.to_f } },
-          by_month: expenses_by_month(scope, now)
+          by_month: expenses_by_month(ranged)
         )
       end
 
@@ -137,12 +139,13 @@ module Api
       # GET /api/v1/reports/sales_reps — desempeño por vendedor
       def sales_reps
         now = Time.current
-        sales = Sale.completed.where(sold_at: now.beginning_of_month..now)
+        window = date_range? ? (start_date.beginning_of_day..end_date.end_of_day) : (now.beginning_of_month..now)
+        sales = Sale.completed.where(sold_at: window)
         sales = sales.where(location_id: location_id) if location_id
 
         totals = sales.group(:user_id).pluck(:user_id, Arel.sql("SUM(total)"), Arel.sql("COUNT(*)")).to_h { |uid, t, c| [uid, { total: t.to_f, count: c.to_i }] }
         profits = SaleItem.joins(:sale)
-                          .where(sales: { status: Sale.statuses[:completed], sold_at: now.beginning_of_month..now })
+                          .where(sales: { status: Sale.statuses[:completed], sold_at: window })
                           .then { |rel| location_id ? rel.where(sales: { location_id: location_id }) : rel }
                           .group("sales.user_id")
                           .sum(Arel.sql("sale_items.quantity * (sale_items.unit_price - sale_items.unit_cost)"))
@@ -167,36 +170,83 @@ module Api
         params[:location_id].presence
       end
 
-      def purchases_by_month(scope, now)
-        (0..5).map do |i|
-          start = (now - i.months).beginning_of_month
-          finish = (now - i.months).end_of_month
+      def start_date
+        return @start_date if defined?(@start_date)
+        @start_date = parse_date(params[:start_date])
+      end
+
+      def end_date
+        return @end_date if defined?(@end_date)
+        @end_date = parse_date(params[:end_date])
+      end
+
+      def parse_date(value)
+        return nil if value.blank?
+        Date.parse(value.to_s)
+      rescue ArgumentError, TypeError
+        nil
+      end
+
+      # Hay rango válido sólo cuando ambas fechas están presentes y bien formadas.
+      def date_range?
+        start_date.present? && end_date.present?
+      end
+
+      # Filtra un scope por el rango de fechas si está presente; si no, lo deja intacto
+      # (preserva el comportamiento original: desgloses sobre todos los datos).
+      def apply_range(scope, column)
+        return scope unless date_range?
+        scope.where(column => start_date.beginning_of_day..end_date.end_of_day)
+      end
+
+      # Meses a graficar: si hay rango, todos los meses entre start y end (ascendente);
+      # si no, los últimos 6 meses (comportamiento original).
+      def month_buckets
+        if date_range?
+          months = []
+          cursor = start_date.beginning_of_month
+          last = end_date.beginning_of_month
+          while cursor <= last
+            months << cursor
+            cursor = cursor.next_month
+          end
+          months
+        else
+          (0..5).map { |i| (Time.current - i.months).beginning_of_month }.reverse
+        end
+      end
+
+      def purchases_by_month(scope)
+        month_buckets.map do |start|
+          finish = start.end_of_month
           {
             month: start.strftime("%Y-%m"),
             label: "#{MONTH_ABBR_ES[start.month]} #{start.year}",
             total: scope.where(purchase_date: start..finish).sum(:total).to_f,
             count: scope.where(purchase_date: start..finish).count
           }
-        end.reverse
+        end
       end
 
-      def expenses_by_month(scope, now)
-        (0..5).map do |i|
-          start = (now - i.months).beginning_of_month
-          finish = (now - i.months).end_of_month
+      def expenses_by_month(scope)
+        month_buckets.map do |start|
+          finish = start.end_of_month
           {
             month: start.strftime("%Y-%m"),
             label: "#{MONTH_ABBR_ES[start.month]} #{start.year}",
             total: scope.where(expense_date: start..finish).sum(:amount).to_f
           }
-        end.reverse
+        end
       end
 
       def cash_by_day(sales, expenses, now)
-        income = sales.where(sold_at: 29.days.ago.beginning_of_day..now).group(Arel.sql("DATE(sold_at)")).sum(:total)
-        outflow = expenses.where(expense_date: 29.days.ago.beginning_of_day..now).group(Arel.sql("DATE(expense_date)")).sum(:amount)
-        (0..29).map do |i|
-          day = (now - (29 - i).days).to_date
+        range_start = date_range? ? start_date.beginning_of_day : 29.days.ago.beginning_of_day
+        range_end = date_range? ? end_date.end_of_day : now
+        income = sales.where(sold_at: range_start..range_end).group(Arel.sql("DATE(sold_at)")).sum(:total)
+        outflow = expenses.where(expense_date: range_start..range_end).group(Arel.sql("DATE(expense_date)")).sum(:amount)
+
+        days = (range_start.to_date..range_end.to_date).to_a
+        days.map do |day|
           inc = income[day]&.to_f || 0.0
           out = outflow[day]&.to_f || 0.0
           { date: day.strftime("%d/%m"), day: day.iso8601, income: inc, expense: out, net: inc - out }
