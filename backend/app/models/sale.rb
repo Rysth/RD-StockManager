@@ -3,6 +3,7 @@ class Sale < ApplicationRecord
 
   enum :status, { pending: 0, completed: 1, cancelled: 2 }
   enum :payment_method, { cash: 0, transfer: 1 }, prefix: :payment
+  enum :payment_status, { due: 0, partial: 1, paid: 2 }, prefix: :payment
 
   belongs_to :user
   belongs_to :customer, optional: true
@@ -16,9 +17,29 @@ class Sale < ApplicationRecord
   before_validation :set_sold_at, on: :create
   before_validation :set_location, on: :create
 
+  scope :due_soon, -> { completed.where.not(payment_status: payment_statuses[:paid]).where(due_date: ..Date.current + 7.days) }
+
   # Recalculate the total from the persisted line items
   def recalculate_total!
     update_column(:total, sale_items.sum("quantity * unit_price"))
+    sync_payment_status!
+  end
+
+  # Recalcula el estado de pago a partir del monto pagado.
+  def sync_payment_status!
+    new_status =
+      if paid_amount >= total && total.positive?
+        :paid
+      elsif paid_amount.positive?
+        :partial
+      else
+        :due
+      end
+    update_column(:payment_status, Sale.payment_statuses[new_status])
+  end
+
+  def balance_due
+    (total - paid_amount).to_f
   end
 
   # Mark the sale as completed and discount stock for each line item.
@@ -31,7 +52,10 @@ class Sale < ApplicationRecord
       sale_items.includes(:product_variant).each do |item|
         StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
       end
+      # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
+      self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
       update!(status: :completed)
+      sync_payment_status!
     end
   end
 
@@ -51,7 +75,7 @@ class Sale < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id status total sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
+    %w[id status total paid_amount payment_status due_date sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

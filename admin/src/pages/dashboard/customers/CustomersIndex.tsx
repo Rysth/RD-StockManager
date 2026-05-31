@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
 import { Plus, Pencil, Archive } from "lucide-react";
 import toast from "react-hot-toast";
-import { useCustomerStore } from "../../../stores/customerStore";
+import { useCustomerStore, type ContactRole } from "../../../stores/customerStore";
 import type { Customer } from "../../../types/inventory";
 import { ECUADOR_CITIES, COUNTRIES, ID_TYPES } from "../../../lib/locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
   TableBody,
@@ -44,9 +47,14 @@ interface FormState {
   id_type: string;
   id_number: string;
   phone: string;
+  email: string;
   country: string;
   city: string;
   address: string;
+  is_customer: boolean;
+  is_supplier: boolean;
+  credit_limit: string;
+  payment_term_days: string;
 }
 
 const EMPTY_FORM: FormState = {
@@ -54,9 +62,14 @@ const EMPTY_FORM: FormState = {
   id_type: "",
   id_number: "",
   phone: "",
+  email: "",
   country: "Ecuador",
   city: "",
   address: "",
+  is_customer: true,
+  is_supplier: false,
+  credit_limit: "0",
+  payment_term_days: "",
 };
 
 const ID_TYPE_LABEL: Record<string, string> = {
@@ -64,6 +77,9 @@ const ID_TYPE_LABEL: Record<string, string> = {
   pasaporte: "Pasaporte",
   ruc: "RUC",
 };
+
+const money = (n: number) =>
+  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n || 0);
 
 const selectClass =
   "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
@@ -116,21 +132,26 @@ export default function CustomersIndex() {
 
   const [firstLoad, setFirstLoad] = useState(true);
   const [search, setSearch] = useState("");
+  const [role, setRole] = useState<ContactRole>("");
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [toDelete, setToDelete] = useState<Customer | null>(null);
 
   useEffect(() => {
-    fetchCustomers(1, pagination.per_page, search)
-      .catch((e) => toast.error(e.message || "Error al cargar clientes"))
+    fetchCustomers(1, pagination.per_page, search, role)
+      .catch((e) => toast.error(e.message || "Error al cargar contactos"))
       .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, role]);
 
   const openCreate = () => {
     setEditing(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      is_customer: role !== "supplier",
+      is_supplier: role === "supplier",
+    });
     setModalOpen(true);
   };
 
@@ -141,9 +162,14 @@ export default function CustomersIndex() {
       id_type: customer.id_type ?? "",
       id_number: customer.id_number ?? "",
       phone: customer.phone ?? "",
+      email: customer.email ?? "",
       country: customer.country ?? "Ecuador",
       city: customer.city ?? "",
       address: customer.address ?? "",
+      is_customer: customer.is_customer ?? true,
+      is_supplier: customer.is_supplier ?? false,
+      credit_limit: String(customer.credit_limit ?? 0),
+      payment_term_days: customer.payment_term_days != null ? String(customer.payment_term_days) : "",
     });
     setModalOpen(true);
   };
@@ -153,17 +179,35 @@ export default function CustomersIndex() {
       toast.error("El nombre es requerido");
       return;
     }
+    if (!form.is_customer && !form.is_supplier) {
+      toast.error("El contacto debe ser cliente, proveedor o ambos");
+      return;
+    }
+    const payload = {
+      name: form.name,
+      id_type: form.id_type,
+      id_number: form.id_number,
+      phone: form.phone,
+      email: form.email,
+      country: form.country,
+      city: form.city,
+      address: form.address,
+      is_customer: form.is_customer,
+      is_supplier: form.is_supplier,
+      credit_limit: Number(form.credit_limit || 0),
+      payment_term_days: form.payment_term_days ? Number(form.payment_term_days) : null,
+    };
     try {
       if (editing) {
-        await updateCustomer(editing.id, form);
-        toast.success("Cliente actualizado correctamente");
+        await updateCustomer(editing.id, payload);
+        toast.success("Contacto actualizado correctamente");
       } else {
-        await createCustomer(form);
-        toast.success("Cliente creado correctamente");
+        await createCustomer(payload);
+        toast.success("Contacto creado correctamente");
       }
       setModalOpen(false);
     } catch (e) {
-      toast.error(errorMessage(e, "Error al guardar el cliente"));
+      toast.error(errorMessage(e, "Error al guardar el contacto"));
     }
   };
 
@@ -171,10 +215,10 @@ export default function CustomersIndex() {
     if (!toDelete) return;
     try {
       await deleteCustomer(toDelete.id);
-      toast.success("Cliente archivado correctamente");
+      toast.success("Contacto archivado correctamente");
       setToDelete(null);
     } catch (e) {
-      toast.error(errorMessage(e, "Error al archivar el cliente"));
+      toast.error(errorMessage(e, "Error al archivar el contacto"));
     }
   };
 
@@ -184,22 +228,31 @@ export default function CustomersIndex() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Clientes</h1>
+          <h1 className="text-2xl font-bold tracking-tight">Contactos</h1>
           <p className="text-sm text-muted-foreground">
-            Gestiona la información de tus clientes
+            Gestiona tus clientes y proveedores
           </p>
         </div>
         <Button onClick={openCreate} size="sm">
-          <Plus className="w-4 h-4 mr-2" /> Nuevo Cliente
+          <Plus className="w-4 h-4 mr-2" /> Nuevo Contacto
         </Button>
       </div>
 
-      <SearchBar
-        placeholder="Buscar por nombre o teléfono..."
-        value={search}
-        onSearch={setSearch}
-        className="max-w-sm"
-      />
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <Tabs value={role || "all"} onValueChange={(v) => setRole(v === "all" ? "" : (v as ContactRole))}>
+          <TabsList>
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="customer">Clientes</TabsTrigger>
+            <TabsTrigger value="supplier">Proveedores</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <SearchBar
+          placeholder="Buscar por nombre o teléfono..."
+          value={search}
+          onSearch={setSearch}
+          className="max-w-sm"
+        />
+      </div>
 
       <Card className="p-0 rounded-xl">
         <CardContent className="p-0">
@@ -207,24 +260,31 @@ export default function CustomersIndex() {
             <TableHeader>
               <TableRow>
                 <TableHead>Nombre</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead>Documento</TableHead>
                 <TableHead>Teléfono</TableHead>
-                <TableHead>Ciudad</TableHead>
-                <TableHead>Ventas</TableHead>
+                <TableHead>Por cobrar</TableHead>
+                <TableHead>Por pagar</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center">
-                    Cargando clientes...
+                  <TableCell colSpan={7} className="h-24 text-center">
+                    Cargando contactos...
                   </TableCell>
                 </TableRow>
               ) : customers.length ? (
                 customers.map((c) => (
                   <TableRow key={c.id}>
                     <TableCell className="font-medium">{c.name}</TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        {c.is_customer && <Badge variant="secondary">Cliente</Badge>}
+                        {c.is_supplier && <Badge variant="outline">Proveedor</Badge>}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       {c.id_number ? (
                         <span>
@@ -238,13 +298,12 @@ export default function CustomersIndex() {
                       )}
                     </TableCell>
                     <TableCell>{c.phone || "—"}</TableCell>
-                    <TableCell>
-                      {c.city || "—"}
-                      {c.country && c.country !== "Ecuador" ? (
-                        <span className="text-xs text-muted-foreground"> · {c.country}</span>
-                      ) : null}
+                    <TableCell className={c.receivable ? "text-foreground" : "text-muted-foreground"}>
+                      {money(c.receivable ?? 0)}
                     </TableCell>
-                    <TableCell>{c.sales_count ?? 0}</TableCell>
+                    <TableCell className={c.payable ? "text-destructive" : "text-muted-foreground"}>
+                      {money(c.payable ?? 0)}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -268,8 +327,8 @@ export default function CustomersIndex() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                    No se encontraron clientes.
+                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                    No se encontraron contactos.
                   </TableCell>
                 </TableRow>
               )}
@@ -284,7 +343,7 @@ export default function CustomersIndex() {
         totalCount={pagination.total_count}
         perPage={pagination.per_page}
         onPageChange={({ selected }) =>
-          fetchCustomers(selected + 1, pagination.per_page, search)
+          fetchCustomers(selected + 1, pagination.per_page, search, role)
         }
       />
 
@@ -292,19 +351,36 @@ export default function CustomersIndex() {
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{editing ? "Editar Cliente" : "Nuevo Cliente"}</DialogTitle>
+            <DialogTitle>{editing ? "Editar Contacto" : "Nuevo Contacto"}</DialogTitle>
             <DialogDescription>
-              {editing ? "Actualiza los datos del cliente" : "Registra un nuevo cliente"}
+              {editing ? "Actualiza los datos del contacto" : "Registra un nuevo cliente o proveedor"}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="flex gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.is_customer}
+                  onCheckedChange={(v) => setForm({ ...form, is_customer: !!v })}
+                />
+                Cliente
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.is_supplier}
+                  onCheckedChange={(v) => setForm({ ...form, is_supplier: !!v })}
+                />
+                Proveedor
+              </label>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="name">Nombre</Label>
               <Input
                 id="name"
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                placeholder="Nombre completo"
+                placeholder="Nombre completo o razón social"
               />
             </div>
 
@@ -336,14 +412,26 @@ export default function CustomersIndex() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="phone">Teléfono</Label>
-              <Input
-                id="phone"
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="09XXXXXXXX"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Teléfono</Label>
+                <Input
+                  id="phone"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                  placeholder="09XXXXXXXX"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  placeholder="correo@ejemplo.com"
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
@@ -380,6 +468,31 @@ export default function CustomersIndex() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="credit_limit">Límite de crédito</Label>
+                <Input
+                  id="credit_limit"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={form.credit_limit}
+                  onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="payment_term_days">Plazo de pago (días)</Label>
+                <Input
+                  id="payment_term_days"
+                  type="number"
+                  min={0}
+                  value={form.payment_term_days}
+                  onChange={(e) => setForm({ ...form, payment_term_days: e.target.value })}
+                  placeholder="Ej. 30"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="address">Dirección</Label>
               <Textarea
@@ -395,7 +508,7 @@ export default function CustomersIndex() {
               Cancelar
             </Button>
             <Button onClick={handleSubmit} disabled={isLoading}>
-              {editing ? "Guardar cambios" : "Crear cliente"}
+              {editing ? "Guardar cambios" : "Crear contacto"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -405,10 +518,10 @@ export default function CustomersIndex() {
       <AlertDialog open={!!toDelete} onOpenChange={(open) => !open && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archivar cliente</AlertDialogTitle>
+            <AlertDialogTitle>Archivar contacto</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Seguro que deseas archivar a {toDelete?.name}? No se eliminará: quedará inactivo
-              para conservar el historial de sus ventas.
+              para conservar el historial de sus transacciones.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

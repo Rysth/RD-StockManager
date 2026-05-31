@@ -356,3 +356,55 @@ Seeds actualizados para demostrar versatilidad:
 - [x] `inventory/stats`, `products/low_stock` y `sales/report` filtran por `location_id`
 - [x] owner tiene `manage_locations`; empleado no
 - [x] `npm run build` del admin sin errores de tipos
+
+---
+
+## Fase 13 — Compras, Proveedores, Gastos, Contactos enriquecidos e Informes avanzados
+
+> Cierra el ciclo de inventario (entra mercancía vía compras), agrega gastos y deudas, y completa
+> los informes faltantes del modelo Kosari/UltimatePOS. Reutiliza el patrón `Sale`/`StockMovement`.
+
+### 13.1 — Contactos enriquecidos
+- `Customer` extendido (migración `add_contact_fields_to_customers`): `is_customer`, `is_supplier`,
+  `email`, `credit_limit`, `payment_term_days`. Un proveedor es un `Customer` con `is_supplier`.
+- Saldos **calculados**: `receivable` (ventas completadas − pagado), `payable` (compras recibidas −
+  pagado), `balance`. `CustomersController` acepta `?role=customer|supplier` y serializa saldos.
+- UI: `CustomersIndex` → "Contactos" con tabs Clientes/Proveedores/Todos, columnas de saldo, flags
+  cliente/proveedor, email, límite de crédito y plazo de pago.
+
+### 13.2 — Compras + Proveedores
+- Migraciones `create_purchases` (proveedor, ubicación, estado draft/received/cancelled,
+  payment_status due/partial/paid, fechas, subtotal/descuento/impuesto/total/pagado) y `create_purchase_items`.
+- `Purchase` (espejo de `Sale`): `receive!` suma stock vía `StockMovement`, `cancel!` revierte;
+  al recibir actualiza el costo del producto (last cost). `PurchasesController` CRUD + `receive` + `due`.
+- Permisos `view_purchases`/`manage_purchases` (admin + owner). UI: `PurchasesIndex` (lista +
+  formulario con proveedor, ubicación, líneas de variantes, descuento/impuesto, vencimiento) +
+  `purchaseStore`. Sidebar "Compras" (icono `Truck`).
+
+### 13.3 — Gastos
+- Migraciones `create_expense_categories`, `create_expenses` (categoría, ubicación, monto, fecha,
+  método de pago). Modelos `Expense`/`ExpenseCategory`. Controladores CRUD (categoría archiva).
+- Permisos `view_expenses`/`manage_expenses`. UI: `ExpensesIndex` (lista + crear + gestión de
+  categorías + filtro) + `expenseStore`. Sidebar "Gastos" (icono `Receipt`).
+
+### 13.4 — Pagos / saldos y alertas
+- `add_credit_fields_to_sales`: `paid_amount`, `payment_status`, `due_date`. `Sale#complete!` marca
+  pagada la venta POS al contado (COD queda `due`). Scopes `due_soon` en `Sale` y `Purchase` (≤ 7 días).
+
+### 13.5 — Informes avanzados
+- `ReportsController` (`/api/v1/reports/...`): `purchases`, `taxes` (IVA 15% Ecuador), `contacts`,
+  `expenses`, `cash_register`, `sales_reps`. UI: `AdvancedReportsIndex` en `/dashboard/reports` con
+  6 sub-tabs + `reportStore`. Sidebar "Informes" (icono `BarChart3`, gateado por `view_reports`).
+
+### 13.6 — Seeds
+- 5 proveedores, 5 categorías de gasto + ~18 gastos, ~12 compras recibidas (suben stock) con algunas
+  a crédito y `due_date` próximo para demostrar las alertas de vencimiento.
+
+### Verificación Fase 13
+- [x] `rails db:migrate && rails db:seed` sin errores (5 proveedores, 12 compras, 18 gastos)
+- [x] Recibir compra sube stock (30→40); cancelar lo restaura (40→30) — probado vía runner
+- [x] Costo del producto se actualiza al recibir (last cost)
+- [x] `Purchase.due_soon` y ventas COD `due` aparecen como pendientes de pago
+- [x] Los 6 reportes devuelven datos reales; endpoints responden 401 sin auth (controladores cargan)
+- [x] owner tiene `manage_purchases`/`manage_expenses`; empleado no
+- [x] `npm run build` del admin sin errores de tipos

@@ -10,7 +10,14 @@ interface CustomerInput {
   id_number?: string;
   country?: string;
   address?: string;
+  email?: string;
+  is_customer?: boolean;
+  is_supplier?: boolean;
+  credit_limit?: number;
+  payment_term_days?: number | null;
 }
+
+export type ContactRole = "customer" | "supplier" | "";
 
 type ApiError = {
   response?: {
@@ -48,8 +55,9 @@ interface CustomerState {
   isLoading: boolean;
   error: string | null;
   currentSearch: string;
+  currentRole: ContactRole;
 
-  fetchCustomers: (page?: number, perPage?: number, search?: string) => Promise<void>;
+  fetchCustomers: (page?: number, perPage?: number, search?: string, role?: ContactRole) => Promise<void>;
   createCustomer: (data: CustomerInput) => Promise<Customer>;
   updateCustomer: (id: number, data: CustomerInput) => Promise<void>;
   deleteCustomer: (id: number) => Promise<void>;
@@ -61,12 +69,14 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   isLoading: false,
   error: null,
   currentSearch: "",
+  currentRole: "",
 
-  fetchCustomers: async (page = 1, perPage = 12, search = "") => {
-    set({ isLoading: true, error: null, currentSearch: search });
+  fetchCustomers: async (page = 1, perPage = 12, search = "", role = "") => {
+    set({ isLoading: true, error: null, currentSearch: search, currentRole: role });
     try {
       const params: Record<string, string | number> = { page, per_page: perPage };
       if (search) params.search = search;
+      if (role) params.role = role;
       const response = await api.get("/api/v1/customers", { params });
       set({
         customers: response.data.customers,
@@ -83,8 +93,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post("/api/v1/customers", { customer: data });
-      const { pagination, currentSearch } = get();
-      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch);
+      const { pagination, currentSearch, currentRole } = get();
+      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole);
       return response.data.customer as Customer;
     } catch (error) {
       const msg = toMessage(error, "Error al crear el cliente");
@@ -97,8 +107,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.put(`/api/v1/customers/${id}`, { customer: data });
-      const { pagination, currentSearch } = get();
-      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch);
+      const { pagination, currentSearch, currentRole } = get();
+      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole);
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar el cliente");
       set({ error: msg, isLoading: false });
@@ -110,12 +120,12 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.delete(`/api/v1/customers/${id}`);
-      const { pagination, currentSearch, customers } = get();
+      const { pagination, currentSearch, currentRole, customers } = get();
       const page =
         customers.length === 1 && pagination.current_page > 1
           ? pagination.current_page - 1
           : pagination.current_page;
-      await get().fetchCustomers(page, pagination.per_page, currentSearch);
+      await get().fetchCustomers(page, pagination.per_page, currentSearch, currentRole);
     } catch (error) {
       const msg = toMessage(error, "Error al archivar el cliente");
       set({ error: msg, isLoading: false });

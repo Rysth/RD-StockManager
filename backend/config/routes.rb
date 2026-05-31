@@ -72,8 +72,25 @@ Rails.application.routes.draw do
           get :report
         end
       end
+      resources :purchases do
+        collection do
+          get :due
+        end
+      end
+      resources :expense_categories
+      resources :expenses
       namespace :inventory do
         get :stats
+      end
+
+      # Informes avanzados (Tienda)
+      namespace :reports do
+        get :purchases
+        get :taxes
+        get :contacts
+        get :expenses
+        get :cash_register
+        get :sales_reps
       end
 
       # Public endpoints (no authentication)

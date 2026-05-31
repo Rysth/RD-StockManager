@@ -14,6 +14,9 @@ import SalesIndex from "../pages/dashboard/sales/SalesIndex";
 import PosIndex from "../pages/dashboard/sales/PosIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
+import PurchasesIndex from "../pages/dashboard/purchases/PurchasesIndex";
+import ExpensesIndex from "../pages/dashboard/expenses/ExpensesIndex";
+import AdvancedReportsIndex from "../pages/dashboard/reports/AdvancedReportsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
 import AuthConfirm from "../pages/auth/AuthConfirm";
@@ -143,7 +146,31 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      // /dashboard/reports ahora es el home (ver Dashboard.tsx)
+      {
+        path: "purchases",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <PurchasesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "expenses",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_EXPENSES}>
+            <ExpensesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_REPORTS}>
+            <AdvancedReportsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      // El home (/dashboard) muestra los Reportes de ventas (ver Dashboard.tsx)
       // Add more dashboard routes here
     ],
   },

@@ -64,12 +64,19 @@ module Api
       end
 
       def customer_params
-        params.require(:customer).permit(:name, :phone, :city, :id_type, :id_number, :country, :address, :active)
+        params.require(:customer).permit(
+          :name, :phone, :city, :id_type, :id_number, :country, :address, :active,
+          :email, :is_customer, :is_supplier, :credit_limit, :payment_term_days
+        )
       end
 
       def search_params
         search = {}
         search[:name_or_phone_cont] = params[:search] if params[:search].present?
+        case params[:role]
+        when "customer" then search[:is_customer_eq] = true
+        when "supplier" then search[:is_supplier_eq] = true
+        end
         if params[:active].present?
           search[:active_eq] = params[:active]
         elsif params[:archived].to_s == "true"
@@ -90,6 +97,13 @@ module Api
           id_number: customer.id_number,
           country: customer.country,
           address: customer.address,
+          email: customer.email,
+          is_customer: customer.is_customer,
+          is_supplier: customer.is_supplier,
+          credit_limit: customer.credit_limit,
+          payment_term_days: customer.payment_term_days,
+          receivable: customer.receivable,
+          payable: customer.payable,
           active: customer.active,
           sales_count: sales_count || customer.sales.count,
           created_at: customer.created_at,

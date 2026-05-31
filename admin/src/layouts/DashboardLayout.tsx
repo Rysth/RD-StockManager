@@ -52,6 +52,8 @@ export default function DashboardLayout() {
     canManageSales: hasPermission(Permissions.MANAGE_SALES),
     canViewReports: hasPermission(Permissions.VIEW_REPORTS),
     canManageLocations: hasPermission(Permissions.MANAGE_LOCATIONS),
+    canViewPurchases: hasPermission(Permissions.VIEW_PURCHASES),
+    canViewExpenses: hasPermission(Permissions.VIEW_EXPENSES),
   };
   const defaultRoute = getDefaultAdminRoute({
     user,
@@ -73,9 +75,15 @@ export default function DashboardLayout() {
     } else if (path === "/dashboard/brands") {
       return { section: "Tienda", page: "Marcas y Categorías" };
     } else if (path === "/dashboard/customers") {
-      return { section: "Tienda", page: "Clientes" };
+      return { section: "Tienda", page: "Contactos" };
     } else if (path === "/dashboard/sales") {
       return { section: "Tienda", page: "Ventas" };
+    } else if (path === "/dashboard/purchases") {
+      return { section: "Tienda", page: "Compras" };
+    } else if (path === "/dashboard/expenses") {
+      return { section: "Tienda", page: "Gastos" };
+    } else if (path === "/dashboard/reports") {
+      return { section: "Tienda", page: "Informes" };
     }
     return { section: "Dashboard", page: "Reportes" };
   };

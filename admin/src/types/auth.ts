@@ -54,6 +54,10 @@ export const Permissions = {
 	VIEW_REPORTS: "view_reports",
 	VIEW_LOCATIONS: "view_locations",
 	MANAGE_LOCATIONS: "manage_locations",
+	VIEW_PURCHASES: "view_purchases",
+	MANAGE_PURCHASES: "manage_purchases",
+	VIEW_EXPENSES: "view_expenses",
+	MANAGE_EXPENSES: "manage_expenses",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

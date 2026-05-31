@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_130006) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -140,8 +140,40 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
     t.string "country", default: "Ecuador"
     t.text "address"
     t.boolean "active", default: true, null: false
+    t.boolean "is_customer", default: true, null: false
+    t.boolean "is_supplier", default: false, null: false
+    t.string "email"
+    t.decimal "credit_limit", precision: 10, scale: 2, default: "0.0", null: false
+    t.integer "payment_term_days"
     t.index ["active"], name: "index_customers_on_active"
+    t.index ["is_customer"], name: "index_customers_on_is_customer"
+    t.index ["is_supplier"], name: "index_customers_on_is_supplier"
     t.index ["name"], name: "index_customers_on_name"
+  end
+
+  create_table "expense_categories", force: :cascade do |t|
+    t.string "name", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["name"], name: "index_expense_categories_on_name", unique: true
+  end
+
+  create_table "expenses", force: :cascade do |t|
+    t.bigint "expense_category_id"
+    t.bigint "location_id"
+    t.bigint "user_id"
+    t.decimal "amount", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "expense_date"
+    t.text "description"
+    t.integer "payment_method", default: 0, null: false
+    t.string "reference"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["expense_category_id"], name: "index_expenses_on_expense_category_id"
+    t.index ["expense_date"], name: "index_expenses_on_expense_date"
+    t.index ["location_id"], name: "index_expenses_on_location_id"
+    t.index ["user_id"], name: "index_expenses_on_user_id"
   end
 
   create_table "locations", force: :cascade do |t|
@@ -207,6 +239,43 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
     t.index ["name"], name: "index_products_on_name"
   end
 
+  create_table "purchase_items", force: :cascade do |t|
+    t.bigint "purchase_id", null: false
+    t.bigint "product_variant_id", null: false
+    t.integer "quantity", default: 0, null: false
+    t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_variant_id"], name: "index_purchase_items_on_product_variant_id"
+    t.index ["purchase_id"], name: "index_purchase_items_on_purchase_id"
+  end
+
+  create_table "purchases", force: :cascade do |t|
+    t.bigint "customer_id"
+    t.bigint "location_id"
+    t.bigint "user_id"
+    t.integer "status", default: 0, null: false
+    t.integer "payment_status", default: 0, null: false
+    t.datetime "purchase_date"
+    t.date "due_date"
+    t.decimal "subtotal", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "discount", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "tax", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "total", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "paid_amount", precision: 10, scale: 2, default: "0.0", null: false
+    t.string "reference"
+    t.text "notes"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["customer_id"], name: "index_purchases_on_customer_id"
+    t.index ["due_date"], name: "index_purchases_on_due_date"
+    t.index ["location_id"], name: "index_purchases_on_location_id"
+    t.index ["payment_status"], name: "index_purchases_on_payment_status"
+    t.index ["purchase_date"], name: "index_purchases_on_purchase_date"
+    t.index ["status"], name: "index_purchases_on_status"
+    t.index ["user_id"], name: "index_purchases_on_user_id"
+  end
+
   create_table "role_permissions", force: :cascade do |t|
     t.bigint "role_id", null: false
     t.bigint "permission_id", null: false
@@ -251,7 +320,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
     t.integer "payment_method", default: 0, null: false
     t.boolean "cash_on_delivery", default: false, null: false
     t.bigint "location_id"
+    t.decimal "paid_amount", precision: 10, scale: 2, default: "0.0", null: false
+    t.integer "payment_status", default: 0, null: false
+    t.date "due_date"
     t.index ["customer_id"], name: "index_sales_on_customer_id"
+    t.index ["due_date"], name: "index_sales_on_due_date"
     t.index ["location_id"], name: "index_sales_on_location_id"
     t.index ["sold_at"], name: "index_sales_on_sold_at"
     t.index ["status"], name: "index_sales_on_status"
@@ -294,10 +367,18 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_120004) do
   add_foreign_key "account_verification_keys", "accounts", column: "id"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "expenses", "expense_categories"
+  add_foreign_key "expenses", "locations"
+  add_foreign_key "expenses", "users"
   add_foreign_key "otp_codes", "accounts"
   add_foreign_key "product_variants", "products"
   add_foreign_key "products", "brands"
   add_foreign_key "products", "categories"
+  add_foreign_key "purchase_items", "product_variants"
+  add_foreign_key "purchase_items", "purchases"
+  add_foreign_key "purchases", "customers"
+  add_foreign_key "purchases", "locations"
+  add_foreign_key "purchases", "users"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "sale_items", "product_variants"

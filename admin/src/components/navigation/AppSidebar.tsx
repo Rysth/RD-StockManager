@@ -14,6 +14,9 @@ import {
   Users2,
   Tags,
   Warehouse,
+  Truck,
+  Receipt,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -57,6 +60,8 @@ interface StorePermissions {
   canManageSales: boolean;
   canViewReports: boolean;
   canManageLocations: boolean;
+  canViewPurchases: boolean;
+  canViewExpenses: boolean;
 }
 
 interface AppSidebarProps {
@@ -94,6 +99,8 @@ export default function AppSidebar({
     canManageSales,
     canViewReports,
     canManageLocations,
+    canViewPurchases,
+    canViewExpenses,
   } = storePermissions;
   const showStoreGroup =
     canViewInventory ||
@@ -101,7 +108,9 @@ export default function AppSidebar({
     canManageCustomers ||
     canManageSales ||
     canViewReports ||
-    canManageLocations;
+    canManageLocations ||
+    canViewPurchases ||
+    canViewExpenses;
   // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
   const { isMobile, state } = useSidebar();
@@ -339,17 +348,47 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {canViewPurchases && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Compras"
+                      isActive={isActiveRoute("/dashboard/purchases")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/purchases">
+                        <Truck />
+                        <span>Compras</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {canManageCustomers && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      tooltip="Clientes"
+                      tooltip="Contactos"
                       isActive={isActiveRoute("/dashboard/customers")}
                       className={activeMenuClasses}
                     >
                       <NavLink to="/dashboard/customers">
                         <Users2 />
-                        <span>Clientes</span>
+                        <span>Contactos</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canViewExpenses && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Gastos"
+                      isActive={isActiveRoute("/dashboard/expenses")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/expenses">
+                        <Receipt />
+                        <span>Gastos</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -380,6 +419,21 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/locations">
                         <Warehouse />
                         <span>Ubicaciones</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canViewReports && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Informes"
+                      isActive={isActiveRoute("/dashboard/reports")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/reports">
+                        <BarChart3 />
+                        <span>Informes</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

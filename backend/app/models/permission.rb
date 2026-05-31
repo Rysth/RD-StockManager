@@ -35,13 +35,23 @@ class Permission < ApplicationRecord
   VIEW_LOCATIONS   = "view_locations".freeze
   MANAGE_LOCATIONS = "manage_locations".freeze
 
+  # Purchases / Compras (Tienda)
+  VIEW_PURCHASES   = "view_purchases".freeze
+  MANAGE_PURCHASES = "manage_purchases".freeze
+
+  # Expenses / Gastos (Tienda)
+  VIEW_EXPENSES   = "view_expenses".freeze
+  MANAGE_EXPENSES = "manage_expenses".freeze
+
   ALL_KEYS = [
     VIEW_DASHBOARD,
     VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
     VIEW_BUSINESS, EDIT_BUSINESS,
     EDIT_PROFILE,
     VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
-    VIEW_LOCATIONS, MANAGE_LOCATIONS
+    VIEW_LOCATIONS, MANAGE_LOCATIONS,
+    VIEW_PURCHASES, MANAGE_PURCHASES,
+    VIEW_EXPENSES, MANAGE_EXPENSES
   ].freeze
 
   # Default permission mapping per role.
@@ -55,7 +65,9 @@ class Permission < ApplicationRecord
       VIEW_BUSINESS, EDIT_BUSINESS,
       EDIT_PROFILE,
       VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
-      VIEW_LOCATIONS, MANAGE_LOCATIONS
+      VIEW_LOCATIONS, MANAGE_LOCATIONS,
+      VIEW_PURCHASES, MANAGE_PURCHASES,
+      VIEW_EXPENSES, MANAGE_EXPENSES
     ],
     "business_employee" => [
       VIEW_DASHBOARD,
@@ -88,13 +100,21 @@ class Permission < ApplicationRecord
       # Inventory & Sales (Tienda)
       { key: VIEW_INVENTORY, name: "Ver Inventario", group: "inventory", description: "Ver productos e inventario" },
       { key: MANAGE_PRODUCTS, name: "Gestionar Productos", group: "inventory", description: "Crear y editar productos y categorías" },
-      { key: MANAGE_CUSTOMERS, name: "Gestionar Clientes", group: "customers", description: "Crear y editar clientes" },
+      { key: MANAGE_CUSTOMERS, name: "Gestionar Contactos", group: "customers", description: "Crear y editar clientes y proveedores" },
       { key: MANAGE_SALES, name: "Gestionar Ventas", group: "sales", description: "Registrar y gestionar ventas" },
       { key: VIEW_REPORTS, name: "Ver Reportes", group: "reports", description: "Acceder a reportes de ventas" },
 
       # Locations (Tienda)
       { key: VIEW_LOCATIONS, name: "Ver Ubicaciones", group: "locations", description: "Ver ubicaciones y almacenes" },
-      { key: MANAGE_LOCATIONS, name: "Gestionar Ubicaciones", group: "locations", description: "Crear y editar ubicaciones y almacenes" }
+      { key: MANAGE_LOCATIONS, name: "Gestionar Ubicaciones", group: "locations", description: "Crear y editar ubicaciones y almacenes" },
+
+      # Purchases (Tienda)
+      { key: VIEW_PURCHASES, name: "Ver Compras", group: "purchases", description: "Ver compras a proveedores" },
+      { key: MANAGE_PURCHASES, name: "Gestionar Compras", group: "purchases", description: "Registrar y gestionar compras" },
+
+      # Expenses (Tienda)
+      { key: VIEW_EXPENSES, name: "Ver Gastos", group: "expenses", description: "Ver gastos del negocio" },
+      { key: MANAGE_EXPENSES, name: "Gestionar Gastos", group: "expenses", description: "Registrar y gestionar gastos" }
     ]
 
     permissions_by_key = {}

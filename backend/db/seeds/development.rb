@@ -12,6 +12,10 @@ puts "🌱 Seeding development database..."
 # Clear existing data
 puts "Clearing existing data..."
 Audited::Audit.delete_all if defined?(Audited::Audit)
+PurchaseItem.delete_all
+Purchase.delete_all
+Expense.delete_all
+ExpenseCategory.delete_all
 SaleItem.delete_all
 Sale.delete_all
 Customer.delete_all
@@ -223,6 +227,110 @@ statuses.shuffle.each do |target_status|
   end
 end
 
+# ──────────────────────────────────────────────────────────────
+# Proveedores (contactos marcados como is_supplier)
+# ──────────────────────────────────────────────────────────────
+puts "Creating suppliers..."
+supplier_names = [
+  "Distribuidora Calzado S.A.", "Importadora Andina", "Textiles del Pacífico",
+  "Comercial Gorras Ec", "Mayorista Deportivo"
+]
+suppliers = supplier_names.map.with_index do |name, i|
+  Customer.create!(
+    name: name,
+    is_customer: false,
+    is_supplier: true,
+    phone: "04#{rand(2000000..2999999)}",
+    email: "ventas#{i + 1}@proveedor.com",
+    city: ["Guayaquil", "Quito", "Ambato"].sample,
+    payment_term_days: [15, 30, 45].sample,
+    active: true
+  )
+end
+
+# ──────────────────────────────────────────────────────────────
+# Compras a proveedores (ingreso de mercancía por ubicación)
+# ──────────────────────────────────────────────────────────────
+puts "Creating purchases..."
+purchase_locations = [main_location, warehouse]
+created_purchases = 0
+12.times do |i|
+  purchased_at = rand(0..45).days.ago.change(hour: rand(8..18))
+  variants = all_variants.sample(rand(2..5))
+  next if variants.empty?
+
+  # ~70% recibidas y pagadas; algunas a crédito con vencimiento próximo; pocas en borrador
+  received = rand < 0.85
+  due_date = (rand < 0.4 ? Date.current + rand(-3..10).days : nil)
+
+  purchase = Purchase.new(
+    customer: suppliers.sample,
+    location: purchase_locations.sample,
+    user: owner_user,
+    status: :draft,
+    purchase_date: purchased_at,
+    due_date: due_date,
+    tax: 0,
+    reference: "FAC-#{1000 + i}"
+  )
+  variants.each do |variant|
+    purchase.purchase_items.build(
+      product_variant: variant,
+      quantity: rand(5..20),
+      unit_cost: (variant.product.cost.to_f.positive? ? variant.product.cost : variant.product.base_price * 0.6).round(2)
+    )
+  end
+
+  begin
+    purchase.save!
+    purchase.recalculate_total!
+    if received
+      purchase.receive!
+      # 60% pagadas completas, resto parcial/por pagar
+      paid = rand < 0.6 ? purchase.total : (rand < 0.5 ? purchase.total * 0.5 : 0)
+      purchase.update!(paid_amount: paid)
+      purchase.sync_payment_status!
+      # Si quedó saldo pendiente, fija un vencimiento próximo para demostrar las alertas
+      if paid < purchase.total
+        purchase.update_column(:due_date, Date.current + rand(2..6).days)
+      end
+    end
+    created_purchases += 1
+  rescue ActiveRecord::RecordInvalid
+    next
+  end
+end
+
+# ──────────────────────────────────────────────────────────────
+# Gastos (categorizados, por ubicación)
+# ──────────────────────────────────────────────────────────────
+puts "Creating expenses..."
+expense_categories = ["Arriendo", "Servicios básicos", "Sueldos", "Transporte", "Marketing"].map do |name|
+  ExpenseCategory.create!(name: name, active: true)
+end
+
+expense_descriptions = {
+  "Arriendo" => "Pago de arriendo del local",
+  "Servicios básicos" => "Luz, agua e internet",
+  "Sueldos" => "Pago de nómina",
+  "Transporte" => "Combustible y fletes",
+  "Marketing" => "Publicidad en redes sociales"
+}
+created_expenses = 0
+18.times do
+  cat = expense_categories.sample
+  Expense.create!(
+    expense_category: cat,
+    location: purchase_locations.sample,
+    user: owner_user,
+    amount: [25, 40, 60, 120, 250, 500].sample + rand(0..50),
+    expense_date: rand(0..45).days.ago.change(hour: rand(8..18)),
+    description: expense_descriptions[cat.name],
+    payment_method: %i[cash transfer].sample
+  )
+  created_expenses += 1
+end
+
 puts ""
 puts "=" * 60
 puts "✅ Inventory & sales demo seeded!"
@@ -235,6 +343,9 @@ puts "   • Variantes:   #{ProductVariant.count}"
 puts "   • Niveles stock: #{StockLevel.count}"
 puts "   • Clientes:    #{Customer.count}"
 puts "   • Ventas:      #{Sale.count} (#{Sale.completed.count} completadas, #{Sale.pending.count} pendientes, #{Sale.cancelled.count} canceladas)"
+puts "   • Proveedores: #{Customer.suppliers.count}"
+puts "   • Compras:     #{Purchase.count} (#{Purchase.received.count} recibidas, #{Purchase.draft.count} borrador)"
+puts "   • Gastos:      #{Expense.count} en #{ExpenseCategory.count} categorías"
 puts "=" * 60
 
 # ──────────────────────────────────────────────────────────────
