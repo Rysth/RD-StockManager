@@ -408,3 +408,155 @@ Seeds actualizados para demostrar versatilidad:
 - [x] Los 6 reportes devuelven datos reales; endpoints responden 401 sin auth (controladores cargan)
 - [x] owner tiene `manage_purchases`/`manage_expenses`; empleado no
 - [x] `npm run build` del admin sin errores de tipos
+
+---
+
+## Fase 14 — Pulido POS: envío, combobox, export, nómina y sucursal por empleado
+
+> Ajustes finos pedidos tras la demo de Compras/Gastos. Mejoran la operación diaria del POS y
+> cierran detalles del modelo Kosari.
+
+### 14.1 — Costo de envío en ventas
+- Migración `add_shipping_cost_to_sales` (`shipping_cost`). `Sale#recalculate_total!` suma el envío
+  al total; el pago al contado registra el total con envío.
+- POS: botones **Gratis / $3 / Otro**, subtotal + envío + total en carrito, confirmación y recibo.
+- `SalesIndex`: línea de envío en el detalle.
+
+### 14.2 — Reimprimir ticket
+- Generador de ticket 80mm extraído a util compartido `lib/ticket.ts` (POS + detalle de venta).
+- Botón **"Reimprimir ticket"** en el panel de detalle de `SalesIndex`.
+
+### 14.3 — POS por ubicación
+- Al cambiar de sucursal, el catálogo muestra solo variantes con stock **en esa ubicación**
+  (usa `stock_by_location`); el máximo del carrito respeta ese stock. Corrige bug: `saleStore`
+  no enviaba `location_id`.
+
+### 14.4 — Exportar inventario a Excel
+- `ProductExportService` (Axlsx) + `GET /products/export?location_id=`. Botón **Exportar** en
+  Inventario (general o por ubicación) con producto, marca, categoría, SKU, talla, color, precios y stock.
+
+### 14.5 — Combobox + crear producto desde compras
+- Componente reutilizable `components/ui/combobox.tsx` (sobre Radix Popover, sin deps nuevas) y
+  `popover.tsx`. En Compras reemplaza el `<select>` por búsqueda con autocompletar.
+- Acción **"Crear producto nuevo"** en el combobox → diálogo rápido que crea producto + variante y
+  lo agrega a la compra (el stock entra al recibir).
+
+### 14.6 — Gastos de nómina por empleado
+- `expense_categories.is_payroll` + `expenses.employee_id`. Al elegir la categoría **Sueldos**
+  aparece el selector de empleado (obligatorio); si ya hay sueldo ese mes muestra **warning** pero
+  permite registrarlo. Endpoints `expenses/employees` y `expenses/salary_status`.
+
+### 14.7 — Empleados restringidos a su sucursal
+- Migración `add_location_to_users` (`location_id`). `User#restricted_to_location?` (empleado con
+  sucursal asignada). `me` expone la sucursal; `SalesController#create` **fuerza** la ubicación del
+  empleado restringido. POS bloquea el selector (badge fijo); formularios de usuario asignan sucursal.
+
+### 14.8 — Sidebar reordenado por flujo
+- Grupo Tienda en orden lineal del negocio: **Contactos → Compras → Inventario → Marcas y Categorías
+  → Ubicaciones → Punto de Venta → Ventas → Gastos → Informes**.
+
+### Verificación Fase 14
+- [x] `rails db:migrate && rails db:seed` sin errores
+- [x] Venta con envío $3 → total incluye envío; al contado queda pagada
+- [x] Reimprimir ticket desde una venta existente
+- [x] POS por sucursal muestra solo stock de esa ubicación
+- [x] Export Excel general y por ubicación
+- [x] Combobox de producto + crear producto al vuelo en compras
+- [x] Sueldo a empleado con warning si ya existe ese mes (permite igual)
+- [x] Empleado1 (Tienda Principal) no puede vender desde otra sucursal — se fuerza la suya
+- [x] `npm run build` del admin sin errores de tipos
+
+---
+
+## Alineación con Kosari / UltimatePOS
+
+> Estado de las funciones del POS de Kosari frente a lo implementado.
+> ✅ Listo · 🟡 Parcial · ❌ No implementado
+
+### Múltiples negocios/tiendas — ❌
+| Función | Estado | Nota |
+|---------|--------|------|
+| Configurar múltiples negocios | ❌ | `Business` es singleton (un negocio por despliegue) |
+| Sin restricción en número de empresas | ❌ | No hay multi-tenancy |
+| Inventario/contabilidad separados por negocio | ❌ | Fuera de alcance; la multi-ubicación cubre la necesidad real de EDLU |
+
+### Ubicación / tiendas / almacén — 🟡 (Fase 12 + 14)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Crear múltiples ubicaciones | ✅ | `Location`, `/dashboard/locations` |
+| Gestionarlas todas a la vez | ✅ | Stock por variante × ubicación |
+| Existencias/compras/ventas por ubicación | ✅ | Stock, compras con ubicación destino, ventas por sucursal; empleados restringidos a su sucursal |
+| Personalizar diseño/factura por ubicación | ❌ | Recibo 80mm global, no configurable por UI |
+
+### Usuarios y roles — 🟡 (Fase 10)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Sistema de usuarios y roles | ✅ | `Permission` + Rolify |
+| Roles predefinidos (admin/cajero) | ✅ | admin, business_owner, business_employee |
+| Crear roles personalizados con permisos | ❌ | Roles fijos en código (`ROLE_DEFAULTS`) |
+| Usuarios ilimitados | ✅ | CRUD en `/dashboard/users` |
+
+### Contactos (Clientes y Proveedores) — ✅ (Fase 13.1)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Marcar cliente / proveedor / ambos | ✅ | Flags `is_customer` / `is_supplier` |
+| Ver detalles de transacciones con un contacto | 🟡 | Reporte de contactos con totales y última transacción; sin historial línea por línea |
+| Ver saldo crédito/débito | ✅ | `receivable` / `payable` / `balance` |
+| Plazo de pago + alerta una semana antes | ✅ | `payment_term_days` + `due_soon` (≤ 7 días) |
+
+### Productos — 🟡
+| Función | Estado | Nota |
+|---------|--------|------|
+| Productos individuales y variables | ✅ | `Product` + `ProductVariant` |
+| Clasificar por Marca, Categoría, Subcategoría | 🟡 | Marca + categoría ✅; **subcategoría** ❌ |
+| Productos con diferentes unidades (UOM) | ❌ | Sin unidad de medida |
+| SKU manual o auto con prefijo | ✅ | Auto-generado con prefijo |
+| Alertas de stock bajo | ✅ | Umbral 5, por ubicación |
+| Cálculo automático de precio venta (costo + margen) | 🟡 | Muestra margen estimado; no calcula el precio desde el margen |
+| Plantillas de variación reutilizables | ❌ | Se escriben variantes cada vez |
+
+### Compras — ✅ (Fase 13.2 + 14.5)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Añadir compras fácilmente | ✅ | Con combobox + crear producto al vuelo |
+| Compra para diferentes ubicaciones | ✅ | Ubicación destino por compra |
+| Gestionar pagadas/vencidas | ✅ | `payment_status`, saldo por pagar |
+| Notificación de compras vencidas (1 semana antes) | ✅ | `Purchase.due_soon` |
+| Añadir descuentos e impuestos | ✅ | Descuento + impuesto en la compra |
+
+### Vender — ✅ (Fase 10.6 + 14)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Interfaz simplificada | ✅ | POS con grilla + checkout |
+| Cliente Walk-In por defecto | ✅ | "Consumidor final" |
+| Agregar cliente desde POS | ✅ | Diálogo rápido |
+| Venta basada en Ajax | ✅ | Sin recargas |
+| Factura borrador o final | ✅ | `pending` / `completed` |
+| Diferentes opciones de pago | ✅ | Efectivo / transferencia + contra entrega + **costo de envío** |
+| Personalizar diseño/factura | 🟡 | Ticket 80mm imprimible/reimprimible; no configurable por UI |
+
+### Administrar gastos — ✅ (Fase 13.3 + 14.6)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Agregar gastos fácilmente | ✅ | `/dashboard/expenses` |
+| Categorizar gastos | ✅ | Categorías + nómina por empleado |
+| Analizar por categoría y ubicación (informe) | ✅ | Reporte de gastos |
+
+### Informes — 🟡 (Fase 13.5)
+| Función | Estado | Nota |
+|---------|--------|------|
+| Informe de compra y venta | ✅ | Ventas + compras |
+| Informe fiscal | ✅ | IVA cobrado vs pagado |
+| Informes de contacto | ✅ | Saldos y última transacción |
+| Informe de acciones (stock) | 🟡 | Stats de inventario + export Excel por ubicación; sin reporte de valuación dedicado |
+| Informe de gastos | ✅ | Por categoría / ubicación |
+| Productos en tendencia (marca/categoría/subcategoría/unidad/fechas) | 🟡 | Top productos por marca/categoría; sin subcategoría/unidad ni rango de fechas configurable |
+| Informe de caja registradora | ✅ | Flujo de efectivo |
+| Informe del representante de ventas | ✅ | Por vendedor (`Sale.user`) |
+
+### Resumen de brechas restantes
+- **Multi-negocio (multi-tenant)** — decisión consciente de no implementar (no necesario para EDLU).
+- **Productos:** subcategorías, unidades de medida (UOM), plantillas de variación, precio automático por margen.
+- **Personalización de factura por UI / por ubicación.**
+- **Roles personalizables desde la UI.**
+- **Reportes:** valuación de stock dedicada y tendencias por subcategoría/unidad con rango de fechas.
