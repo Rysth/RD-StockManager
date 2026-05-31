@@ -43,6 +43,9 @@ class Permission < ApplicationRecord
   VIEW_EXPENSES   = "view_expenses".freeze
   MANAGE_EXPENSES = "manage_expenses".freeze
 
+  # Facturación electrónica SRI (Tienda)
+  MANAGE_INVOICING = "manage_invoicing".freeze
+
   ALL_KEYS = [
     VIEW_DASHBOARD,
     VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
@@ -51,7 +54,8 @@ class Permission < ApplicationRecord
     VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
     VIEW_LOCATIONS, MANAGE_LOCATIONS,
     VIEW_PURCHASES, MANAGE_PURCHASES,
-    VIEW_EXPENSES, MANAGE_EXPENSES
+    VIEW_EXPENSES, MANAGE_EXPENSES,
+    MANAGE_INVOICING
   ].freeze
 
   # Default permission mapping per role.
@@ -67,7 +71,8 @@ class Permission < ApplicationRecord
       VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
       VIEW_LOCATIONS, MANAGE_LOCATIONS,
       VIEW_PURCHASES, MANAGE_PURCHASES,
-      VIEW_EXPENSES, MANAGE_EXPENSES
+      VIEW_EXPENSES, MANAGE_EXPENSES,
+      MANAGE_INVOICING
     ],
     "business_employee" => [
       VIEW_DASHBOARD,
@@ -114,7 +119,10 @@ class Permission < ApplicationRecord
 
       # Expenses (Tienda)
       { key: VIEW_EXPENSES, name: "Ver Gastos", group: "expenses", description: "Ver gastos del negocio" },
-      { key: MANAGE_EXPENSES, name: "Gestionar Gastos", group: "expenses", description: "Registrar y gestionar gastos" }
+      { key: MANAGE_EXPENSES, name: "Gestionar Gastos", group: "expenses", description: "Registrar y gestionar gastos" },
+
+      # Facturación electrónica (Tienda)
+      { key: MANAGE_INVOICING, name: "Facturación Electrónica", group: "invoicing", description: "Emitir y consultar facturas electrónicas SRI" }
     ]
 
     permissions_by_key = {}

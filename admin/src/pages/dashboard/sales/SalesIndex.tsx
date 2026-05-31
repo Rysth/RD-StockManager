@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { Eye, Printer } from "lucide-react";
+import { Download, Eye, FileText, Printer, ReceiptText } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
 import { useBusinessStore } from "../../../stores/businessStore";
+import { useAuthStore } from "../../../stores/authStore";
 import { printTicket } from "../../../lib/ticket";
-import type { SaleStatus } from "../../../types/inventory";
+import { Permissions } from "../../../types/auth";
+import type { InvoiceStatus, SaleStatus } from "../../../types/inventory";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -62,6 +64,15 @@ const PAYMENT_LABEL: Record<string, string> = {
   transfer: "Transferencia",
 };
 
+const INVOICE_META: Record<InvoiceStatus, { label: string; className: string }> = {
+  AUTORIZADO: { label: "Autorizada", className: "bg-green-100 text-green-800" },
+  RECIBIDA: { label: "Recibida", className: "bg-blue-100 text-blue-800" },
+  "EN PROCESO": { label: "En proceso", className: "bg-blue-100 text-blue-800" },
+  DEVUELTA: { label: "Devuelta", className: "bg-amber-100 text-amber-800" },
+  "NO AUTORIZADO": { label: "No autorizada", className: "bg-red-100 text-red-800" },
+  ERROR: { label: "Error", className: "bg-red-100 text-red-800" },
+};
+
 function SaleListSkeleton() {
   return (
     <div className="space-y-4">
@@ -99,15 +110,21 @@ function SalesList() {
     updateSaleStatus,
     selectedSale,
     isLoadingDetail,
+    isSubmitting,
     fetchSale,
     clearSelectedSale,
+    issueInvoice,
+    downloadInvoiceXml,
+    downloadInvoiceRide,
   } = useSaleStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
+  const { hasPermission } = useAuthStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [completeId, setCompleteId] = useState<number | null>(null);
+  const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, { status })
@@ -177,6 +194,35 @@ function SalesList() {
     }
   };
 
+  const issueElectronicInvoice = async (id: number) => {
+    try {
+      const invoice = await issueInvoice(id);
+      if (invoice.authorized) {
+        toast.success("Factura autorizada por el SRI");
+      } else {
+        toast.error(`El SRI no autorizó la factura (${invoice.estado})`);
+      }
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al emitir la factura"));
+    }
+  };
+
+  const downloadXml = async (id: number) => {
+    try {
+      await downloadInvoiceXml(id);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al descargar el XML"));
+    }
+  };
+
+  const downloadRide = async (id: number) => {
+    try {
+      await downloadInvoiceRide(id);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al descargar el RIDE"));
+    }
+  };
+
   if (isLoading && firstLoad) return <SaleListSkeleton />;
 
   return (
@@ -203,13 +249,14 @@ function SalesList() {
                 <TableHead>Items</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Factura</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     Cargando ventas...
                   </TableCell>
                 </TableRow>
@@ -232,6 +279,15 @@ function SalesList() {
                         {STATUS_META[s.status].label}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {s.invoice ? (
+                        <Badge variant="secondary" className={INVOICE_META[s.invoice.estado].className}>
+                          {INVOICE_META[s.invoice.estado].label}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="ghost"
@@ -242,6 +298,39 @@ function SalesList() {
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
+                      {canManageInvoicing && s.status === "completed" && !s.invoice?.authorized && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                          disabled={isSubmitting}
+                          onClick={() => issueElectronicInvoice(s.id)}
+                        >
+                          Facturar
+                        </Button>
+                      )}
+                      {canManageInvoicing && s.invoice?.authorized && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Descargar XML autorizado"
+                            onClick={() => downloadXml(s.id)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Descargar RIDE"
+                            onClick={() => downloadRide(s.id)}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
                       {s.status === "pending" && (
                         <Button
                           variant="ghost"
@@ -267,7 +356,7 @@ function SalesList() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     No hay ventas registradas.
                   </TableCell>
                 </TableRow>
@@ -390,6 +479,66 @@ function SalesList() {
                   </div>
                 )}
               </div>
+
+              {canManageInvoicing && (
+                <div className="space-y-3 rounded-lg border p-3 text-sm">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-medium">Facturación electrónica SRI</p>
+                      <p className="text-xs text-muted-foreground">
+                        {selectedSale.invoice
+                          ? selectedSale.invoice.numero_comprobante || selectedSale.invoice.clave_acceso
+                          : "Sin factura emitida"}
+                      </p>
+                    </div>
+                    {selectedSale.invoice && (
+                      <Badge
+                        variant="secondary"
+                        className={INVOICE_META[selectedSale.invoice.estado].className}
+                      >
+                        {INVOICE_META[selectedSale.invoice.estado].label}
+                      </Badge>
+                    )}
+                  </div>
+
+                  {selectedSale.invoice?.mensajes?.length ? (
+                    <p className="text-xs text-muted-foreground">
+                      {selectedSale.invoice.mensajes.map((m) => m.mensaje || m.tipo).filter(Boolean).join(" · ")}
+                    </p>
+                  ) : null}
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    {selectedSale.status === "completed" && !selectedSale.invoice?.authorized && (
+                      <Button
+                        className="flex-1 gap-2"
+                        disabled={isSubmitting}
+                        onClick={() => issueElectronicInvoice(selectedSale.id)}
+                      >
+                        <ReceiptText className="h-4 w-4" />
+                        {selectedSale.invoice ? "Reintentar emisión" : "Emitir factura SRI"}
+                      </Button>
+                    )}
+                    {selectedSale.invoice?.authorized && (
+                      <>
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          onClick={() => downloadXml(selectedSale.id)}
+                        >
+                          <Download className="h-4 w-4" /> XML
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          onClick={() => downloadRide(selectedSale.id)}
+                        >
+                          <FileText className="h-4 w-4" /> RIDE
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
                 <Printer className="h-4 w-4" /> Reimprimir ticket

@@ -48,7 +48,9 @@ module Api
 
       def business_params
         params.except(:id, :controller, :action).permit(
-          :name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo, :email, :location
+          :name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo, :email, :location,
+          :ruc, :razon_social, :dir_matriz, :dir_establecimiento, :obligado_contabilidad,
+          :establecimiento, :punto_emision, :contribuyente_especial, :contribuyente_rimpe
         )
       end
 
@@ -64,6 +66,15 @@ module Api
           tiktok: business.tiktok,
           email: business.email,
           location: business.location,
+          ruc: business.ruc,
+          razon_social: business.razon_social,
+          dir_matriz: business.dir_matriz,
+          dir_establecimiento: business.dir_establecimiento,
+          obligado_contabilidad: business.obligado_contabilidad,
+          establecimiento: business.establecimiento,
+          punto_emision: business.punto_emision,
+          contribuyente_especial: business.contribuyente_especial,
+          contribuyente_rimpe: business.contribuyente_rimpe,
           created_at: business.created_at,
           updated_at: business.updated_at
         }

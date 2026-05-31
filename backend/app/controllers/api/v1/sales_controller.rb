@@ -3,14 +3,17 @@ module Api
     class SalesController < BaseController
       MONTH_ABBR_ES = [nil, "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].freeze
 
+      INVOICE_ACTIONS = [:invoice, :invoice_xml, :invoice_ride].freeze
+
       before_action :authenticate_rodauth_user!
-      before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report]
+      before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
-      before_action :set_sale, only: [:show, :update, :destroy]
+      before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
+      before_action :set_sale, only: [:show, :update, :destroy, *INVOICE_ACTIONS]
 
       # GET /api/v1/sales
       def index
-        @q = Sale.includes(:customer, :user, :location).ransack(search_params)
+        @q = Sale.includes(:customer, :user, :location, :invoices).ransack(search_params)
         @q.sorts = "sold_at desc" if @q.sorts.empty?
 
         @pagy, sales = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -100,6 +103,43 @@ module Api
         render_error("No se pudo cancelar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
 
+      # POST /api/v1/sales/:id/invoice — emite la factura electrónica SRI de la venta.
+      def invoice
+        inv = InvoiceService.generate(sale: @sale)
+        if inv.authorized?
+          render_success({ invoice: serialize_invoice(inv) }, "Factura autorizada por el SRI")
+        else
+          render json: {
+            status: :error,
+            message: "El SRI no autorizó la factura (#{inv.estado})",
+            invoice: serialize_invoice(inv),
+            errors: inv.mensajes
+          }, status: :unprocessable_entity
+        end
+      rescue InvoiceService::AlreadyAuthorizedError => e
+        render_error(e.message, :conflict)
+      rescue InvoiceService::NotCompletedError, InvoiceService::MissingEmisorError, InvoiceService::InvoiceError => e
+        render_error(e.message, :unprocessable_entity)
+      end
+
+      # GET /api/v1/sales/:id/invoice_xml — descarga el XML autorizado.
+      def invoice_xml
+        inv = @sale.invoices.authorized.order(:created_at).last
+        return render_error("No hay factura autorizada para esta venta", :not_found) unless inv&.xml_autorizado.present?
+
+        send_data inv.xml_autorizado, type: "application/xml",
+                  filename: "#{inv.clave_acceso}.xml", disposition: "attachment"
+      end
+
+      # GET /api/v1/sales/:id/invoice_ride — descarga el RIDE (PDF).
+      def invoice_ride
+        inv = @sale.invoices.authorized.order(:created_at).last
+        return render_error("No hay RIDE disponible para esta venta", :not_found) unless inv&.ride_pdf.present?
+
+        send_data inv.ride_pdf, type: "application/pdf",
+                  filename: "#{inv.clave_acceso}.pdf", disposition: "attachment"
+      end
+
       # GET /api/v1/sales/report
       def report
         now = Time.current
@@ -127,7 +167,7 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, :location, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: { product_variant: :product }).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
@@ -163,7 +203,8 @@ module Api
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
-          created_at: sale.created_at
+          created_at: sale.created_at,
+          invoice: serialize_invoice(sale.latest_invoice)
         }
 
         if with_items
@@ -186,6 +227,24 @@ module Api
         end
 
         data
+      end
+
+      # Resumen de la factura electrónica para la UI (o nil si no se ha emitido).
+      def serialize_invoice(inv)
+        return nil unless inv
+
+        {
+          id: inv.id,
+          estado: inv.estado,
+          authorized: inv.authorized?,
+          clave_acceso: inv.clave_acceso,
+          numero_comprobante: inv.numero_comprobante,
+          numero_autorizacion: inv.numero_autorizacion,
+          fecha_autorizacion: inv.fecha_autorizacion,
+          ambiente: inv.ambiente,
+          importe_total: inv.importe_total,
+          mensajes: inv.mensajes
+        }
       end
 
       # Real profit across completed sale items, optionally within a date range

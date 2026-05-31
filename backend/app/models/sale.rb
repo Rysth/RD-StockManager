@@ -9,6 +9,7 @@ class Sale < ApplicationRecord
   belongs_to :customer, optional: true
   belongs_to :location, optional: true
   has_many :sale_items, dependent: :destroy
+  has_many :invoices, dependent: :destroy
 
   accepts_nested_attributes_for :sale_items
 
@@ -79,8 +80,17 @@ class Sale < ApplicationRecord
     %w[id status total shipping_cost paid_amount payment_status due_date sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
   end
 
+  # Última factura electrónica emitida para esta venta (o nil).
+  def latest_invoice
+    if invoices.loaded?
+      invoices.max_by(&:created_at)
+    else
+      invoices.order(:created_at).last
+    end
+  end
+
   def self.ransackable_associations(_auth_object = nil)
-    %w[customer user location sale_items]
+    %w[customer user location sale_items invoices]
   end
 
   private

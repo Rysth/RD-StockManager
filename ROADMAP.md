@@ -355,7 +355,7 @@ Seeds actualizados para demostrar versatilidad:
 - [x] Vender desde una ubicación sin stock falla la validación
 - [x] `inventory/stats`, `products/low_stock` y `sales/report` filtran por `location_id`
 - [x] owner tiene `manage_locations`; empleado no
-- [x] `npm run build` del admin sin errores de tipos
+- [x] Build admin verificado con `npx tsc -b && npx vite build --outDir /tmp/opencode/rdstock-admin-dist`
 
 ---
 
@@ -464,6 +464,43 @@ Seeds actualizados para demostrar versatilidad:
 - [x] Combobox de producto + crear producto al vuelo en compras
 - [x] Sueldo a empleado con warning si ya existe ese mes (permite igual)
 - [x] Empleado1 (Tienda Principal) no puede vender desde otra sucursal — se fuerza la suya
+- [x] `npm run build` del admin sin errores de tipos
+
+---
+
+## Fase 15 — Facturación electrónica SRI Ecuador
+
+> Integra emisión de facturas electrónicas para ventas completadas usando la gema local
+> `sri_facturacion`, derivada de `open-api-facturacion-sri`.
+
+### 15.1 — Gema local y configuración
+- La gema se reubicó en `backend/vendor/gems/sri_facturacion` y el `Gemfile` la carga por path.
+- `backend/config/initializers/sri_facturacion.rb` lee `SRI_AMBIENTE`, `SRI_CERT_PATH`,
+  `SRI_CERT_PASSWORD`, `SRI_MAX_RETRIES` y `SRI_RETRY_DELAY`.
+- Docker y `.env.example` documentan el certificado `.p12` dentro del contenedor
+  (`/rails/storage/sri_certs/certificado.p12`).
+
+### 15.2 — Backend Rails
+- Nuevos campos SRI en `Business`: RUC, razón social, dirección matriz/establecimiento,
+  establecimiento, punto de emisión y leyendas tributarias.
+- Nuevo modelo `Invoice`: guarda clave de acceso, estado SRI, XML firmado/autorizado, RIDE PDF,
+  mensajes, comprador e importe total.
+- `InvoiceService` emite facturas para ventas completadas, reserva secuenciales de forma atómica y
+  persiste errores locales sin romper la API.
+- Rutas en ventas: `POST /sales/:id/invoice`, `GET /sales/:id/invoice_xml`,
+  `GET /sales/:id/invoice_ride`.
+- Permiso `manage_invoicing` para admin/business_owner.
+
+### 15.3 — Frontend admin
+- Configuración → Negocio permite cargar los datos legales SRI del emisor.
+- Ventas muestra estado de factura, botón **Facturar** para ventas completadas y descargas XML/RIDE
+  cuando la factura queda autorizada.
+
+### Verificación Fase 15
+- [x] `rails db:migrate` crea campos SRI e `invoices`
+- [ ] Configurar `.env` con certificado `.p12` válido y contraseña
+- [ ] Emitir factura SRI en ambiente de pruebas (`SRI_AMBIENTE=1`)
+- [ ] Descargar XML autorizado y RIDE desde `/dashboard/sales`
 - [x] `npm run build` del admin sin errores de tipos
 
 ---

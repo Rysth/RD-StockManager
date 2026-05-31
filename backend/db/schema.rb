@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_150002) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_160002) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -118,6 +118,16 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_150002) do
     t.datetime "updated_at", null: false
     t.string "email"
     t.string "location"
+    t.string "ruc"
+    t.string "razon_social"
+    t.string "dir_matriz"
+    t.string "dir_establecimiento"
+    t.string "obligado_contabilidad", default: "NO", null: false
+    t.string "establecimiento", default: "001", null: false
+    t.string "punto_emision", default: "001", null: false
+    t.string "contribuyente_especial"
+    t.string "contribuyente_rimpe"
+    t.index ["ruc"], name: "index_businesses_on_ruc", unique: true
   end
 
   create_table "categories", force: :cascade do |t|
@@ -179,6 +189,29 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_150002) do
     t.index ["expense_date"], name: "index_expenses_on_expense_date"
     t.index ["location_id"], name: "index_expenses_on_location_id"
     t.index ["user_id"], name: "index_expenses_on_user_id"
+  end
+
+  create_table "invoices", force: :cascade do |t|
+    t.bigint "sale_id", null: false
+    t.string "clave_acceso"
+    t.integer "secuencial", null: false
+    t.string "establecimiento", default: "001", null: false
+    t.string "punto_emision", default: "001", null: false
+    t.string "ambiente", null: false
+    t.string "estado", default: "ERROR", null: false
+    t.string "numero_autorizacion"
+    t.datetime "fecha_autorizacion"
+    t.text "xml_firmado"
+    t.text "xml_autorizado"
+    t.binary "ride_pdf"
+    t.jsonb "mensajes", default: [], null: false
+    t.jsonb "comprador_snapshot", default: {}, null: false
+    t.decimal "importe_total", precision: 10, scale: 2
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clave_acceso"], name: "index_invoices_on_clave_acceso", unique: true
+    t.index ["establecimiento", "punto_emision", "secuencial"], name: "idx_invoices_emission_point_secuencial", unique: true
+    t.index ["sale_id"], name: "index_invoices_on_sale_id"
   end
 
   create_table "locations", force: :cascade do |t|
@@ -380,6 +413,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_150002) do
   add_foreign_key "expenses", "locations"
   add_foreign_key "expenses", "users"
   add_foreign_key "expenses", "users", column: "employee_id"
+  add_foreign_key "invoices", "sales"
   add_foreign_key "otp_codes", "accounts"
   add_foreign_key "product_variants", "products"
   add_foreign_key "products", "brands"

@@ -10,6 +10,15 @@ interface Business {
   instagram: string;
   facebook: string;
   tiktok: string;
+  ruc?: string | null;
+  razon_social?: string | null;
+  dir_matriz?: string | null;
+  dir_establecimiento?: string | null;
+  obligado_contabilidad?: string | null;
+  establecimiento?: string | null;
+  punto_emision?: string | null;
+  contribuyente_especial?: string | null;
+  contribuyente_rimpe?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +30,15 @@ interface BusinessData {
   instagram?: string;
   facebook?: string;
   tiktok?: string;
+  ruc?: string;
+  razon_social?: string;
+  dir_matriz?: string;
+  dir_establecimiento?: string;
+  obligado_contabilidad?: string;
+  establecimiento?: string;
+  punto_emision?: string;
+  contribuyente_especial?: string;
+  contribuyente_rimpe?: string;
 }
 
 interface BusinessState {

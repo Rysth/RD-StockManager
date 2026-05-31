@@ -4,6 +4,7 @@ import type {
   Sale,
   SaleStatus,
   CreateSaleData,
+  Invoice,
   SalesReport,
   Pagination,
 } from "../types/inventory";
@@ -24,11 +25,19 @@ type ApiError = {
   response?: {
     status?: number;
     data?: {
-      errors?: string[];
+      errors?: Array<string | { mensaje?: string; message?: string }>;
       message?: string;
+      invoice?: Invoice;
     };
   };
 };
+
+function applyInvoiceState(state: SaleState, id: number, invoice: Invoice) {
+  return {
+    sales: state.sales.map((sale) => (sale.id === id ? { ...sale, invoice } : sale)),
+    selectedSale: state.selectedSale?.id === id ? { ...state.selectedSale, invoice } : state.selectedSale,
+  };
+}
 
 function toMessage(error: unknown, fallback: string): string {
   const response = (error as ApiError).response;
@@ -37,10 +46,30 @@ function toMessage(error: unknown, fallback: string): string {
     return "Demasiadas solicitudes. Por favor, espera un momento antes de intentar nuevamente.";
   if (response?.status === 403)
     return "No tienes permisos para realizar esta acción.";
-  if (response?.data?.errors?.length) return response.data.errors.join(", ");
+  if (response?.data?.errors?.length) {
+    return response.data.errors
+      .map((err) => (typeof err === "string" ? err : err?.mensaje || err?.message || String(err)))
+      .join(", ");
+  }
   if (response?.data?.message) return response.data.message;
   if (!response) return "Sin conexión. Verifica tu conexión a internet.";
   return fallback;
+}
+
+function filenameFromDisposition(disposition: string | undefined, fallback: string) {
+  const match = disposition?.match(/filename="?([^";]+)"?/i);
+  return match?.[1] || fallback;
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
 }
 
 interface SaleState {
@@ -60,6 +89,9 @@ interface SaleState {
   createSale: (data: CreateSaleData) => Promise<Sale>;
   updateSaleStatus: (id: number, status: SaleStatus) => Promise<void>;
   deleteSale: (id: number) => Promise<void>;
+  issueInvoice: (id: number) => Promise<Invoice>;
+  downloadInvoiceXml: (id: number) => Promise<void>;
+  downloadInvoiceRide: (id: number) => Promise<void>;
   fetchReport: () => Promise<void>;
 }
 
@@ -156,6 +188,49 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const msg = toMessage(error, "Error al eliminar la venta");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
+    }
+  },
+
+  issueInvoice: async (id) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const response = await api.post(`/api/v1/sales/${id}/invoice`);
+      const invoice = response.data.invoice as Invoice;
+      set((state) => ({ ...applyInvoiceState(state, id, invoice), isSubmitting: false }));
+      return invoice;
+    } catch (error) {
+      const invoice = (error as ApiError).response?.data?.invoice;
+      if (invoice) {
+        set((state) => ({ ...applyInvoiceState(state, id, invoice), isSubmitting: false }));
+        return invoice;
+      }
+      const msg = toMessage(error, "Error al emitir la factura electrónica");
+      set({ error: msg, isSubmitting: false });
+      throw new Error(msg);
+    }
+  },
+
+  downloadInvoiceXml: async (id) => {
+    try {
+      const response = await api.get(`/api/v1/sales/${id}/invoice_xml`, { responseType: "blob" });
+      downloadBlob(
+        response.data,
+        filenameFromDisposition(response.headers["content-disposition"], `factura-${id}.xml`),
+      );
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al descargar el XML autorizado"));
+    }
+  },
+
+  downloadInvoiceRide: async (id) => {
+    try {
+      const response = await api.get(`/api/v1/sales/${id}/invoice_ride`, { responseType: "blob" });
+      downloadBlob(
+        response.data,
+        filenameFromDisposition(response.headers["content-disposition"], `factura-${id}.pdf`),
+      );
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al descargar el RIDE"));
     }
   },
 

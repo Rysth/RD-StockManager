@@ -35,6 +35,15 @@ interface BusinessFormData {
   instagram: string;
   facebook: string;
   tiktok: string;
+  ruc: string;
+  razon_social: string;
+  dir_matriz: string;
+  dir_establecimiento: string;
+  obligado_contabilidad: string;
+  establecimiento: string;
+  punto_emision: string;
+  contribuyente_especial: string;
+  contribuyente_rimpe: string;
   logo?: FileList;
 }
 
@@ -119,6 +128,15 @@ export default function BusinessSettings() {
               instagram: business.instagram || "",
               facebook: business.facebook || "",
               tiktok: business.tiktok || "",
+              ruc: business.ruc || "",
+              razon_social: business.razon_social || "",
+              dir_matriz: business.dir_matriz || "",
+              dir_establecimiento: business.dir_establecimiento || "",
+              obligado_contabilidad: business.obligado_contabilidad || "NO",
+              establecimiento: business.establecimiento || "001",
+              punto_emision: business.punto_emision || "001",
+              contribuyente_especial: business.contribuyente_especial || "",
+              contribuyente_rimpe: business.contribuyente_rimpe || "",
             };
           })()
         : undefined,
@@ -195,6 +213,15 @@ export default function BusinessSettings() {
       formData.append("instagram", data.instagram || "");
       formData.append("facebook", data.facebook || "");
       formData.append("tiktok", data.tiktok || "");
+      formData.append("ruc", data.ruc || "");
+      formData.append("razon_social", data.razon_social || "");
+      formData.append("dir_matriz", data.dir_matriz || "");
+      formData.append("dir_establecimiento", data.dir_establecimiento || "");
+      formData.append("obligado_contabilidad", data.obligado_contabilidad || "NO");
+      formData.append("establecimiento", data.establecimiento || "001");
+      formData.append("punto_emision", data.punto_emision || "001");
+      formData.append("contribuyente_especial", data.contribuyente_especial || "");
+      formData.append("contribuyente_rimpe", data.contribuyente_rimpe || "");
       if (data.logo && data.logo[0]) formData.append("logo", data.logo[0]);
       await updateBusiness(formData);
       toast.success("Configuración del negocio guardada");
@@ -883,6 +910,142 @@ export default function BusinessSettings() {
                               {businessForm.formState.errors.tiktok.message}
                             </p>
                           )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <Card className="border-border/60">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary shrink-0">
+                          <Shield className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h2 className="font-semibold text-base">Facturación SRI</h2>
+                          <p className="text-xs text-muted-foreground">
+                            Datos legales usados para emitir facturas electrónicas
+                          </p>
+                        </div>
+                      </div>
+
+                      <Separator className="mb-6" />
+
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            RUC
+                          </Label>
+                          <Input
+                            className="h-9"
+                            inputMode="numeric"
+                            maxLength={13}
+                            placeholder="0999999999001"
+                            {...businessForm.register("ruc", {
+                              pattern: { value: /^\d{13}$/, message: "El RUC debe tener 13 dígitos" },
+                            })}
+                          />
+                          {businessForm.formState.errors.ruc && (
+                            <p className="text-xs text-destructive">
+                              {businessForm.formState.errors.ruc.message}
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Razón social
+                          </Label>
+                          <Input
+                            className="h-9"
+                            placeholder="EDLU STORE S.A."
+                            {...businessForm.register("razon_social")}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Dirección matriz
+                          </Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Guayas, Guayaquil"
+                            {...businessForm.register("dir_matriz")}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Dirección establecimiento
+                          </Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Igual a matriz si se deja vacío"
+                            {...businessForm.register("dir_establecimiento")}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Establecimiento
+                          </Label>
+                          <Input
+                            className="h-9"
+                            inputMode="numeric"
+                            maxLength={3}
+                            {...businessForm.register("establecimiento", {
+                              pattern: { value: /^\d{3}$/, message: "Debe tener 3 dígitos" },
+                            })}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Punto emisión
+                          </Label>
+                          <Input
+                            className="h-9"
+                            inputMode="numeric"
+                            maxLength={3}
+                            {...businessForm.register("punto_emision", {
+                              pattern: { value: /^\d{3}$/, message: "Debe tener 3 dígitos" },
+                            })}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Obligado contabilidad
+                          </Label>
+                          <select
+                            className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                            {...businessForm.register("obligado_contabilidad")}
+                          >
+                            <option value="NO">NO</option>
+                            <option value="SI">SI</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Contribuyente especial
+                          </Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Opcional"
+                            {...businessForm.register("contribuyente_especial")}
+                          />
+                        </div>
+
+                        <div className="space-y-1.5 sm:col-span-2">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Leyenda RIMPE
+                          </Label>
+                          <Input
+                            className="h-9"
+                            placeholder="Opcional"
+                            {...businessForm.register("contribuyente_rimpe")}
+                          />
                         </div>
                       </div>
                     </CardContent>

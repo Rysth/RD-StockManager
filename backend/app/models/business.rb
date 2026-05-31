@@ -7,7 +7,13 @@ class Business < ApplicationRecord
   validates :instagram, format: { with: /\A[a-zA-Z0-9._]+\z/, message: "debe ser un nombre de usuario de Instagram válido" }, allow_blank: true
   validates :facebook, format: { with: /\A[a-zA-Z0-9.]+\z/, message: "debe ser un nombre de usuario de Facebook válido" }, allow_blank: true
   validates :tiktok, format: { with: /\A[a-zA-Z0-9._]+\z/, message: "debe ser un nombre de usuario de TikTok válido" }, allow_blank: true
-  
+  validates :ruc, format: { with: /\A\d{13}\z/, message: "debe tener 13 dígitos" }, allow_blank: true
+
+  # Indica si el negocio tiene los datos mínimos para emitir facturas electrónicas.
+  def sri_ready?
+    ruc.present? && razon_social.present? && dir_matriz.present?
+  end
+
   validate :logo_size_validation
   validate :logo_type_validation
   

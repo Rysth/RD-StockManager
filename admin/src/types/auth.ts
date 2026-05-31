@@ -61,6 +61,7 @@ export const Permissions = {
 	MANAGE_PURCHASES: "manage_purchases",
 	VIEW_EXPENSES: "view_expenses",
 	MANAGE_EXPENSES: "manage_expenses",
+	MANAGE_INVOICING: "manage_invoicing",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

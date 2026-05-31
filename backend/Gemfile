@@ -86,3 +86,6 @@ gem "caxlsx_rails"
 gem "roo" # read .xlsx for bulk product import
 
 gem "audited", "~> 5.4" # audit trail (who changed what)
+
+# Facturación electrónica SRI Ecuador (factura 01) — gem local en vendor/gems
+gem "sri_facturacion", path: "vendor/gems/sri_facturacion"

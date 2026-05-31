@@ -72,6 +72,11 @@ Rails.application.routes.draw do
         collection do
           get :report
         end
+        member do
+          post :invoice         # emite la factura electrónica SRI
+          get  :invoice_xml     # descarga el XML autorizado
+          get  :invoice_ride    # descarga el RIDE (PDF)
+        end
       end
       resources :purchases do
         collection do

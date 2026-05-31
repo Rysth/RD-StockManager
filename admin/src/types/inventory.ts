@@ -117,6 +117,34 @@ export interface Customer {
 export type SaleStatus = "pending" | "completed" | "cancelled";
 export type PaymentMethod = "cash" | "transfer";
 
+export type InvoiceStatus =
+  | "RECIBIDA"
+  | "AUTORIZADO"
+  | "NO AUTORIZADO"
+  | "DEVUELTA"
+  | "EN PROCESO"
+  | "ERROR";
+
+export interface InvoiceMessage {
+  identificador?: string;
+  mensaje?: string;
+  informacion_adicional?: string;
+  tipo?: string;
+}
+
+export interface Invoice {
+  id: number;
+  estado: InvoiceStatus;
+  authorized: boolean;
+  clave_acceso?: string | null;
+  numero_comprobante?: string | null;
+  numero_autorizacion?: string | null;
+  fecha_autorizacion?: string | null;
+  ambiente?: string | null;
+  importe_total?: number | null;
+  mensajes?: InvoiceMessage[];
+}
+
 export interface SaleItem {
   id: number;
   product_variant_id: number;
@@ -147,6 +175,7 @@ export interface Sale {
   items_count: number;
   items?: SaleItem[];
   profit?: number;
+  invoice?: Invoice | null;
   created_at: string;
 }
 
