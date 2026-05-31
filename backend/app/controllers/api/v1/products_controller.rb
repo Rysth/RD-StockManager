@@ -9,7 +9,7 @@ module Api
 
       # GET /api/v1/products
       def index
-        @q = Product.includes(:category, :brand, product_variants: [{ images_attachments: :blob }, { stock_levels: :location }], images_attachments: :blob).ransack(search_params)
+        @q = Product.includes(:category, :brand, :images_attachments, product_variants: [:images_attachments, { stock_levels: :location }]).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
         @pagy, products = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -126,7 +126,7 @@ module Api
       end
 
       def set_product
-        @product = Product.includes(:category, product_variants: [{ images_attachments: :blob }, { stock_levels: :location }], images_attachments: :blob).find(params[:id])
+        @product = Product.includes(:category, :images_attachments, product_variants: [:images_attachments, { stock_levels: :location }]).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Producto no encontrado", :not_found)
       end
