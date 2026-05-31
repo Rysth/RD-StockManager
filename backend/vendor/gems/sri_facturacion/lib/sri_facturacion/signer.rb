@@ -41,10 +41,19 @@ module SriFacturacion
     def self.load(path, password)
       raise SignatureError, "El certificado no existe: #{path}" unless File.exist?(path)
 
+      load_legacy_provider
       p12 = OpenSSL::PKCS12.new(File.binread(path), password.to_s)
       new(key: p12.key, certificate: p12.certificate)
     rescue OpenSSL::PKCS12::PKCS12Error => e
       raise SignatureError, "No se pudo abrir el .p12 (¿clave incorrecta?): #{e.message}"
+    end
+
+    def self.load_legacy_provider
+      return unless OpenSSL.const_defined?(:Provider)
+
+      OpenSSL::Provider.load("legacy")
+    rescue OpenSSL::OpenSSLError
+      nil
     end
 
     # Firma el XML y devuelve el XML firmado (string).

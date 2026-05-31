@@ -60,9 +60,10 @@ module SriFacturacion
             fmt(d.precio_total_sin_impuesto)
           ]
         end
-        pdf.table(rows, header: true, width: pdf.bounds.width,
+        table_width = pdf.bounds.width
+        pdf.table(rows, header: true, width: table_width,
                         cell_style: { size: 8, padding: 4 },
-                        column_widths: [50, 220, 50, 60, 50, 53]) do
+                        column_widths: [50, table_width - 263, 50, 60, 50, 53]) do
           row(0).font_style = :bold
           row(0).background_color = "EEEEEE"
         end

@@ -1,6 +1,10 @@
 # Environment variables
 .env
 
+# Sensitive certificates
+*.p12
+*.pfx
+
 # Docker volumes
 postgres_data/
 
@@ -25,4 +29,3 @@ Thumbs.db
 .project.applied
 
 # Proyecto de referencia NestJS (no se versiona)
- 
