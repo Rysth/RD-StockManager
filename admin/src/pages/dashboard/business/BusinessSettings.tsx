@@ -704,7 +704,7 @@ export default function BusinessSettings() {
 
                       <div className="flex flex-col gap-6 sm:flex-row sm:items-start">
                         {/* Logo Upload */}
-                        <div className="flex flex-col items-center gap-3 shrink-0">
+                        <div className="hidden flex-col items-center gap-3 shrink-0">
                           <div
                             role="button"
                             tabIndex={0}

@@ -809,13 +809,13 @@ export default function PosIndex() {
 
       {/* ── Confirmación + ticket ── */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>Confirmar venta</DialogTitle>
             <DialogDescription>Revisa el resumen antes de registrar.</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 text-sm">
+          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Cliente</span>
               <span className="font-medium">{selectedCustomer?.name || "Consumidor final"}</span>

@@ -703,7 +703,7 @@ export default function ProductsIndex() {
 
       {/* Create / Edit modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl" onInteractOutside={(e) => e.preventDefault()}>
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Producto" : "Nuevo Producto"}</DialogTitle>
             <DialogDescription>
