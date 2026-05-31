@@ -8,6 +8,7 @@ class Purchase < ApplicationRecord
   belongs_to :location, optional: true
   belongs_to :user, optional: true
   has_many :purchase_items, dependent: :destroy
+  has_many :purchase_payments, dependent: :destroy
 
   accepts_nested_attributes_for :purchase_items
 

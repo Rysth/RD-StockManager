@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, Eye, PackageCheck, Ban, DollarSign } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Trash2, Eye, PackageCheck, Ban, DollarSign, ImageIcon, X, Banknote, ArrowLeftRight } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
@@ -44,6 +44,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Separator } from "@/components/ui/separator";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
 
@@ -92,6 +100,7 @@ export default function PurchasesIndex() {
     updatePurchaseStatus,
     updatePurchasePayment,
     deletePurchase,
+    createPayment,
   } = usePurchaseStore();
   const {
     products,
@@ -109,8 +118,13 @@ export default function PurchasesIndex() {
   const [modalOpen, setModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [toCancel, setToCancel] = useState<Purchase | null>(null);
+  const [toReceive, setToReceive] = useState<Purchase | null>(null);
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<"cash" | "transfer">("cash");
+  const [paymentProof, setPaymentProof] = useState<File | null>(null);
+  const [paymentPreview, setPaymentPreview] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // form
   const [supplierId, setSupplierId] = useState("");
@@ -321,18 +335,12 @@ export default function PurchasesIndex() {
     await fetchPurchase(p.id);
   };
 
-  const handleReceive = async (p: Purchase) => {
-    try {
-      await updatePurchaseStatus(p.id, "received");
-      toast.success("Compra recibida, stock actualizado");
-    } catch (e) {
-      toast.error(errorMessage(e, "Error al recibir la compra"));
-    }
-  };
-
   const openPayment = (purchase: Purchase) => {
     setPaymentPurchase(purchase);
     setPaymentAmount("");
+    setPaymentMethod("cash");
+    setPaymentProof(null);
+    setPaymentPreview(null);
   };
 
   const handlePayment = async () => {
@@ -341,13 +349,40 @@ export default function PurchasesIndex() {
     if (amount <= 0) return toast.error("Ingresa un monto mayor a cero");
 
     try {
-      const nextPaid = Math.min(paymentPurchase.total, paymentPurchase.paid_amount + amount);
-      const updated = await updatePurchasePayment(paymentPurchase.id, nextPaid);
-      toast.success(updated.payment_status === "paid" ? "Compra marcada como pagada" : "Pago registrado");
+      await createPayment(paymentPurchase.id, amount, paymentMethod, paymentProof);
+      toast.success("Pago registrado correctamente");
       setPaymentPurchase(null);
       setPaymentAmount("");
+      setPaymentMethod("cash");
+      setPaymentProof(null);
+      setPaymentPreview(null);
     } catch (e) {
       toast.error(errorMessage(e, "Error al registrar el pago"));
+    }
+  };
+
+  const handleReceiveConfirm = async () => {
+    if (!toReceive) return;
+    try {
+      await updatePurchaseStatus(toReceive.id, "received");
+      toast.success("Compra recibida, stock actualizado");
+      setToReceive(null);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al recibir la compra"));
+    }
+  };
+
+  const handlePaymentProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) {
+        toast.error("La imagen debe ser menor a 2MB");
+        return;
+      }
+      setPaymentProof(file);
+      const reader = new FileReader();
+      reader.onload = (ev) => setPaymentPreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
     }
   };
 
@@ -424,7 +459,7 @@ export default function PurchasesIndex() {
                         <Eye className="h-4 w-4" />
                       </Button>
                       {p.status === "draft" && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Recibir" onClick={() => handleReceive(p)}>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-green-600" title="Recibir" onClick={() => setToReceive(p)}>
                           <PackageCheck className="h-4 w-4" />
                         </Button>
                       )}
@@ -595,24 +630,24 @@ export default function PurchasesIndex() {
         </DialogContent>
       </Dialog>
 
-      {/* Detail modal */}
-      <Dialog
+      {/* Detail drawer */}
+      <Sheet
         open={detailOpen}
         onOpenChange={(open) => {
           setDetailOpen(open);
           if (!open) clearSelectedPurchase();
         }}
       >
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Detalle de compra #{selectedPurchase?.id}</DialogTitle>
-            <DialogDescription>
+        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Detalle de compra #{selectedPurchase?.id}</SheetTitle>
+            <SheetDescription>
               {selectedPurchase?.supplier_name || "Sin proveedor"} ·{" "}
               {selectedPurchase?.location_name || "—"}
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </SheetHeader>
           {selectedPurchase ? (
-            <div className="space-y-3 text-sm">
+            <div className="space-y-3 px-4 pb-6 text-sm">
               <div className="flex gap-2">
                 <Badge variant={statusVariant(selectedPurchase.status)}>{STATUS_LABEL[selectedPurchase.status]}</Badge>
                 <Badge variant={paymentVariant(selectedPurchase.payment_status)}>{PAYMENT_LABEL[selectedPurchase.payment_status]}</Badge>
@@ -645,6 +680,39 @@ export default function PurchasesIndex() {
                 <div className="flex justify-between"><span>Pagado</span><span>{money(selectedPurchase.paid_amount)}</span></div>
                 <div className="flex justify-between text-destructive"><span>Saldo</span><span>{money(selectedPurchase.balance_due)}</span></div>
               </div>
+
+              {selectedPurchase.payments && selectedPurchase.payments.length > 0 && (
+                <div className="space-y-2 rounded-lg border p-3">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    Historial de pagos
+                  </p>
+                  {selectedPurchase.payments.map((pm) => (
+                    <div key={pm.id} className="flex items-start justify-between border-b pb-2 last:border-0 last:pb-0">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-medium">{money(pm.amount)}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {pm.payment_method === "cash" ? "Efectivo" : "Transferencia"} · {new Date(pm.created_at).toLocaleString("es-EC")}
+                        </p>
+                      </div>
+                      {pm.proof_image_url && (
+                        <a
+                          href={pm.proof_image_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0"
+                        >
+                          <img
+                            src={pm.proof_image_url}
+                            alt="Comprobante"
+                            className="h-10 w-10 rounded-md border object-cover"
+                          />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {selectedPurchase.status !== "cancelled" && selectedPurchase.payment_status !== "paid" && (
                 <Button className="w-full" size="sm" onClick={() => openPayment(selectedPurchase)}>
                   <DollarSign className="mr-2 h-4 w-4" /> Registrar pago
@@ -652,10 +720,10 @@ export default function PurchasesIndex() {
               )}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">Cargando...</p>
+            <p className="px-4 text-sm text-muted-foreground">Cargando...</p>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* Quick product creation */}
       <Dialog
@@ -781,6 +849,75 @@ export default function PurchasesIndex() {
                 placeholder="0.00"
               />
             </div>
+
+            <div className="space-y-2">
+              <Label>Método de pago</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("cash")}
+                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                    paymentMethod === "cash"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <Banknote className="h-4 w-4" /> Efectivo
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentMethod("transfer")}
+                  className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                    paymentMethod === "transfer"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "hover:bg-muted"
+                  }`}
+                >
+                  <ArrowLeftRight className="h-4 w-4" /> Transferencia
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Comprobante (opcional)</Label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePaymentProofChange}
+                className="hidden"
+              />
+              {paymentPreview ? (
+                <div className="relative inline-block">
+                  <img
+                    src={paymentPreview}
+                    alt="Preview"
+                    className="h-24 w-24 rounded-md border object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPaymentProof(null);
+                      setPaymentPreview(null);
+                      if (fileInputRef.current) fileInputRef.current.value = "";
+                    }}
+                    className="absolute -right-2 -top-2 rounded-full bg-destructive p-0.5 text-destructive-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <ImageIcon className="mr-1 h-4 w-4" /> Subir foto
+                </Button>
+              )}
+            </div>
+
             <div className="rounded-md bg-muted p-3 text-sm text-muted-foreground">
               Pagado actual: {money(paymentPurchase?.paid_amount ?? 0)} · Total: {money(paymentPurchase?.total ?? 0)}
             </div>
@@ -791,6 +928,27 @@ export default function PurchasesIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Receive confirmation */}
+      <AlertDialog open={!!toReceive} onOpenChange={(open) => !open && setToReceive(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Recibir compra</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Confirmás que la mercancía ha llegado? Se sumará el stock de los productos al inventario en la ubicación seleccionada.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Volver</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleReceiveConfirm}
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+            >
+              Sí, recibir mercancía
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Cancel confirmation */}
       <AlertDialog open={!!toCancel} onOpenChange={(open) => !open && setToCancel(null)}>

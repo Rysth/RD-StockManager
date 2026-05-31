@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_05_31_160003) do
+ActiveRecord::Schema[8.0].define(version: 2026_05_31_160004) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -294,6 +294,15 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_160003) do
     t.index ["purchase_id"], name: "index_purchase_items_on_purchase_id"
   end
 
+  create_table "purchase_payments", force: :cascade do |t|
+    t.bigint "purchase_id", null: false
+    t.decimal "amount", precision: 12, scale: 2, null: false
+    t.string "payment_method", default: "cash", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["purchase_id"], name: "index_purchase_payments_on_purchase_id"
+  end
+
   create_table "purchases", force: :cascade do |t|
     t.bigint "customer_id"
     t.bigint "location_id"
@@ -426,6 +435,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_05_31_160003) do
   add_foreign_key "products", "categories"
   add_foreign_key "purchase_items", "product_variants"
   add_foreign_key "purchase_items", "purchases"
+  add_foreign_key "purchase_payments", "purchases"
   add_foreign_key "purchases", "customers"
   add_foreign_key "purchases", "locations"
   add_foreign_key "purchases", "users"

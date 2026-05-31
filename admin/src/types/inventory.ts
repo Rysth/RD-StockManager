@@ -228,6 +228,14 @@ export interface PurchaseItem {
   subtotal: number;
 }
 
+export interface PurchasePayment {
+  id: number;
+  amount: number;
+  payment_method: "cash" | "transfer";
+  proof_image_url?: string | null;
+  created_at: string;
+}
+
 export interface Purchase {
   id: number;
   status: PurchaseStatus;
@@ -249,6 +257,7 @@ export interface Purchase {
   created_by?: string | null;
   items_count: number;
   items?: PurchaseItem[];
+  payments?: PurchasePayment[];
   created_at: string;
 }
 

@@ -165,6 +165,17 @@ module Api
               subtotal: item.subtotal
             }
           end
+          data[:payments] = purchase.purchase_payments.order(created_at: :desc).map do |pp|
+            {
+              id: pp.id,
+              amount: pp.amount,
+              payment_method: pp.payment_method,
+              proof_image_url: pp.proof_image.attached? ? url_for(pp.proof_image) : nil,
+              created_at: pp.created_at
+            }
+          end
+          data[:paid_amount] = purchase.paid_amount
+          data[:payment_status] = purchase.payment_status
         end
 
         data

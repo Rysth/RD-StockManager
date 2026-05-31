@@ -82,6 +82,7 @@ Rails.application.routes.draw do
         collection do
           get :due
         end
+        resources :payments, controller: "purchase_payments", only: [:index, :create]
       end
       resources :expense_categories
       resources :expenses do

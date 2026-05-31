@@ -59,6 +59,7 @@ interface PurchaseState {
   updatePurchasePayment: (id: number, paidAmount: number) => Promise<Purchase>;
   deletePurchase: (id: number) => Promise<void>;
   fetchDue: () => Promise<void>;
+  createPayment: (purchaseId: number, amount: number, method: string, proof?: File | null) => Promise<void>;
 }
 
 export const usePurchaseStore = create<PurchaseState>((set, get) => ({
@@ -183,6 +184,25 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       set({ duePurchases: response.data.purchases });
     } catch (error) {
       set({ error: toMessage(error, "Error al obtener compras por vencer") });
+    }
+  },
+
+  createPayment: async (purchaseId, amount, method, proof) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const formData = new FormData();
+      formData.append("payment[amount]", String(amount));
+      formData.append("payment[payment_method]", method);
+      if (proof) formData.append("proof_image", proof);
+
+      await api.post(`/api/v1/purchases/${purchaseId}/payments`, formData);
+      const { pagination, currentFilters } = get();
+      await get().fetchPurchases(pagination.current_page, pagination.per_page, currentFilters);
+      set({ isSubmitting: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al registrar el pago");
+      set({ error: msg, isSubmitting: false });
+      throw new Error(msg);
     }
   },
 }));

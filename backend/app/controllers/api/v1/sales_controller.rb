@@ -199,6 +199,14 @@ module Api
         search[:status_eq] = Sale.statuses[params[:status]] if params[:status].present? && Sale.statuses.key?(params[:status])
         search[:customer_name_cont] = params[:search] if params[:search].present?
         search[:location_id_eq] = params[:location_id] if params[:location_id].present?
+
+        # Los empleados solo ven sus propias ventas y de su sucursal asignada.
+        user = current_rodauth_user
+        if user.restricted_to_location?
+          search[:user_id_eq] = user.id
+          search[:location_id_eq] = user.location_id
+        end
+
         search
       end
 

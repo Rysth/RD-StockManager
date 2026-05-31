@@ -15,6 +15,10 @@ export function getDefaultAdminRoute({
     return "/auth/signin";
   }
 
+  if (user.roles?.includes("business_employee")) {
+    return "/dashboard/pos";
+  }
+
   if (hasPermission(Permissions.VIEW_DASHBOARD)) {
     return "/dashboard";
   }
