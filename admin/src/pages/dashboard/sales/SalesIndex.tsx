@@ -549,7 +549,7 @@ function SalesList() {
               )}
 
               <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
-                <Printer className="h-4 w-4" /> Reimprimir ticket
+                <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
               </Button>
 
               {selectedSale.status === "pending" && (

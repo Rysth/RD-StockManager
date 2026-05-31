@@ -345,8 +345,10 @@ export default function PurchasesIndex() {
 
   const handlePayment = async () => {
     if (!paymentPurchase) return;
-    const amount = Number(paymentAmount || 0);
+    const balance = paymentPurchase.balance_due;
+    const amount = Math.min(Number(paymentAmount || 0), balance);
     if (amount <= 0) return toast.error("Ingresa un monto mayor a cero");
+    if (amount > balance) return toast.error(`El monto no puede exceder el saldo pendiente de ${money(balance)}`);
 
     try {
       await createPayment(paymentPurchase.id, amount, paymentMethod, paymentProof);

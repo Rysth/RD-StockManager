@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Minus,
@@ -11,6 +11,7 @@ import {
   Truck,
   UserPlus,
   Printer,
+  User,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -20,6 +21,7 @@ import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
 import type { PaymentMethod, ProductVariant } from "../../../types/inventory";
+import type { Customer } from "../../../types/inventory";
 import { printTicket } from "../../../lib/ticket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +37,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 
 const money = (n: number) =>
@@ -95,7 +107,7 @@ function suggestedPrice(
 
 export default function PosIndex() {
   const { products, categories, fetchProducts, fetchCategories } = useInventoryStore();
-  const { customers, fetchCustomers, createCustomer } = useCustomerStore();
+  const { customers, fetchCustomers, createCustomer, updateCustomer } = useCustomerStore();
   const { createSale, isSubmitting } = useSaleStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
@@ -104,6 +116,8 @@ export default function PosIndex() {
 
   // Cart state
   const [customerId, setCustomerId] = useState<string>("");
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerSearching, setCustomerSearching] = useState(false);
   const [locationId, setLocationId] = useState<string>("");
   const [variantQuery, setVariantQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
@@ -133,9 +147,21 @@ export default function PosIndex() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
 
+  // Customer by ID flow
+  const [customerByOpen, setCustomerByOpen] = useState(false);
+  const [customerByQuery, setCustomerByQuery] = useState("");
+  const [customerByResult, setCustomerByResult] = useState<Customer | null>(null);
+  const [customerByNotFound, setCustomerByNotFound] = useState(false);
+  const customerSearchRef = useRef<HTMLInputElement>(null);
+
+  // Customer edit
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", id_number: "", email: "" });
+
   // Quick customer creation
   const [quickOpen, setQuickOpen] = useState(false);
-  const [quickForm, setQuickForm] = useState({ name: "", phone: "", city: "" });
+  const [quickForm, setQuickForm] = useState({ name: "", phone: "", city: "", id_number: "", id_type: "cedula", email: "" });
   const [quickSaving, setQuickSaving] = useState(false);
 
   useEffect(() => {
@@ -169,6 +195,22 @@ export default function PosIndex() {
     }
     return v.stock;
   };
+
+  // ── Categories that have in-stock products ──────────────────
+  const activeCategoryIds = useMemo(() => {
+    const ids = new Set<number>();
+    products.forEach((p) => {
+      if (p.category_id && p.variants.some((v) => stockAt(v) > 0)) {
+        ids.add(p.category_id);
+      }
+    });
+    return ids;
+  }, [products, locationId]);
+
+  const filteredCategories = useMemo(
+    () => categories.filter((c) => activeCategoryIds.has(c.id)),
+    [categories, activeCategoryIds],
+  );
 
   // ── Product grid data ────────────────────────────────────────
   const productGroups = useMemo(() => {
@@ -268,18 +310,65 @@ export default function PosIndex() {
   // ── Quick customer create ────────────────────────────────────
   const saveQuickCustomer = async () => {
     if (!quickForm.name.trim()) return toast.error("El nombre es requerido");
+    if (!quickForm.phone.trim()) return toast.error("El teléfono es requerido");
+    if (!quickForm.email.trim()) return toast.error("El correo electrónico es requerido");
     setQuickSaving(true);
     try {
-      const created = await createCustomer(quickForm);
+      const created = await createCustomer({
+        name: quickForm.name,
+        phone: quickForm.phone,
+        email: quickForm.email || null,
+        city: quickForm.city,
+        id_number: quickForm.id_number || null,
+        id_type: (quickForm.id_type as "cedula" | "pasaporte" | "ruc") || "cedula",
+      });
       setCustomerId(String(created.id));
+      setCustomerSearch(created.name);
       await fetchCustomers(1, 200, "");
       toast.success(`Cliente ${created.name} creado y seleccionado`);
       setQuickOpen(false);
-      setQuickForm({ name: "", phone: "", city: "" });
+      setQuickForm({ name: "", phone: "", city: "", id_number: "", id_type: "cedula", email: "" });
     } catch (e) {
       toast.error(errorMessage(e, "Error al crear el cliente"));
     } finally {
       setQuickSaving(false);
+    }
+  };
+
+  const openEditCustomer = () => {
+    const c = selectedCustomer;
+    if (!c) return;
+    setEditForm({
+      name: c.name || "",
+      phone: c.phone || "",
+      city: c.city || "",
+      id_number: c.id_number || "",
+      email: c.email || "",
+    });
+    setEditOpen(true);
+  };
+
+  const saveEditCustomer = async () => {
+    if (!selectedCustomer) return;
+    if (!editForm.name.trim()) return toast.error("El nombre es requerido");
+    if (!editForm.phone.trim()) return toast.error("El teléfono es requerido");
+    if (!editForm.email.trim()) return toast.error("El correo electrónico es requerido");
+    setEditSaving(true);
+    try {
+      await updateCustomer(selectedCustomer.id, {
+        name: editForm.name,
+        phone: editForm.phone,
+        email: editForm.email || null,
+        city: editForm.city,
+        id_number: editForm.id_number || null,
+      });
+      await fetchCustomers(1, 200, "");
+      toast.success("Cliente actualizado");
+      setEditOpen(false);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al actualizar el cliente"));
+    } finally {
+      setEditSaving(false);
     }
   };
 
@@ -396,7 +485,7 @@ export default function PosIndex() {
             >
               Todas
             </button>
-            {categories.map((c) => (
+            {filteredCategories.map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -474,20 +563,38 @@ export default function PosIndex() {
                 <Badge variant="secondary" className="ml-auto">{itemCount}</Badge>
               </div>
 
-              {/* Cliente + botón crear */}
+              {/* Cliente: buscar por cédula o seleccionar */}
               <div className="flex gap-2">
-                <select
-                  value={customerId}
-                  onChange={(e) => setCustomerId(e.target.value)}
-                  className="h-9 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Consumidor final</option>
-                  {customers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}{c.city ? ` (${c.city})` : ""}
-                    </option>
-                  ))}
-                </select>
+                <div className="relative flex-1">
+                  <Input
+                    ref={customerSearchRef}
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      if (customerId) setCustomerId("");
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        const num = customerSearch.trim();
+                        if (!num) { setCustomerId(""); return; }
+                        const found = customers.find((c) => c.id_number === num);
+                        if (found) {
+                          setCustomerId(String(found.id));
+                          setCustomerSearch(`${found.name}${found.id_number ? ` (${found.id_number})` : ""}`);
+                          toast.success(`Cliente: ${found.name}`);
+                        } else {
+                          setCustomerByQuery(num);
+                          setCustomerByNotFound(true);
+                          setCustomerByOpen(true);
+                        }
+                      }
+                    }}
+                    placeholder="Cédula / Enter para buscar..."
+                    className="h-9 pr-8"
+                  />
+                  <Search className="pointer-events-none absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                </div>
                 <Button
                   variant="outline"
                   size="icon"
@@ -497,6 +604,16 @@ export default function PosIndex() {
                 >
                   <UserPlus className="h-4 w-4" />
                 </Button>
+                {customerId && (
+                  <Badge
+                    variant="secondary"
+                    className="shrink-0 self-center text-xs cursor-pointer"
+                    onClick={openEditCustomer}
+                  >
+                    <User className="mr-1 h-3 w-3" />
+                    {selectedCustomer?.name || "Seleccionado"}
+                  </Badge>
+                )}
               </div>
 
               {/* Líneas del carrito */}
@@ -671,83 +788,101 @@ export default function PosIndex() {
 
       {/* ── Selector de variante ── */}
       <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedProduct?.name}</DialogTitle>
             <DialogDescription>
               {selectedProduct?.brand && `${selectedProduct.brand} · `}
-              Desde {money(selectedProduct?.base_price ?? 0)}
+              Desde {money(selectedProduct?.base_price ?? 0)} · Selecciona talla/color
             </DialogDescription>
           </DialogHeader>
 
-          {selectedProduct?.thumb && (
-            <img
-              src={selectedProduct.thumb}
-              alt={selectedProduct.name}
-              className="h-36 w-full rounded-lg object-cover"
-            />
-          )}
-
-          <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-            {selectedProduct?.variants.map((v) => {
-              const sizeLabel = [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
-              const inCart = cart.find((c) => c.product_variant_id === v.id);
-              return (
-                <div
-                  key={v.id}
-                  className={`flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
-                    inCart ? "border-primary/40 bg-primary/5" : ""
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-sm">{sizeLabel}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {v.stock} en stock · <span className="font-mono">{v.sku}</span>
-                    </p>
+          <div className="flex gap-4">
+            {selectedProduct && (
+              <div className="hidden w-28 shrink-0 sm:block">
+                {selectedProduct.thumb ? (
+                  <img
+                    src={selectedProduct.thumb}
+                    alt={selectedProduct.name}
+                    className="h-28 w-28 rounded-lg border object-cover"
+                  />
+                ) : (
+                  <div className="flex h-28 w-28 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
+                    <ImageIcon className="h-8 w-8" />
                   </div>
-                  {inCart ? (
-                    <div className="flex items-center gap-0.5 rounded-md border bg-background">
-                      <button
-                        type="button"
-                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-                        onClick={() => setQuantity(v.id, inCart.quantity - 1)}
-                      >
-                        <Minus className="h-3 w-3" />
-                      </button>
-                      <span className="w-8 text-center text-sm font-semibold">
-                        {inCart.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
-                        onClick={() => setQuantity(v.id, inCart.quantity + 1)}
-                        disabled={inCart.quantity >= inCart.max}
-                      >
-                        <Plus className="h-3 w-3" />
-                      </button>
+                )}
+                <p className="mt-1.5 text-center text-xs text-muted-foreground">
+                  Prod. base
+                </p>
+              </div>
+            )}
+
+            <div className="flex-1 space-y-2">
+              {selectedProduct?.variants.map((v) => {
+                const sizeLabel = [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
+                const inCart = cart.find((c) => c.product_variant_id === v.id);
+                return (
+                  <div
+                    key={v.id}
+                    className={`flex items-center justify-between gap-3 rounded-lg border p-3 transition-colors ${
+                      inCart ? "border-primary/40 bg-primary/5" : ""
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Thumb url={v.thumb} size="h-8 w-8" />
+                        <div>
+                          <p className="font-medium text-sm">{sizeLabel}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {v.stock} en stock · <span className="font-mono">{v.sku}</span>
+                          </p>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      onClick={() =>
-                        addToCart({
-                          id: v.id,
-                          label: `${selectedProduct.name} — ${sizeLabel}`,
-                          sku: v.sku,
-                          thumb: v.thumb,
-                          stock: v.stock,
-                          base_price: selectedProduct.base_price,
-                          wholesale_price: selectedProduct.wholesale_price,
-                          wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
-                        })
-                      }
-                    >
-                      <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-                    </Button>
-                  )}
-                </div>
-              );
-            })}
+                    {inCart ? (
+                      <div className="flex items-center gap-0.5 rounded-md border bg-background">
+                        <button
+                          type="button"
+                          className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
+                          onClick={() => setQuantity(v.id, inCart.quantity - 1)}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </button>
+                        <span className="w-8 text-center text-sm font-semibold">
+                          {inCart.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                          onClick={() => setQuantity(v.id, inCart.quantity + 1)}
+                          disabled={inCart.quantity >= inCart.max}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        onClick={() =>
+                          addToCart({
+                            id: v.id,
+                            label: `${selectedProduct.name} — ${sizeLabel}`,
+                            sku: v.sku,
+                            thumb: v.thumb,
+                            stock: v.stock,
+                            base_price: selectedProduct.base_price,
+                            wholesale_price: selectedProduct.wholesale_price,
+                            wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
+                          })
+                        }
+                      >
+                        <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           <DialogFooter>
@@ -757,6 +892,33 @@ export default function PosIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* ── Cliente no encontrado ── */}
+      <AlertDialog open={customerByOpen} onOpenChange={(o) => { if (!o) setCustomerByOpen(false); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cliente no encontrado</AlertDialogTitle>
+            <AlertDialogDescription>
+              No se encontró un cliente con cédula <strong>{customerByQuery}</strong>.
+              ¿Deseas registrarlo?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => { setCustomerByOpen(false); setCustomerByNotFound(false); }}>
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setCustomerByOpen(false);
+                setQuickForm((f) => ({ ...f, id_number: customerByQuery, id_type: "cedula" }));
+                setQuickOpen(true);
+              }}
+            >
+              Registrar nuevo cliente
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* ── Nuevo cliente rápido ── */}
       <Dialog open={quickOpen} onOpenChange={setQuickOpen}>
@@ -778,12 +940,31 @@ export default function PosIndex() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="qc-phone">Teléfono</Label>
+              <Label htmlFor="qc-id-number">Cédula / RUC</Label>
+              <Input
+                id="qc-id-number"
+                placeholder="Número de identificación"
+                value={quickForm.id_number}
+                onChange={(e) => setQuickForm((f) => ({ ...f, id_number: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qc-phone">Teléfono *</Label>
               <Input
                 id="qc-phone"
                 placeholder="09XXXXXXXX"
                 value={quickForm.phone}
                 onChange={(e) => setQuickForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qc-email">Correo electrónico *</Label>
+              <Input
+                id="qc-email"
+                type="email"
+                placeholder="cliente@ejemplo.com"
+                value={quickForm.email}
+                onChange={(e) => setQuickForm((f) => ({ ...f, email: e.target.value }))}
               />
             </div>
             <div className="space-y-1.5">
@@ -802,6 +983,73 @@ export default function PosIndex() {
             </Button>
             <Button onClick={saveQuickCustomer} disabled={quickSaving}>
               {quickSaving ? "Guardando..." : "Guardar y seleccionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Editar cliente ── */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Editar cliente</DialogTitle>
+            <DialogDescription>
+              Actualiza los datos del cliente seleccionado.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="ec-name">Nombre *</Label>
+              <Input
+                id="ec-name"
+                value={editForm.name}
+                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ec-phone">Teléfono *</Label>
+              <Input
+                id="ec-phone"
+                placeholder="09XXXXXXXX"
+                value={editForm.phone}
+                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ec-email">Correo electrónico *</Label>
+              <Input
+                id="ec-email"
+                type="email"
+                placeholder="cliente@ejemplo.com"
+                value={editForm.email}
+                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ec-city">Ciudad</Label>
+              <Input
+                id="ec-city"
+                placeholder="Guayaquil"
+                value={editForm.city}
+                onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="ec-id-number">Cédula / RUC</Label>
+              <Input
+                id="ec-id-number"
+                placeholder="Número de identificación"
+                value={editForm.id_number}
+                onChange={(e) => setEditForm((f) => ({ ...f, id_number: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={saveEditCustomer} disabled={editSaving}>
+              {editSaving ? "Guardando..." : "Guardar cambios"}
             </Button>
           </DialogFooter>
         </DialogContent>
