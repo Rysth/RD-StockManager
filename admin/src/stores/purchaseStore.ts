@@ -12,6 +12,7 @@ interface PurchaseFilters {
   search?: string;
   status?: PurchaseStatus | "";
   payment_status?: PaymentStatus | "";
+  location_id?: number | "";
 }
 
 const DEFAULT_PAGINATION: Pagination = {
@@ -80,6 +81,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       if (filters.search) params.search = filters.search;
       if (filters.status) params.status = filters.status;
       if (filters.payment_status) params.payment_status = filters.payment_status;
+      if (filters.location_id) params.location_id = filters.location_id;
       const response = await api.get("/api/v1/purchases", { params });
       set({
         purchases: response.data.purchases,

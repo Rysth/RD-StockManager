@@ -4,6 +4,8 @@ import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
 import { useBusinessStore } from "../../../stores/businessStore";
+import { useExpenseStore } from "../../../stores/expenseStore";
+import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
 import { printTicket } from "../../../lib/ticket";
 import { Permissions } from "../../../types/auth";
@@ -122,9 +124,13 @@ function SalesList() {
     downloadInvoiceRide,
   } = useSaleStore();
   const { business, publicBusiness, fetchBusiness, fetchPublicBusiness } = useBusinessStore();
+  const { locations, fetchLocations } = useLocationStore();
+  const { employees, fetchEmployees } = useExpenseStore();
   const { user, hasPermission, fetchUserInfo } = useAuthStore();
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
+  const [locationFilter, setLocationFilter] = useState("");
+  const [sellerFilter, setSellerFilter] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
   const [completeId, setCompleteId] = useState<number | null>(null);
@@ -142,14 +148,21 @@ function SalesList() {
     : null;
 
   useEffect(() => {
-    fetchSales(1, pagination.per_page, { status })
+    fetchSales(1, pagination.per_page, {
+      status,
+      location_id: locationFilter ? Number(locationFilter) : "",
+      user_id: sellerFilter ? Number(sellerFilter) : "",
+    })
       .catch((e) => toast.error(errorMessage(e, "Error al cargar ventas")))
       .finally(() => setFirstLoad(false));
-  }, [fetchSales, pagination.per_page, status]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fetchSales, pagination.per_page, status, locationFilter, sellerFilter]);
 
   useEffect(() => {
     fetchPublicBusiness().catch(() => {});
-  }, [fetchPublicBusiness]);
+    fetchLocations().catch(() => {});
+    fetchEmployees().catch(() => {});
+  }, [fetchPublicBusiness, fetchLocations, fetchEmployees]);
 
   useEffect(() => {
     if (canManageInvoicing) fetchBusiness().catch(() => {});
@@ -265,16 +278,40 @@ function SalesList() {
 
   return (
     <div className="space-y-4">
-      <select
-        value={status}
-        onChange={(e) => setStatus(e.target.value as SaleStatus | "")}
-        className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-      >
-        <option value="">Todos los estados</option>
-        <option value="completed">Completadas</option>
-        <option value="pending">Pendientes</option>
-        <option value="cancelled">Canceladas</option>
-      </select>
+      <div className="flex flex-wrap gap-3">
+        <select
+          value={status}
+          onChange={(e) => setStatus(e.target.value as SaleStatus | "")}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todos los estados</option>
+          <option value="completed">Completadas</option>
+          <option value="pending">Pendientes</option>
+          <option value="cancelled">Canceladas</option>
+        </select>
+
+        <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todas las ubicaciones</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+
+        <select
+          value={sellerFilter}
+          onChange={(e) => setSellerFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todos los vendedores</option>
+          {employees.map((e) => (
+            <option key={e.id} value={e.id}>{e.fullname}</option>
+          ))}
+        </select>
+      </div>
 
       <Card className="rounded-xl p-0">
         <CardContent className="p-0">

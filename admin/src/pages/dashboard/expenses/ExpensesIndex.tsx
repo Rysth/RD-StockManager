@@ -97,6 +97,7 @@ export default function ExpensesIndex() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [toDelete, setToDelete] = useState<Expense | null>(null);
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [salaryWarning, setSalaryWarning] = useState(false);
 
   useEffect(() => {
@@ -128,9 +129,10 @@ export default function ExpensesIndex() {
   useEffect(() => {
     fetchExpenses(1, pagination.per_page, {
       expense_category_id: categoryFilter ? Number(categoryFilter) : "",
+      location_id: locationFilter ? Number(locationFilter) : "",
     }).catch((e) => toast.error(e.message || "Error al cargar gastos"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter]);
+  }, [categoryFilter, locationFilter]);
 
   const openCreate = () => {
     setEditing(null);
@@ -227,11 +229,17 @@ export default function ExpensesIndex() {
         </div>
       </div>
 
-      <div className="max-w-xs">
+      <div className="flex flex-wrap gap-3">
         <select className={selectClass} value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
           <option value="">Todas las categorías</option>
           {categories.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <select className={selectClass} value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)}>
+          <option value="">Todas las ubicaciones</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
           ))}
         </select>
       </div>
@@ -303,6 +311,7 @@ export default function ExpensesIndex() {
         onPageChange={({ selected }) =>
           fetchExpenses(selected + 1, pagination.per_page, {
             expense_category_id: categoryFilter ? Number(categoryFilter) : "",
+            location_id: locationFilter ? Number(locationFilter) : "",
           })
         }
       />

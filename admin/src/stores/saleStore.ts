@@ -12,6 +12,8 @@ import type {
 interface SaleFilters {
   search?: string;
   status?: SaleStatus | "";
+  location_id?: number | "";
+  user_id?: number | "";
 }
 
 const DEFAULT_PAGINATION: Pagination = {
@@ -112,6 +114,8 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const params: Record<string, string | number> = { page, per_page: perPage };
       if (filters.search) params.search = filters.search;
       if (filters.status) params.status = filters.status;
+      if (filters.location_id) params.location_id = filters.location_id;
+      if (filters.user_id) params.user_id = filters.user_id;
       const response = await api.get("/api/v1/sales", { params });
       set({
         sales: response.data.sales,

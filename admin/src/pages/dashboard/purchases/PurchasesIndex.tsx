@@ -115,6 +115,9 @@ export default function PurchasesIndex() {
   const { locations, fetchLocations } = useLocationStore();
 
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<PurchaseStatus | "">("");
+  const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | "">("");
+  const [locationFilter, setLocationFilter] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [toCancel, setToCancel] = useState<Purchase | null>(null);
@@ -150,11 +153,16 @@ export default function PurchasesIndex() {
   });
 
   useEffect(() => {
-    fetchPurchases(1, pagination.per_page, { search }).catch((e) =>
+    fetchPurchases(1, pagination.per_page, {
+      search,
+      status: statusFilter,
+      payment_status: paymentFilter,
+      location_id: locationFilter ? Number(locationFilter) : "",
+    }).catch((e) =>
       toast.error(e.message || "Error al cargar compras"),
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search]);
+  }, [search, statusFilter, paymentFilter, locationFilter]);
 
   useEffect(() => {
     fetchProducts(1, 200).catch(() => {});
@@ -413,12 +421,44 @@ export default function PurchasesIndex() {
         </Button>
       </div>
 
-      <SearchBar
-        placeholder="Buscar por proveedor..."
-        value={search}
-        onSearch={setSearch}
-        className="max-w-sm"
-      />
+      <div className="flex flex-wrap gap-3">
+        <SearchBar
+          placeholder="Buscar por proveedor..."
+          value={search}
+          onSearch={setSearch}
+          className="max-w-sm"
+        />
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as PurchaseStatus | "")}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todos los estados</option>
+          {Object.entries(STATUS_LABEL).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        <select
+          value={paymentFilter}
+          onChange={(e) => setPaymentFilter(e.target.value as PaymentStatus | "")}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todos los pagos</option>
+          {Object.entries(PAYMENT_LABEL).map(([key, label]) => (
+            <option key={key} value={key}>{label}</option>
+          ))}
+        </select>
+        <select
+          value={locationFilter}
+          onChange={(e) => setLocationFilter(e.target.value)}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+        >
+          <option value="">Todas las ubicaciones</option>
+          {locations.map((l) => (
+            <option key={l.id} value={l.id}>{l.name}</option>
+          ))}
+        </select>
+      </div>
 
       <Card className="p-0 rounded-xl">
         <CardContent className="p-0">
@@ -495,7 +535,14 @@ export default function PurchasesIndex() {
         pageCount={pagination.total_pages}
         totalCount={pagination.total_count}
         perPage={pagination.per_page}
-        onPageChange={({ selected }) => fetchPurchases(selected + 1, pagination.per_page, { search })}
+        onPageChange={({ selected }) =>
+          fetchPurchases(selected + 1, pagination.per_page, {
+            search,
+            status: statusFilter,
+            payment_status: paymentFilter,
+            location_id: locationFilter ? Number(locationFilter) : "",
+          })
+        }
       />
 
       {/* New purchase modal */}
