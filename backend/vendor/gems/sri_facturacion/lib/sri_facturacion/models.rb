@@ -5,13 +5,15 @@ require "bigdecimal"
 module SriFacturacion
   module Models
     # Emisor de la factura (contribuyente que factura).
+    # agente_retencion / contribuyente_rimpe: leyendas opcionales del SRI (infoTributaria).
     class Emisor
       attr_reader :ruc, :razon_social, :nombre_comercial, :dir_matriz, :dir_establecimiento,
-                  :establecimiento, :punto_emision, :obligado_contabilidad, :contribuyente_especial
+                  :establecimiento, :punto_emision, :obligado_contabilidad, :contribuyente_especial,
+                  :agente_retencion, :contribuyente_rimpe
 
       def initialize(ruc:, razon_social:, dir_matriz:, establecimiento: "001", punto_emision: "001",
                      nombre_comercial: nil, dir_establecimiento: nil, obligado_contabilidad: "NO",
-                     contribuyente_especial: nil)
+                     contribuyente_especial: nil, agente_retencion: nil, contribuyente_rimpe: nil)
         @ruc = ruc.to_s
         @razon_social = razon_social
         @nombre_comercial = nombre_comercial
@@ -21,6 +23,8 @@ module SriFacturacion
         @punto_emision = punto_emision.to_s.rjust(3, "0")
         @obligado_contabilidad = obligado_contabilidad
         @contribuyente_especial = contribuyente_especial
+        @agente_retencion = agente_retencion
+        @contribuyente_rimpe = contribuyente_rimpe
       end
     end
 
@@ -66,6 +70,21 @@ module SriFacturacion
 
       def self.iva_cero(base)
         new(codigo: "2", codigo_porcentaje: "0", tarifa: 0, base_imponible: BigDecimal(base.to_s), valor: 0)
+      end
+
+      # IVA 12% (codigo_porcentaje "2") — tarifa histórica anterior a abril 2024.
+      def self.iva_doce(base)
+        iva(base, tarifa: 12, codigo_porcentaje: "2")
+      end
+
+      # IVA exento (codigo_porcentaje "7"): base sin impuesto, valor 0.
+      def self.iva_exento(base)
+        new(codigo: "2", codigo_porcentaje: "7", tarifa: 0, base_imponible: BigDecimal(base.to_s), valor: 0)
+      end
+
+      # IVA no objeto de impuesto (codigo_porcentaje "6"): base sin impuesto, valor 0.
+      def self.iva_no_objeto(base)
+        new(codigo: "2", codigo_porcentaje: "6", tarifa: 0, base_imponible: BigDecimal(base.to_s), valor: 0)
       end
     end
 

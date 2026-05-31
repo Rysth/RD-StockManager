@@ -43,4 +43,43 @@ RSpec.describe SriFacturacion::XmlBuilder do
     expect(detalles.first.at_xpath("cantidad").text).to eq("2.000000")
     expect(detalles.first.at_xpath("impuestos/impuesto/codigoPorcentaje").text).to eq("4")
   end
+
+  context "campos opcionales del emisor y del detalle" do
+    let(:emisor) do
+      SriFacturacion::Emisor.new(
+        ruc: "0924383631001", razon_social: "EDLU STORE S.A.", dir_matriz: "Guayaquil",
+        contribuyente_rimpe: "CONTRIBUYENTE RÉGIMEN RIMPE", agente_retencion: "1"
+      )
+    end
+    let(:detalle) do
+      SriFacturacion::Detalle.new(
+        codigo_principal: "X-1", descripcion: "Producto", cantidad: 1, precio_unitario: 10,
+        impuestos: [SriFacturacion::Impuesto.iva(10.0)],
+        detalles_adicionales: [{ nombre: "Color", valor: "Negro" }]
+      )
+    end
+    let(:comprador) { SriFacturacion::Comprador.consumidor_final }
+    let(:custom_factura) do
+      SriFacturacion::Factura.new(emisor: emisor, comprador: comprador, detalles: [detalle],
+                                  fecha_emision: Date.new(2026, 5, 31), secuencial: "000000001")
+    end
+    let(:custom_clave) do
+      SriFacturacion::AccessKey.generate(fecha_emision: custom_factura.fecha_emision, ruc: emisor.ruc,
+                                         establecimiento: "001", punto_emision: "001", secuencial: "1")
+    end
+    let(:custom_doc) do
+      Nokogiri::XML(described_class.new(custom_factura, clave_acceso: custom_clave, ambiente: "1").build)
+    end
+
+    it "emite agenteRetencion y contribuyenteRimpe en infoTributaria" do
+      expect(custom_doc.at_xpath("//infoTributaria/agenteRetencion").text).to eq("1")
+      expect(custom_doc.at_xpath("//infoTributaria/contribuyenteRimpe").text).to eq("CONTRIBUYENTE RÉGIMEN RIMPE")
+    end
+
+    it "emite detallesAdicionales/detAdicional con nombre y valor" do
+      det_adicional = custom_doc.at_xpath("//detalle/detallesAdicionales/detAdicional")
+      expect(det_adicional["nombre"]).to eq("Color")
+      expect(det_adicional["valor"]).to eq("Negro")
+    end
+  end
 end

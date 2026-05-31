@@ -25,6 +25,10 @@ module SriFacturacion
         xml.ptoEmi emisor.punto_emision
         xml.secuencial secuencial
         xml.dirMatriz emisor.dir_matriz
+        xml.agenteRetencion emisor.agente_retencion if emisor.respond_to?(:agente_retencion) && emisor.agente_retencion
+        if emisor.respond_to?(:contribuyente_rimpe) && emisor.contribuyente_rimpe
+          xml.contribuyenteRimpe emisor.contribuyente_rimpe
+        end
       end
     end
 

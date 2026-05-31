@@ -79,6 +79,13 @@ module SriFacturacion
                 xml.precioUnitario qty(d.precio_unitario)
                 xml.descuento money(d.descuento)
                 xml.precioTotalSinImpuesto money(d.precio_total_sin_impuesto)
+                if d.respond_to?(:detalles_adicionales) && !Array(d.detalles_adicionales).empty?
+                  xml.detallesAdicionales do
+                    d.detalles_adicionales.each do |da|
+                      xml.detAdicional(nombre: da[:nombre] || da["nombre"], valor: da[:valor] || da["valor"])
+                    end
+                  end
+                end
                 xml.impuestos do
                   Array(d.impuestos).each do |imp|
                     xml.impuesto do
