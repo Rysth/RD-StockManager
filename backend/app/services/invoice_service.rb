@@ -256,7 +256,7 @@ class InvoiceService
   def send_authorized_email(invoice)
     return unless invoice.sale.customer&.email.present?
 
-    InvoiceMailer.authorized(invoice).deliver_later
+    InvoiceMailer.authorized(invoice, invoice.sale.customer.email).deliver_later
   rescue StandardError => e
     Rails.logger.warn("[InvoiceService] No se pudo encolar email factura=#{invoice.id}: #{e.class} #{e.message}")
   end
