@@ -61,6 +61,7 @@ export interface ProductVariant {
 export interface Product {
   id: number;
   name: string;
+  product_type?: "good" | "service";
   brand_id?: number | null;
   brand?: string | null;
   base_price: number;
@@ -147,8 +148,8 @@ export interface Invoice {
 
 export interface SaleItem {
   id: number;
-  product_variant_id: number;
-  sku: string;
+  product_variant_id: number | null;
+  sku?: string | null;
   product_name: string;
   size?: string | null;
   color?: string | null;
@@ -183,7 +184,8 @@ export interface Sale {
 
 // Payload para crear una venta
 export interface SaleItemInput {
-  product_variant_id: number;
+  product_variant_id: number | null;
+  description?: string;
   quantity: number;
   unit_price: number;
 }

@@ -143,7 +143,7 @@ module Api
       def product_params
         params.require(:product).permit(
           :name, :brand_id, :base_price, :cost, :wholesale_price, :wholesale_min_quantity,
-          :description, :active, :category_id,
+          :description, :active, :category_id, :product_type,
           product_variants_attributes: [:id, :size, :color, :stock, :sku, :_destroy]
         )
       end
@@ -171,6 +171,7 @@ module Api
         {
           id: product.id,
           name: product.name,
+          product_type: product.product_type,
           brand_id: product.brand_id,
           brand: product.brand&.name,
           base_price: product.base_price,

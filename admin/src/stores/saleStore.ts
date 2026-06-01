@@ -91,6 +91,7 @@ interface SaleState {
   clearSelectedSale: () => void;
   createSale: (data: CreateSaleData) => Promise<Sale>;
   updateSaleStatus: (id: number, status: SaleStatus) => Promise<void>;
+  updateSale: (id: number, data: Partial<CreateSaleData>) => Promise<Sale>;
   syncSaleItems: (id: number, items: SaleItemInput[]) => Promise<Sale>;
   deleteSale: (id: number) => Promise<void>;
   issueInvoice: (id: number) => Promise<Invoice>;
@@ -177,6 +178,32 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la venta");
       set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  updateSale: async (id, data) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const response = await api.put(`/api/v1/sales/${id}`, {
+        sale: {
+          customer_id: data.customer_id ?? null,
+          location_id: data.location_id ?? null,
+          payment_method: data.payment_method,
+          cash_on_delivery: data.cash_on_delivery,
+          shipping_cost: data.shipping_cost,
+        },
+      });
+      const sale = response.data.sale as Sale;
+      set((state) => ({
+        selectedSale: state.selectedSale?.id === id ? sale : state.selectedSale,
+        sales: state.sales.map((s) => (s.id === id ? sale : s)),
+        isSubmitting: false,
+      }));
+      return sale;
+    } catch (error) {
+      const msg = toMessage(error, "Error al actualizar la venta");
+      set({ error: msg, isSubmitting: false });
       throw new Error(msg);
     }
   },

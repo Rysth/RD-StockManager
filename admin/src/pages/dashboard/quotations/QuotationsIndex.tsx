@@ -31,6 +31,16 @@ import {
 import Pagination from "../../../components/common/Pagination";
 import QuotePrintTemplate from "@/components/print/QuotePrintTemplate";
 import QuotationFormDialog from "./QuotationFormDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const money = (n: string | number | null) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(Number(n) || 0);
@@ -80,6 +90,7 @@ export default function QuotationsIndex() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Quotation | null>(null);
+  const [convertTarget, setConvertTarget] = useState<Quotation | null>(null);
 
   const printRef = useRef<HTMLDivElement>(null);
   const [printTarget, setPrintTarget] = useState<Quotation | null>(null);
@@ -121,6 +132,10 @@ export default function QuotationsIndex() {
   const openEdit = async (id: number) => {
     try {
       const full = await getQuotation(id);
+      if (full.status === "accepted" || full.converted) {
+        toast.error("No se puede editar una cotización aceptada o convertida");
+        return;
+      }
       setEditing(full);
       setFormOpen(true);
     } catch (e) {
@@ -146,16 +161,25 @@ export default function QuotationsIndex() {
       toast.error("Solo se pueden convertir cotizaciones aceptadas");
       return;
     }
-    if (!window.confirm(`¿Convertir la cotización ${q.quotation_number} en una venta?`)) return;
+    setConvertTarget(q);
+  };
+
+  const confirmConvert = async () => {
+    if (!convertTarget) return;
     try {
-      const res = await convertQuotation(q.id);
+      const res = await convertQuotation(convertTarget.id);
       toast.success(res.message || `Venta #${res.sale_id} creada`);
+      setConvertTarget(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al convertir");
     }
   };
 
   const onDelete = async (q: Quotation) => {
+    if (q.status === "accepted" || q.converted) {
+      toast.error("No se puede eliminar una cotización aceptada o convertida");
+      return;
+    }
     if (!window.confirm(`¿Eliminar la cotización ${q.quotation_number}?`)) return;
     try {
       await deleteQuotation(q.id);
@@ -166,6 +190,10 @@ export default function QuotationsIndex() {
   };
 
   const onChangeStatus = async (q: Quotation, newStatus: QuotationStatus) => {
+    if (q.status === "accepted" || q.converted) {
+      toast.error("No se puede cambiar una cotización aceptada o convertida");
+      return;
+    }
     try {
       await updateStatus(q.id, newStatus);
     } catch (e) {
@@ -271,7 +299,7 @@ export default function QuotationsIndex() {
                         className="h-8 rounded-md border border-input bg-background px-2 text-xs"
                         value={q.status}
                         onChange={(e) => onChangeStatus(q, e.target.value as QuotationStatus)}
-                        disabled={q.converted}
+                        disabled={q.converted || q.status === "accepted"}
                       >
                         {(Object.keys(STATUS_LABELS) as QuotationStatus[]).map((s) => (
                           <option key={s} value={s}>
@@ -308,6 +336,7 @@ export default function QuotationsIndex() {
                         size="icon"
                         className="h-8 w-8"
                         title="Editar"
+                        disabled={q.converted || q.status === "accepted"}
                         onClick={() => openEdit(q.id)}
                       >
                         <Pencil className="h-4 w-4" />
@@ -317,6 +346,7 @@ export default function QuotationsIndex() {
                         size="icon"
                         className="h-8 w-8 text-destructive"
                         title="Eliminar"
+                        disabled={q.converted || q.status === "accepted"}
                         onClick={() => onDelete(q)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -354,6 +384,26 @@ export default function QuotationsIndex() {
         quotation={editing}
         onSaved={() => fetchQuotations(pagination.current_page, pagination.per_page, { status, search })}
       />
+
+      <AlertDialog open={!!convertTarget} onOpenChange={(open) => !open && setConvertTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Convertir cotización en venta</AlertDialogTitle>
+            <AlertDialogDescription>
+              Se creará una venta pendiente desde {convertTarget?.quotation_number}. Las líneas de servicio se conservarán sin afectar stock; los bienes descontarán stock cuando confirmes la venta.
+              {convertTarget && (
+                <span className="mt-3 block rounded-lg border bg-muted/40 p-3 text-sm text-foreground">
+                  {convertTarget.customer_name || "Sin cliente"} · {money(convertTarget.total)}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmConvert}>Sí, crear venta</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Plantilla de impresión fuera de pantalla */}
       <div style={{ position: "absolute", left: "-10000px", top: 0 }} aria-hidden>

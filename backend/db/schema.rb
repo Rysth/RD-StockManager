@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_01_163000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -279,6 +279,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_163000) do
     t.decimal "wholesale_price", precision: 10, scale: 2
     t.integer "wholesale_min_quantity", default: 3, null: false
     t.bigint "brand_id"
+    t.string "product_type", default: "good", null: false
     t.index ["brand_id"], name: "index_products_on_brand_id"
     t.index ["category_id"], name: "index_products_on_category_id"
     t.index ["name"], name: "index_products_on_name"

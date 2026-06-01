@@ -53,6 +53,8 @@ module Api
       # PUT /api/v1/quotations/:id
       # Permite editar campos y, si se envían items, reemplaza las líneas.
       def update
+        return render_error("No se puede editar una cotización aceptada o convertida", :unprocessable_entity) if locked_quotation?(@quotation)
+
         ActiveRecord::Base.transaction do
           @quotation.update!(quotation_params.to_h.compact)
           if params[:items].present?
@@ -69,6 +71,8 @@ module Api
 
       # DELETE /api/v1/quotations/:id
       def destroy
+        return render_error("No se puede eliminar una cotización aceptada o convertida", :unprocessable_entity) if locked_quotation?(@quotation)
+
         @quotation.destroy!
         render_success({}, "Cotización eliminada correctamente")
       rescue ActiveRecord::RecordNotDestroyed
@@ -118,6 +122,10 @@ module Api
             unit_price: item[:unit_price].presence || 0
           )
         end
+      end
+
+      def locked_quotation?(quotation)
+        quotation.accepted? || quotation.converted?
       end
 
       def quotation_params

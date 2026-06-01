@@ -1,5 +1,6 @@
 class Product < ApplicationRecord
   MAX_IMAGES = 3
+  PRODUCT_TYPES = %w[good service].freeze
 
   audited
 
@@ -14,6 +15,7 @@ class Product < ApplicationRecord
   validates :base_price, numericality: { greater_than_or_equal_to: 0, message: "El precio debe ser mayor o igual a 0" }
   validates :cost, numericality: { greater_than_or_equal_to: 0, message: "El costo debe ser mayor o igual a 0" }
   validates :wholesale_min_quantity, numericality: { greater_than: 0, only_integer: true }
+  validates :product_type, inclusion: { in: PRODUCT_TYPES, message: "Tipo de producto inválido" }
 
   validate :images_count_validation
   validate :images_type_validation
@@ -35,7 +37,7 @@ class Product < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id name base_price cost wholesale_price description active category_id brand_id created_at updated_at]
+    %w[id name product_type base_price cost wholesale_price description active category_id brand_id created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

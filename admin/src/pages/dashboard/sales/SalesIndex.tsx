@@ -123,6 +123,7 @@ function SalesList() {
     pagination,
     isLoading,
     fetchSales,
+    updateSale,
     updateSaleStatus,
     syncSaleItems,
     selectedSale,
@@ -154,7 +155,9 @@ function SalesList() {
   const sriEnabled = business?.sri_enabled === true;
   const canUseInvoicing = canManageInvoicing && sriEnabled;
   const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [editItems, setEditItems] = useState<{ product_variant_id: number; label: string; quantity: number; unit_price: number }[]>([]);
+  const [editItems, setEditItems] = useState<{ product_variant_id: number | null; description?: string; label: string; quantity: number; unit_price: number }[]>([]);
+  const [editSaleOpen, setEditSaleOpen] = useState(false);
+  const [editSaleForm, setEditSaleForm] = useState({ payment_method: "cash", cash_on_delivery: false, shipping_cost: "0", location_id: "" });
   const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
   const [emailInput, setEmailInput] = useState("");
@@ -211,16 +214,46 @@ function SalesList() {
     }
   };
 
+  const handleSaveSaleInfo = async () => {
+    if (!selectedSale) return;
+    try {
+      await updateSale(selectedSale.id, {
+        payment_method: editSaleForm.payment_method as "cash" | "transfer",
+        cash_on_delivery: editSaleForm.cash_on_delivery,
+        shipping_cost: Number(editSaleForm.shipping_cost || 0),
+        location_id: editSaleForm.location_id ? Number(editSaleForm.location_id) : null,
+      });
+      toast.success("Venta actualizada");
+      setEditSaleOpen(false);
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al actualizar la venta"));
+    }
+  };
+
   const openEditDialog = () => {
     if (!selectedSale?.items) return;
     const items = selectedSale.items.map((it) => ({
       product_variant_id: it.product_variant_id,
-      label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` (${[it.size, it.color].filter(Boolean).join("/")})` : ""} - ${it.sku}`,
+      description: it.product_name,
+      label: it.product_variant_id
+        ? `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` (${[it.size, it.color].filter(Boolean).join("/")})` : ""} - ${it.sku}`
+        : it.product_name,
       quantity: it.quantity,
       unit_price: it.unit_price,
     }));
     setEditItems(items);
     setEditDialogOpen(true);
+  };
+
+  const openEditSaleDialog = () => {
+    if (!selectedSale) return;
+    setEditSaleForm({
+      payment_method: selectedSale.payment_method ?? "cash",
+      cash_on_delivery: selectedSale.cash_on_delivery ?? false,
+      shipping_cost: String(selectedSale.shipping_cost ?? 0),
+      location_id: selectedSale.location_id ? String(selectedSale.location_id) : "",
+    });
+    setEditSaleOpen(true);
   };
 
   const reprintTicket = () => {
@@ -518,6 +551,12 @@ function SalesList() {
                 </div>
               </div>
 
+              {selectedSale.status !== "cancelled" && !selectedSale.invoice?.authorized && (
+                <Button variant="outline" className="w-full gap-2" onClick={openEditSaleDialog}>
+                  <Pencil className="h-4 w-4" /> Editar datos de venta
+                </Button>
+              )}
+
               <div className="rounded-lg border">
                 <Table>
                   <TableHeader>
@@ -546,7 +585,7 @@ function SalesList() {
                             <TableCell>
                               <p className="font-medium">{it.product_name}</p>
                               <p className="text-xs text-muted-foreground">
-                                {it.size || "-"}/{it.color || "-"} · {it.sku}
+                                {it.product_variant_id ? `${it.size || "-"}/${it.color || "-"} · ${it.sku}` : "Servicio"}
                               </p>
                             </TableCell>
                             <TableCell className="text-center">{it.quantity}</TableCell>
@@ -724,6 +763,67 @@ function SalesList() {
         </SheetContent>
       </Sheet>
 
+      <Dialog open={editSaleOpen} onOpenChange={setEditSaleOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Editar datos de venta</DialogTitle>
+            <DialogDescription>
+              Ajusta método de pago, ubicación y envío. No se puede editar si la factura ya fue autorizada.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Método de pago</Label>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={editSaleForm.payment_method}
+                onChange={(e) => setEditSaleForm((f) => ({ ...f, payment_method: e.target.value }))}
+              >
+                <option value="cash">Efectivo</option>
+                <option value="transfer">Transferencia</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Ubicación</Label>
+              <select
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={editSaleForm.location_id}
+                onChange={(e) => setEditSaleForm((f) => ({ ...f, location_id: e.target.value }))}
+              >
+                <option value="">Ubicación por defecto</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>{l.name}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Costo de envío</Label>
+              <Input
+                type="number"
+                min={0}
+                step="0.01"
+                value={editSaleForm.shipping_cost}
+                onChange={(e) => setEditSaleForm((f) => ({ ...f, shipping_cost: e.target.value }))}
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={editSaleForm.cash_on_delivery}
+                onChange={(e) => setEditSaleForm((f) => ({ ...f, cash_on_delivery: e.target.checked }))}
+              />
+              Contra entrega
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditSaleOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveSaleInfo} disabled={isSubmitting}>
+              {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Editar productos de venta pendiente ── */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-lg">
@@ -737,7 +837,7 @@ function SalesList() {
               {editItems.map((it, idx) => {
                 const img = selectedSale?.items?.find((si) => si.product_variant_id === it.product_variant_id)?.images?.[0];
                 return (
-                  <div key={it.product_variant_id} className="flex items-center gap-3 rounded-lg border p-3">
+                  <div key={`${it.product_variant_id ?? "service"}-${idx}`} className="flex items-center gap-3 rounded-lg border p-3">
                     {img ? (
                       <img src={img.url} alt="" className="h-10 w-10 shrink-0 rounded-md border object-cover" />
                     ) : (

@@ -17,6 +17,7 @@ interface ProductFilters {
 
 interface ProductInput {
   name: string;
+  product_type?: "good" | "service";
   brand_id?: number | null;
   base_price: number;
   cost?: number;

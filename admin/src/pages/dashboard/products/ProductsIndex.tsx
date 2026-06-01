@@ -89,6 +89,7 @@ interface VariantForm {
 
 interface ProductForm {
   name: string;
+  product_type: "good" | "service";
   brand_id: string;
   base_price: string;
   cost: string;
@@ -112,6 +113,7 @@ const emptyVariant = (): VariantForm => ({
 
 const EMPTY_FORM: ProductForm = {
   name: "",
+  product_type: "good",
   brand_id: "",
   base_price: "",
   cost: "",
@@ -360,6 +362,7 @@ export default function ProductsIndex() {
     setEditing(product);
     setForm({
       name: product.name,
+      product_type: product.product_type ?? "good",
       brand_id: product.brand_id != null ? String(product.brand_id) : "",
       base_price: String(product.base_price),
       cost: String(product.cost ?? ""),
@@ -423,8 +426,17 @@ export default function ProductsIndex() {
     if (!form.name.trim()) return toast.error("El nombre es requerido");
     if (!form.category_id) return toast.error("Selecciona una categoría");
 
+    const variantAttributes = form.variants
+      .filter((v) => v.id || (!v._destroy && (v.size || v.color)))
+      .map((v) => ({ id: v.id, size: v.size, color: v.color, stock: Number(v.stock) || 0, _destroy: v._destroy }));
+
+    if (!editing && form.product_type === "service" && variantAttributes.length === 0) {
+      variantAttributes.push({ id: undefined, size: "Servicio", color: "", stock: 0, _destroy: undefined });
+    }
+
     const payload = {
       name: form.name,
+      product_type: form.product_type,
       brand_id: form.brand_id ? Number(form.brand_id) : null,
       base_price: parseFloat(form.base_price) || 0,
       cost: parseFloat(form.cost) || 0,
@@ -433,9 +445,7 @@ export default function ProductsIndex() {
       description: form.description,
       active: form.active,
       category_id: Number(form.category_id),
-      product_variants_attributes: form.variants
-        .filter((v) => v.id || (!v._destroy && (v.size || v.color)))
-        .map((v) => ({ id: v.id, size: v.size, color: v.color, stock: Number(v.stock) || 0, _destroy: v._destroy })),
+      product_variants_attributes: variantAttributes,
     };
 
     setSaving(true);
@@ -606,7 +616,12 @@ export default function ProductsIndex() {
                         <div className="flex items-center gap-3">
                           <Thumb url={p.images?.[0]?.url} />
                           <div>
-                            <p className="font-medium">{p.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{p.name}</p>
+                              <Badge variant="outline" className="text-[11px]">
+                                {p.product_type === "service" ? "Servicio" : "Bien"}
+                              </Badge>
+                            </div>
                             <p className="text-xs text-muted-foreground">{p.brand || "—"}</p>
                           </div>
                         </div>
@@ -724,6 +739,18 @@ export default function ProductsIndex() {
                   className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
                   <option value="">Sin marca</option>
                   {brands.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="p-type">Tipo</Label>
+                <select
+                  id="p-type"
+                  value={form.product_type}
+                  onChange={(e) => setForm({ ...form, product_type: e.target.value as "good" | "service" })}
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="good">Bien físico</option>
+                  <option value="service">Servicio</option>
                 </select>
               </div>
             </div>

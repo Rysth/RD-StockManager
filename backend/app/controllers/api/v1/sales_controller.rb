@@ -66,6 +66,7 @@ module Api
           items.each do |item|
             sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              description: item[:description],
               quantity: item[:quantity].to_i,
               unit_price: item[:unit_price]
             )
@@ -88,6 +89,11 @@ module Api
           @sale.complete!
         when "cancelled"
           @sale.cancel!
+        else
+          return render_error("No se puede editar una venta con factura autorizada", :unprocessable_entity) if @sale.invoices.authorized.exists?
+
+          @sale.update!(sale_update_params)
+          @sale.recalculate_total! if sale_update_params.key?(:shipping_cost)
         end
         Rails.cache.delete("inventory:stats")
         render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta actualizada correctamente")
@@ -122,6 +128,7 @@ module Api
           items.each do |item|
             @sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              description: item[:description],
               quantity: item[:quantity].to_i,
               unit_price: item[:unit_price]
             )
@@ -236,6 +243,10 @@ module Api
 
       def sale_params
         params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost)
+      end
+
+      def sale_update_params
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost)
       end
 
       def desired_status
