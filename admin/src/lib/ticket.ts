@@ -23,6 +23,7 @@ export interface TicketData {
   businessSlogan?: string;
   date: Date;
   saleId?: number;
+  saleCode?: string;
   customerName: string;
   lines: TicketLine[];
   shippingCost: number;
@@ -87,7 +88,7 @@ export function buildTicketHtml(data: TicketData): string {
   <h1>${escapeHtml(data.businessName.toUpperCase())}</h1>
   ${data.businessSlogan ? `<p class="sub">${escapeHtml(data.businessSlogan)}</p>` : ""}
   <hr class="solid">
-  ${data.saleId ? `<div class="row"><span class="label">Venta</span><span>#${data.saleId}</span></div>` : ""}
+  ${(data.saleCode || data.saleId) ? `<div class="row"><span class="label">Venta</span><span>${data.saleCode ?? `#${data.saleId}`}</span></div>` : ""}
   <div class="row"><span class="label">Fecha</span><span>${dateStr} ${timeStr}</span></div>
   <div class="row"><span class="label">Cliente</span><span>${escapeHtml(data.customerName)}</span></div>
   <hr class="dash">

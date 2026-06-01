@@ -263,6 +263,7 @@ function SalesList() {
       businessSlogan: publicBusiness?.slogan || "",
       date: selectedSale.sold_at ? new Date(selectedSale.sold_at) : new Date(),
       saleId: selectedSale.id,
+      saleCode: selectedSale.code,
       customerName: selectedSale.customer_name || "Consumidor final",
       lines: selectedSale.items.map((it) => ({
         label: `${it.product_name}${[it.size, it.color].filter(Boolean).length ? ` — ${[it.size, it.color].filter(Boolean).join(" / ")}` : ""}`,
@@ -509,7 +510,7 @@ function SalesList() {
       >
         <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
-            <SheetTitle>Detalle de venta {selectedSale ? `#${selectedSale.id}` : ""}</SheetTitle>
+            <SheetTitle>Detalle de venta {selectedSale?.code ?? ""}</SheetTitle>
             <SheetDescription>Información completa de la transacción</SheetDescription>
           </SheetHeader>
 
@@ -738,7 +739,7 @@ function SalesList() {
                 </Button>
               )}
               <Button variant="outline" className="w-full gap-2" onClick={reprintTicket}>
-                <Printer className="h-4 w-4" /> Reimprimir ticket #{selectedSale?.id}
+                <Printer className="h-4 w-4" /> Reimprimir {selectedSale?.code}
               </Button>
 
               {selectedSale.status === "pending" && (
@@ -830,7 +831,7 @@ function SalesList() {
           <DialogHeader>
             <DialogTitle>Editar productos</DialogTitle>
             <DialogDescription>
-              Modifica cantidades o precios de la venta pendiente #{selectedSale?.id}.
+              Modifica cantidades o precios de la venta pendiente {selectedSale?.code}.
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
@@ -991,7 +992,7 @@ function SalesList() {
                   </span>
                   {invoiceTarget && (
                     <span className="block rounded-lg border bg-muted/40 p-3 text-sm text-foreground">
-                      Venta #{invoiceTarget.id} · {invoiceTarget.customer_name || "Consumidor final"} · {money(invoiceTarget.total)}
+                      {invoiceTarget.code} · {invoiceTarget.customer_name || "Consumidor final"} · {money(invoiceTarget.total)}
                     </span>
                   )}
                 </span>

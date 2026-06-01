@@ -185,7 +185,7 @@ module Api
         return render_error("No hay factura autorizada para esta venta", :not_found) unless inv&.xml_autorizado.present?
 
         send_data inv.xml_autorizado, type: "application/xml",
-                  filename: "XML_FACTURA_#{inv.numero_comprobante}.xml", disposition: "attachment"
+                  filename: "Factura_#{inv.numero_comprobante}.xml", disposition: "attachment"
       end
 
       # GET /api/v1/sales/:id/invoice_ride — descarga el RIDE (PDF).
@@ -194,7 +194,7 @@ module Api
         return render_error("No hay RIDE disponible para esta venta", :not_found) unless inv&.ride_pdf.present?
 
         send_data inv.ride_pdf, type: "application/pdf",
-                  filename: "RIDE_FACTURA_#{inv.numero_comprobante}.pdf", disposition: "attachment"
+                  filename: "RIDE_#{inv.numero_comprobante}.pdf", disposition: "attachment"
       end
 
       # GET /api/v1/sales/report
@@ -273,6 +273,7 @@ module Api
       def serialize(sale, with_items: false, items_count: nil)
         data = {
           id: sale.id,
+          code: sale.code,
           status: sale.status,
           total: sale.total,
           shipping_cost: sale.shipping_cost,

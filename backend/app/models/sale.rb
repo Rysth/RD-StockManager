@@ -93,6 +93,10 @@ class Sale < ApplicationRecord
     end
   end
 
+  def code
+    "VTA-#{(sold_at || created_at).year}-#{id.to_s.rjust(6, '0')}"
+  end
+
   def self.ransackable_associations(_auth_object = nil)
     %w[customer user location sale_items invoices]
   end

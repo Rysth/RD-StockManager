@@ -39,6 +39,7 @@ export interface Quotation {
   valid_until?: string | null;
   notes?: string | null;
   sale_id?: number | null;
+  sale_code?: string | null;
   converted?: boolean;
   items_count?: number;
   quotation_items?: QuotationItem[];
@@ -107,7 +108,7 @@ interface QuotationState {
   updateQuotation: (id: number, data: Partial<QuotationInput>) => Promise<Quotation>;
   updateStatus: (id: number, status: QuotationStatus) => Promise<void>;
   deleteQuotation: (id: number) => Promise<void>;
-  convertQuotation: (id: number) => Promise<{ quotation: Quotation; sale_id: number; message?: string }>;
+  convertQuotation: (id: number) => Promise<{ quotation: Quotation; sale_id: number; sale_code: string; message?: string }>;
 }
 
 export const useQuotationStore = create<QuotationState>((set, get) => ({
@@ -216,6 +217,7 @@ export const useQuotationStore = create<QuotationState>((set, get) => ({
       return {
         quotation: response.data.quotation as Quotation,
         sale_id: response.data.sale_id as number,
+        sale_code: response.data.sale_code as string,
         message: response.data.message as string | undefined,
       };
     } catch (error) {

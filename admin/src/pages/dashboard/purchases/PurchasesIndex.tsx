@@ -687,7 +687,7 @@ export default function PurchasesIndex() {
       >
         <SheetContent className="w-full overflow-y-auto sm:max-w-md">
           <SheetHeader>
-            <SheetTitle>Detalle de compra #{selectedPurchase?.id}</SheetTitle>
+            <SheetTitle>Detalle de compra {selectedPurchase?.code}</SheetTitle>
             <SheetDescription>
               {selectedPurchase?.supplier_name || "Sin proveedor"} ·{" "}
               {selectedPurchase?.location_name || "—"}

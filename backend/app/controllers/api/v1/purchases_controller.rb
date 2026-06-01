@@ -130,6 +130,7 @@ module Api
       def serialize(purchase, with_items: false, items_count: nil)
         data = {
           id: purchase.id,
+          code: purchase.code,
           status: purchase.status,
           payment_status: purchase.payment_status,
           subtotal: purchase.subtotal,

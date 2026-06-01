@@ -154,7 +154,7 @@ export default function QuotationsIndex() {
 
   const onConvert = async (q: Quotation) => {
     if (q.converted) {
-      toast.error(`Ya convertida en la venta #${q.sale_id}`);
+      toast.error(`Ya convertida en la venta ${q.sale_code ?? `#${q.sale_id}`}`);
       return;
     }
     if (q.status !== "accepted") {
@@ -168,7 +168,7 @@ export default function QuotationsIndex() {
     if (!convertTarget) return;
     try {
       const res = await convertQuotation(convertTarget.id);
-      toast.success(res.message || `Venta #${res.sale_id} creada`);
+      toast.success(res.message || `${res.sale_code} creada`);
       setConvertTarget(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al convertir");
@@ -285,7 +285,7 @@ export default function QuotationsIndex() {
                       <div className="font-medium">{q.quotation_number}</div>
                       {q.converted && (
                         <div className="text-[11px] text-muted-foreground">
-                          Venta #{q.sale_id}
+                          {q.sale_code ?? `Venta #${q.sale_id}`}
                         </div>
                       )}
                     </TableCell>

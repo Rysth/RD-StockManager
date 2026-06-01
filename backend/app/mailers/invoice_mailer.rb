@@ -13,12 +13,12 @@ class InvoiceMailer < ApplicationMailer
       @logo_cid = attachments["logo"].url
     end
 
-    attachments["XML_FACTURA_#{invoice.numero_comprobante}.xml"] = {
+    attachments["Factura_#{invoice.numero_comprobante}.xml"] = {
       mime_type: "application/xml",
       content: invoice.xml_autorizado
     } if invoice.xml_autorizado.present?
 
-    attachments["RIDE_FACTURA_#{invoice.numero_comprobante}.pdf"] = {
+    attachments["RIDE_#{invoice.numero_comprobante}.pdf"] = {
       mime_type: "application/pdf",
       content: invoice.ride_pdf
     } if invoice.ride_pdf.present?

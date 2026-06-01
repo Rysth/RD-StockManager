@@ -80,6 +80,10 @@ class Purchase < ApplicationRecord
     %w[id status payment_status total paid_amount purchase_date due_date customer_id user_id location_id reference created_at updated_at]
   end
 
+  def code
+    "COM-#{(purchase_date || created_at).year}-#{id.to_s.rjust(6, '0')}"
+  end
+
   def self.ransackable_associations(_auth_object = nil)
     %w[customer user location purchase_items]
   end

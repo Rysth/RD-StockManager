@@ -163,6 +163,7 @@ export interface SaleItem {
 
 export interface Sale {
   id: number;
+  code: string;
   status: SaleStatus;
   total: number;
   shipping_cost?: number;
@@ -242,6 +243,7 @@ export interface PurchasePayment {
 
 export interface Purchase {
   id: number;
+  code: string;
   status: PurchaseStatus;
   payment_status: PaymentStatus;
   subtotal: number;
@@ -301,6 +303,7 @@ export interface Employee {
 
 export interface Expense {
   id: number;
+  code: string;
   amount: number;
   expense_date: string | null;
   description?: string | null;

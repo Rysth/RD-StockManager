@@ -30,7 +30,7 @@ module Api
         return render_error("No hay XML autorizado para esta factura", :not_found) unless @invoice.xml_autorizado.present?
 
         send_data @invoice.xml_autorizado, type: "application/xml",
-                  filename: "XML_FACTURA_#{@invoice.numero_comprobante}.xml", disposition: "attachment"
+                  filename: "Factura_#{@invoice.numero_comprobante}.xml", disposition: "attachment"
       end
 
       # GET /api/v1/invoices/:id/ride — descarga el RIDE (PDF).
@@ -38,7 +38,7 @@ module Api
         return render_error("No hay RIDE disponible para esta factura", :not_found) unless @invoice.ride_pdf.present?
 
         send_data @invoice.ride_pdf, type: "application/pdf",
-                  filename: "RIDE_FACTURA_#{@invoice.numero_comprobante}.pdf", disposition: "attachment"
+                  filename: "RIDE_#{@invoice.numero_comprobante}.pdf", disposition: "attachment"
       end
 
       private

@@ -16,6 +16,10 @@ class Expense < ApplicationRecord
     %w[id amount expense_date description payment_method reference expense_category_id location_id user_id employee_id created_at updated_at]
   end
 
+  def code
+    "GAS-#{(expense_date || created_at).year}-#{id.to_s.rjust(6, '0')}"
+  end
+
   def self.ransackable_associations(_auth_object = nil)
     %w[expense_category location user employee]
   end

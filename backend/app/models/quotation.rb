@@ -30,14 +30,15 @@ class Quotation < ApplicationRecord
     sale_id.present?
   end
 
-  # Siguiente número de cotización con formato COT-000001.
+  # Siguiente número de cotización con formato COT-YYYY-000001.
   def self.next_number
-    last = where("quotation_number ~ ?", '^COT-[0-9]+$')
+    year = Date.current.year
+    last = where("quotation_number ~ ?", "^COT-#{year}-[0-9]+$")
              .order(Arel.sql("LENGTH(quotation_number) DESC, quotation_number DESC"))
              .limit(1)
              .pick(:quotation_number)
     seq = last ? last.split("-").last.to_i + 1 : 1
-    format("COT-%06d", seq)
+    format("COT-%d-%06d", year, seq)
   end
 
   def self.ransackable_attributes(_auth_object = nil)

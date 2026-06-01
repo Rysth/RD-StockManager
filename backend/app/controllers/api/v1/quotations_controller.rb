@@ -7,7 +7,7 @@ module Api
 
       # GET /api/v1/quotations
       def index
-        @q = Quotation.includes(:customer, :user, :quotation_items).ransack(search_params)
+        @q = Quotation.includes(:customer, :user, :quotation_items, :sale).ransack(search_params)
         @q.sorts = "created_at desc" if @q.sorts.empty?
 
         @pagy, quotations = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -83,14 +83,13 @@ module Api
       def convert
         result = QuotationConversionService.convert(quotation: @quotation, user: current_rodauth_user)
 
-        message = "Cotización convertida en venta ##{result.sale.id}"
-        if result.skipped.any?
-          message += ". Se omitieron #{result.skipped.size} línea(s)."
-        end
+        sale_code = result.sale.code
+        message = "Cotización convertida en #{sale_code}"
+        message += ". Se omitieron #{result.skipped.size} línea(s)." if result.skipped.any?
 
         Rails.cache.delete("inventory:stats")
         render_success(
-          { quotation: serialize(@quotation.reload, with_items: true), sale_id: result.sale.id },
+          { quotation: serialize(@quotation.reload, with_items: true), sale_id: result.sale.id, sale_code: sale_code },
           message
         )
       rescue QuotationConversionService::AlreadyConvertedError => e
@@ -105,9 +104,9 @@ module Api
 
       def set_quotation
         @quotation = if action_name == "show"
-                       Quotation.includes(:customer, :user, quotation_items: { product_variant: :product }).find(params[:id])
+                       Quotation.includes(:customer, :user, :sale, quotation_items: { product_variant: :product }).find(params[:id])
                      else
-                       Quotation.includes(:quotation_items).find(params[:id])
+                       Quotation.includes(:quotation_items, :sale).find(params[:id])
                      end
       rescue ActiveRecord::RecordNotFound
         render_error("Cotización no encontrada", :not_found)
@@ -158,6 +157,7 @@ module Api
           valid_until: quotation.valid_until,
           notes: quotation.notes,
           sale_id: quotation.sale_id,
+          sale_code: quotation.sale&.code,
           converted: quotation.converted?,
           items_count: quotation.quotation_items.loaded? ? quotation.quotation_items.length : quotation.quotation_items.count,
           created_at: quotation.created_at

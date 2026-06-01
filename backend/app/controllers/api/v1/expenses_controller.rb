@@ -95,6 +95,7 @@ module Api
       def serialize(expense)
         {
           id: expense.id,
+          code: expense.code,
           amount: expense.amount,
           expense_date: expense.expense_date,
           description: expense.description,
