@@ -16,8 +16,10 @@ WORKDIR /rails
 # Install Rails
 RUN gem install rails -v 8.0.2
 
-# Copy Gemfile and install gems
+# Copy Gemfile and install gems. The local path gem (sri_facturacion) must be
+# present before `bundle install` resolves it, so copy vendor/gems first.
 COPY Gemfile* ./
+COPY vendor/gems vendor/gems
 RUN bundle install
 
 # Copy application code

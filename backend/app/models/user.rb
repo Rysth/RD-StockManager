@@ -3,6 +3,13 @@ class User < ApplicationRecord
   
   # Association
   belongs_to :account
+  belongs_to :location, optional: true # sucursal asignada (empleados)
+  has_many :sales, dependent: :nullify
+
+  # Empleados (sin rol admin/owner) quedan restringidos a su sucursal asignada.
+  def restricted_to_location?
+    has_role?(:business_employee) && !has_role?(:admin) && !has_role?(:business_owner)
+  end
 
   # Basic validations
   validates :username, presence: { message: "El nombre de usuario es requerido" }
@@ -55,6 +62,6 @@ class User < ApplicationRecord
   end
 
   def self.ransackable_associations(auth_object = nil)
-    ["roles", "account"]
+    ["roles", "account", "sales"]
   end
 end

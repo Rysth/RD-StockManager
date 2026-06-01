@@ -1,0 +1,105 @@
+class Sale < ApplicationRecord
+  audited
+
+  enum :status, { pending: 0, completed: 1, cancelled: 2 }
+  enum :payment_method, { cash: 0, transfer: 1 }, prefix: :payment
+  enum :payment_status, { due: 0, partial: 1, paid: 2 }, prefix: :payment
+
+  belongs_to :user
+  belongs_to :customer, optional: true
+  belongs_to :location, optional: true
+  has_many :sale_items, dependent: :destroy
+  has_many :invoices, dependent: :destroy
+
+  accepts_nested_attributes_for :sale_items
+
+  validates :status, presence: true
+
+  before_validation :set_sold_at, on: :create
+  before_validation :set_location, on: :create
+
+  scope :due_soon, -> { completed.where.not(payment_status: payment_statuses[:paid]).where(due_date: ..Date.current + 7.days) }
+
+  # Recalculate the total from the persisted line items (+ shipping)
+  def recalculate_total!
+    items_total = sale_items.sum("quantity * unit_price")
+    update_column(:total, items_total + shipping_cost.to_d)
+    sync_payment_status!
+  end
+
+  # Recalcula el estado de pago a partir del monto pagado.
+  def sync_payment_status!
+    new_status =
+      if paid_amount >= total && total.positive?
+        :paid
+      elsif paid_amount.positive?
+        :partial
+      else
+        :due
+      end
+    update_column(:payment_status, Sale.payment_statuses[new_status])
+  end
+
+  def balance_due
+    (total - paid_amount).to_f
+  end
+
+  # Mark the sale as completed and discount stock for each line item.
+  # Idempotent: does nothing if the sale is already completed.
+  def complete!
+    return if completed?
+
+    transaction do
+      loc = location || Location.default
+      sale_items.includes(:product_variant).each do |item|
+        StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
+      end
+      # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
+      self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
+      update!(status: :completed)
+      sync_payment_status!
+    end
+  end
+
+  # Cancel the sale; restore stock only if it had previously been discounted.
+  def cancel!
+    return if cancelled?
+
+    transaction do
+      if completed?
+        loc = location || Location.default
+        sale_items.includes(:product_variant).each do |item|
+          StockMovement.apply!(variant: item.product_variant, location: loc, delta: item.quantity)
+        end
+      end
+      update!(status: :cancelled)
+    end
+  end
+
+  def self.ransackable_attributes(_auth_object = nil)
+    %w[id status total shipping_cost paid_amount payment_status due_date sold_at customer_id user_id location_id payment_method cash_on_delivery created_at updated_at]
+  end
+
+  # Última factura electrónica emitida para esta venta (o nil).
+  def latest_invoice
+    if invoices.loaded?
+      invoices.max_by(&:created_at)
+    else
+      invoices.order(:created_at).last
+    end
+  end
+
+  def self.ransackable_associations(_auth_object = nil)
+    %w[customer user location sale_items invoices]
+  end
+
+  private
+
+  def set_sold_at
+    self.sold_at ||= Time.current
+  end
+
+  def set_location
+    self.location ||= Location.default
+  end
+end

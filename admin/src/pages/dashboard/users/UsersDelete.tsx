@@ -2,6 +2,7 @@ import toast from "react-hot-toast";
 import { useUserStore } from "../../../stores/userStore";
 import { User } from "../../../stores/userStore";
 import { useAuthStore } from "../../../stores/authStore";
+import { Permissions } from "../../../types/auth";
 import { useState } from "react";
 import {
   AlertDialog,
@@ -35,7 +36,7 @@ export default function UsersDelete({
   if (!user) return null;
 
   const canDelete =
-    hasPermission("delete_users") && user.id !== currentUser?.id; // cannot delete self
+    hasPermission(Permissions.DELETE_USERS) && user.id !== currentUser?.id; // cannot delete self
 
   const isConfirmValid = confirmText === user.fullname;
 

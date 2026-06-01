@@ -7,7 +7,7 @@ class OtpMailer < ApplicationMailer
 
     mail(
       to: email,
-      subject: "Tu código de verificación - R&R Template"
+      subject: "Tu código de verificación - StockManager"
     )
   end
 end

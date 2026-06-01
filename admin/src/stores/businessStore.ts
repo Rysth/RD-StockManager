@@ -10,6 +10,23 @@ interface Business {
   instagram: string;
   facebook: string;
   tiktok: string;
+  ruc?: string | null;
+  razon_social?: string | null;
+  dir_matriz?: string | null;
+  dir_establecimiento?: string | null;
+  obligado_contabilidad?: string | null;
+  establecimiento?: string | null;
+  punto_emision?: string | null;
+  contribuyente_especial?: string | null;
+  contribuyente_rimpe?: string | null;
+  sri_enabled?: boolean;
+  sri_ambiente?: string | null;
+  sri_next_factura_secuencial?: number | null;
+  sri_ready?: boolean;
+  sri_missing_requirements?: string[];
+  sri_cert_configured?: boolean;
+  sri_cert_filename?: string | null;
+  sri_cert_uploaded_at?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +38,19 @@ interface BusinessData {
   instagram?: string;
   facebook?: string;
   tiktok?: string;
+  ruc?: string;
+  razon_social?: string;
+  dir_matriz?: string;
+  dir_establecimiento?: string;
+  obligado_contabilidad?: string;
+  establecimiento?: string;
+  punto_emision?: string;
+  contribuyente_especial?: string;
+  contribuyente_rimpe?: string;
+  sri_enabled?: boolean;
+  sri_ambiente?: string;
+  sri_next_factura_secuencial?: number;
+  sri_cert_password?: string;
 }
 
 interface BusinessState {

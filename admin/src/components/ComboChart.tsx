@@ -14,7 +14,7 @@ import { cn } from "@/lib/utils";
 import { chartColors, type AvailableChartColorsKeys } from "../lib/chartUtils";
 
 interface ComboChartProps {
-  data: any[];
+  data: Record<string, unknown>[];
   index: string;
   enableBiaxial?: boolean;
   className?: string;

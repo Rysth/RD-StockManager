@@ -24,28 +24,61 @@ class Permission < ApplicationRecord
   # Profile (own)
   EDIT_PROFILE = "edit_profile".freeze
 
+  # Inventory & Sales (Tienda)
+  VIEW_INVENTORY   = "view_inventory".freeze
+  MANAGE_PRODUCTS  = "manage_products".freeze
+  MANAGE_CUSTOMERS = "manage_customers".freeze
+  MANAGE_SALES     = "manage_sales".freeze
+  VIEW_REPORTS     = "view_reports".freeze
+
+  # Locations / Warehouses (Tienda)
+  VIEW_LOCATIONS   = "view_locations".freeze
+  MANAGE_LOCATIONS = "manage_locations".freeze
+
+  # Purchases / Compras (Tienda)
+  VIEW_PURCHASES   = "view_purchases".freeze
+  MANAGE_PURCHASES = "manage_purchases".freeze
+
+  # Expenses / Gastos (Tienda)
+  VIEW_EXPENSES   = "view_expenses".freeze
+  MANAGE_EXPENSES = "manage_expenses".freeze
+
+  # Facturación electrónica SRI (Tienda)
+  MANAGE_INVOICING = "manage_invoicing".freeze
+
   ALL_KEYS = [
     VIEW_DASHBOARD,
     VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
     VIEW_BUSINESS, EDIT_BUSINESS,
-    EDIT_PROFILE
+    EDIT_PROFILE,
+    VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
+    VIEW_LOCATIONS, MANAGE_LOCATIONS,
+    VIEW_PURCHASES, MANAGE_PURCHASES,
+    VIEW_EXPENSES, MANAGE_EXPENSES,
+    MANAGE_INVOICING
   ].freeze
 
-  # Default permission mapping per role
+  # Default permission mapping per role.
+  #   admin            → vendedor del software, acceso total (incluye usuarios)
+  #   business_owner   → dueño del negocio, todo EXCEPTO gestión de usuarios
+  #   business_employee→ empleado limitado: ventas, clientes y ver inventario
   ROLE_DEFAULTS = {
     "admin" => ALL_KEYS,
-    "manager" => [
+    "business_owner" => [
       VIEW_DASHBOARD,
-      VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
       VIEW_BUSINESS, EDIT_BUSINESS,
-      EDIT_PROFILE
+      EDIT_PROFILE,
+      VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
+      VIEW_LOCATIONS, MANAGE_LOCATIONS,
+      VIEW_PURCHASES, MANAGE_PURCHASES,
+      VIEW_EXPENSES, MANAGE_EXPENSES,
+      MANAGE_INVOICING
     ],
-    "operator" => [
+    "business_employee" => [
       VIEW_DASHBOARD,
-      EDIT_PROFILE
-    ],
-    "user" => [
-      EDIT_PROFILE
+      EDIT_PROFILE,
+      VIEW_INVENTORY, MANAGE_CUSTOMERS, MANAGE_SALES,
+      VIEW_LOCATIONS
     ]
   }.freeze
 
@@ -67,7 +100,29 @@ class Permission < ApplicationRecord
       { key: EDIT_BUSINESS, name: "Editar Negocio", group: "business", description: "Editar configuración del negocio" },
 
       # Profile
-      { key: EDIT_PROFILE, name: "Editar Perfil", group: "profile", description: "Editar perfil propio" }
+      { key: EDIT_PROFILE, name: "Editar Perfil", group: "profile", description: "Editar perfil propio" },
+
+      # Inventory & Sales (Tienda)
+      { key: VIEW_INVENTORY, name: "Ver Inventario", group: "inventory", description: "Ver productos e inventario" },
+      { key: MANAGE_PRODUCTS, name: "Gestionar Productos", group: "inventory", description: "Crear y editar productos y categorías" },
+      { key: MANAGE_CUSTOMERS, name: "Gestionar Contactos", group: "customers", description: "Crear y editar clientes y proveedores" },
+      { key: MANAGE_SALES, name: "Gestionar Ventas", group: "sales", description: "Registrar y gestionar ventas" },
+      { key: VIEW_REPORTS, name: "Ver Reportes", group: "reports", description: "Acceder a reportes de ventas" },
+
+      # Locations (Tienda)
+      { key: VIEW_LOCATIONS, name: "Ver Ubicaciones", group: "locations", description: "Ver ubicaciones y almacenes" },
+      { key: MANAGE_LOCATIONS, name: "Gestionar Ubicaciones", group: "locations", description: "Crear y editar ubicaciones y almacenes" },
+
+      # Purchases (Tienda)
+      { key: VIEW_PURCHASES, name: "Ver Compras", group: "purchases", description: "Ver compras a proveedores" },
+      { key: MANAGE_PURCHASES, name: "Gestionar Compras", group: "purchases", description: "Registrar y gestionar compras" },
+
+      # Expenses (Tienda)
+      { key: VIEW_EXPENSES, name: "Ver Gastos", group: "expenses", description: "Ver gastos del negocio" },
+      { key: MANAGE_EXPENSES, name: "Gestionar Gastos", group: "expenses", description: "Registrar y gestionar gastos" },
+
+      # Facturación electrónica (Tienda)
+      { key: MANAGE_INVOICING, name: "Facturación Electrónica", group: "invoicing", description: "Emitir y consultar facturas electrónicas SRI" }
     ]
 
     permissions_by_key = {}

@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PasswordInput from "../../../components/shared/PasswordInput";
 import { useUserStore } from "../../../stores/userStore";
 import { useAuthStore } from "../../../stores/authStore";
+import { useLocationStore } from "../../../stores/locationStore";
 
 // ── Types ────────────────────────────────────────────────────
 
@@ -23,6 +24,7 @@ interface UserFormData {
   email: string;
   identification?: string;
   phone_number?: string;
+  location_id?: string;
   password?: string;
   passwordConfirmation?: string;
 }
@@ -35,11 +37,15 @@ interface UsersCreateProps {
 // ── Constants ────────────────────────────────────────────────
 
 const ALL_ROLES = [
-  { value: "user", label: "Usuario", description: "Acceso básico al sistema" },
   {
-    value: "manager",
-    label: "Gerente",
-    description: "Puede gestionar usuarios y configuración",
+    value: "business_employee",
+    label: "Empleado",
+    description: "Ventas, clientes y ver inventario",
+  },
+  {
+    value: "business_owner",
+    label: "Dueño del negocio",
+    description: "Acceso total excepto gestión de usuarios",
   },
   {
     value: "admin",
@@ -53,10 +59,15 @@ const ALL_ROLES = [
 export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
   const { isLoading: storeLoading, createUser } = useUserStore();
   const { hasRole } = useAuthStore();
+  const { locations, fetchLocations } = useLocationStore();
   const [isLoading, setIsLoading] = useState(false);
-  const [selectedRoles, setSelectedRoles] = useState<string[]>(["user"]);
+  const [selectedRoles, setSelectedRoles] = useState<string[]>(["business_employee"]);
 
   const isAdmin = hasRole("admin");
+
+  useEffect(() => {
+    if (isOpen) fetchLocations().catch(() => {});
+  }, [isOpen, fetchLocations]);
 
   const {
     register,
@@ -70,16 +81,12 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
   useEffect(() => {
     if (!isOpen) {
       reset();
-      setSelectedRoles(["user"]);
+      setSelectedRoles(["business_employee"]);
     }
   }, [isOpen, reset]);
 
   const handleRoleToggle = (role: string, checked: boolean) => {
-    if (role === "user" && !checked) {
-      toast.error("El rol de usuario es obligatorio y no puede ser removido");
-      return;
-    }
-    if ((role === "admin" || role === "manager") && checked && !isAdmin) {
+    if ((role === "admin" || role === "business_owner") && checked && !isAdmin) {
       toast.error("Solo los administradores pueden asignar este rol");
       return;
     }
@@ -95,7 +102,11 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
     }
     setIsLoading(true);
     try {
-      await createUser({ ...data, roles: selectedRoles });
+      await createUser({
+        ...data,
+        location_id: data.location_id ? Number(data.location_id) : null,
+        roles: selectedRoles,
+      });
       toast.success(
         data.password
           ? "Usuario creado correctamente. Se ha enviado un correo de bienvenida."
@@ -224,15 +235,14 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
           <div className="space-y-3">
             <Label>Roles del Usuario</Label>
             <p className="text-sm text-muted-foreground">
-              Selecciona uno o más roles. El rol de "Usuario" es obligatorio.
+              Selecciona uno o más roles para el usuario.
             </p>
             <div className="space-y-3 rounded-lg border p-4">
               {ALL_ROLES.map((role) => {
                 const isChecked = selectedRoles.includes(role.value);
                 const isDisabled =
-                  role.value === "user" ||
-                  ((role.value === "admin" || role.value === "manager") &&
-                    !isAdmin);
+                  (role.value === "admin" || role.value === "business_owner") &&
+                  !isAdmin;
                 return (
                   <div key={role.value} className="flex items-start space-x-3">
                     <Checkbox
@@ -253,13 +263,8 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
                         }`}
                       >
                         {role.label}
-                        {role.value === "user" && (
-                          <span className="ml-2 text-xs text-muted-foreground">
-                            (Obligatorio)
-                          </span>
-                        )}
                         {(role.value === "admin" ||
-                          role.value === "manager") &&
+                          role.value === "business_owner") &&
                           !isAdmin && (
                             <span className="ml-2 text-xs text-muted-foreground">
                               (Solo Administradores)
@@ -274,6 +279,24 @@ export default function UsersCreate({ isOpen, onClose }: UsersCreateProps) {
                 );
               })}
             </div>
+          </div>
+
+          {/* Sucursal asignada */}
+          <div className="space-y-2">
+            <Label htmlFor="location_id">Sucursal asignada</Label>
+            <select
+              id="location_id"
+              {...register("location_id")}
+              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Sin restricción (todas)</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-muted-foreground">
+              Si asignas una sucursal, los empleados solo podrán registrar ventas desde ella.
+            </p>
           </div>
 
           {/* Password (optional) */}

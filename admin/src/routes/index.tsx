@@ -8,6 +8,16 @@ import DashboardLayout from "../layouts/DashboardLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import UsersIndex from "../pages/dashboard/users/UsersIndex";
 import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
+import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
+import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
+import SalesIndex from "../pages/dashboard/sales/SalesIndex";
+import PosIndex from "../pages/dashboard/sales/PosIndex";
+import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
+import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
+import PurchasesIndex from "../pages/dashboard/purchases/PurchasesIndex";
+import ExpensesIndex from "../pages/dashboard/expenses/ExpensesIndex";
+import InvoicesIndex from "../pages/dashboard/invoices/InvoicesIndex";
+import AdvancedReportsIndex from "../pages/dashboard/reports/AdvancedReportsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
 import AuthConfirm from "../pages/auth/AuthConfirm";
@@ -89,6 +99,87 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      {
+        path: "products",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_INVENTORY}>
+            <ProductsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "customers",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_CUSTOMERS}>
+            <CustomersIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "pos",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <PosIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "sales",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <SalesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "brands",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_PRODUCTS}>
+            <BrandsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "locations",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_LOCATIONS}>
+            <LocationsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "purchases",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <PurchasesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "expenses",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_EXPENSES}>
+            <ExpensesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "invoices",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_INVOICING}>
+            <InvoicesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "reports",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_REPORTS}>
+            <AdvancedReportsIndex />
+          </ProtectedRoute>
+        ),
+      },
+      // El home (/dashboard) muestra los Reportes de ventas (ver Dashboard.tsx)
       // Add more dashboard routes here
     ],
   },

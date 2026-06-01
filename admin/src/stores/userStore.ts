@@ -9,6 +9,8 @@ export interface User {
   fullname: string;
   identification?: string;
   phone_number?: string;
+  location_id?: number | null;
+  location_name?: string | null;
   roles: string[];
   created_at: string;
   updated_at: string;
@@ -39,6 +41,7 @@ interface CreateUserData {
   email: string;
   identification?: string;
   phone_number?: string;
+  location_id?: number | null;
   roles: string[];
   password?: string;
   passwordConfirmation?: string;
@@ -51,6 +54,7 @@ interface UpdateUserData {
   email?: string;
   identification?: string;
   phone_number?: string;
+  location_id?: number | null;
   roles?: string[];
 }
 
@@ -199,6 +203,7 @@ export const useUserStore = create<UserState>((set, get) => ({
           email: userData.email,
           identification: userData.identification,
           phone_number: userData.phone_number,
+          location_id: userData.location_id ?? null,
         },
         roles: userData.roles.join(","),
       };

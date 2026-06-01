@@ -1,4 +1,4 @@
-import React, { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDebouncedCallback } from "use-debounce";
 import { Search, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -19,20 +19,31 @@ export default function SearchBar({
   debounceTime = 500,
   className = "",
 }: SearchBarProps) {
-  // Derive searchTerm directly from the prop — no useState/useEffect sync needed
-  const searchTerm = value;
-  const debouncedOnSearch = useDebouncedCallback((term: string) => {
+  // Estado local para mostrar caracteres inmediatamente mientras el usuario escribe.
+  // El prop `value` solo se usa para sincronizar resets externos (ej. "Limpiar filtros").
+  const [inputValue, setInputValue] = useState(value);
+  const prevExternalValue = useRef(value);
+
+  useEffect(() => {
+    // Si el padre resetea el valor (ej. a "") lo reflejamos en el input.
+    if (value !== prevExternalValue.current && value !== inputValue) {
+      setInputValue(value);
+    }
+    prevExternalValue.current = value;
+  }, [value, inputValue]);
+
+  const debouncedSearch = useDebouncedCallback((term: string) => {
     onSearch(term);
   }, debounceTime);
-  const debouncedRef = useRef(debouncedOnSearch);
 
   const handleChange = (newValue: string) => {
-    debouncedRef.current(newValue);
+    setInputValue(newValue);       // actualización visual inmediata
+    debouncedSearch(newValue);     // llamada al padre debounced
   };
 
   const clearSearch = () => {
-    // Cancel any pending debounced calls and clear immediately
-    debouncedRef.current.cancel();
+    debouncedSearch.cancel();
+    setInputValue("");
     onSearch("");
   };
 
@@ -43,10 +54,10 @@ export default function SearchBar({
         type="text"
         placeholder={placeholder}
         className="pl-8 pr-8"
-        value={searchTerm}
+        value={inputValue}
         onChange={(e) => handleChange(e.target.value)}
       />
-      {searchTerm && (
+      {inputValue && (
         <Button
           variant="ghost"
           size="sm"

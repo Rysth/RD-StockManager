@@ -4,13 +4,13 @@ import { useAuthStore } from "../stores/authStore";
 import { useBusinessStore } from "../stores/businessStore";
 import logo from "../assets/logo.svg";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
-import { Shield, Zap, BarChart3, Quote } from "lucide-react";
+import { BarChart3, PackageCheck, ReceiptText, Warehouse } from "lucide-react";
 
 export default function AuthLayout() {
   const { user, hasPermission, hasAnyPermission } = useAuthStore();
   const location = useLocation();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
-  const businessName = publicBusiness?.name || "MicroBiz";
+  const businessName = publicBusiness?.name || "StockManager";
   const businessLogo = publicBusiness?.logo_url || null;
   const defaultRoute = getDefaultAdminRoute({
     user,
@@ -153,13 +153,13 @@ export default function AuthLayout() {
           {/* Tagline */}
           <div className="max-w-md space-y-2 text-right">
             <h2 className="text-2xl font-bold leading-tight tracking-tight text-white/95">
-              Gestiona tu negocio de forma{" "}
+              Controla inventario, ventas y facturacion de forma{" "}
               <span className="bg-gradient-to-r from-teal-300 to-emerald-300 bg-clip-text text-transparent">
-                inteligente
+                profesional
               </span>
             </h2>
             <p className="text-sm leading-relaxed text-white/50">
-              Administra operaciones, equipo y crecimiento desde un solo lugar.
+              StockManager by RysthDesign centraliza POS, compras, gastos, reportes y facturacion electronica SRI.
             </p>
           </div>
 
@@ -167,17 +167,17 @@ export default function AuthLayout() {
           <div className="grid max-w-md grid-cols-2 gap-2.5">
             {[
               {
-                icon: Shield,
-                title: "Seguro",
-                desc: "Auth OTP y roles granulares",
+                icon: PackageCheck,
+                title: "Inventario",
+                desc: "Stock por sucursal y variantes",
               },
-              { icon: Zap, title: "Rápido", desc: "Interfaz optimizada" },
+              { icon: Warehouse, title: "Operacion", desc: "POS, compras y gastos" },
               {
-                icon: BarChart3,
-                title: "Analíticas",
-                desc: "Métricas en tiempo real",
+                icon: ReceiptText,
+                title: "SRI",
+                desc: "XML autorizado y RIDE",
               },
-              { icon: Quote, title: "Soporte", desc: "Documentación incluida" },
+              { icon: BarChart3, title: "Reportes", desc: "Caja, impuestos y ventas" },
             ].map((feature) => (
               <div
                 key={feature.title}

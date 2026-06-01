@@ -14,12 +14,10 @@ const getRoleLabel = (role: string) => {
   switch (role) {
     case "admin":
       return "Administrador";
-    case "manager":
-      return "Gerente";
-    case "operator":
-      return "Operador";
-    case "user":
-      return "Usuario";
+    case "business_owner":
+      return "Dueño del negocio";
+    case "business_employee":
+      return "Empleado";
     default:
       return role;
   }

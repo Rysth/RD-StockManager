@@ -32,6 +32,9 @@ export interface User {
 	roles: string[];
 	permissions: string[];
 	verified: boolean;
+	location_id?: number | null;
+	location_name?: string | null;
+	restricted_to_location?: boolean;
 	created_at: string;
 	updated_at: string;
 }
@@ -47,6 +50,18 @@ export const Permissions = {
 	VIEW_BUSINESS: "view_business",
 	EDIT_BUSINESS: "edit_business",
 	EDIT_PROFILE: "edit_profile",
+	VIEW_INVENTORY: "view_inventory",
+	MANAGE_PRODUCTS: "manage_products",
+	MANAGE_CUSTOMERS: "manage_customers",
+	MANAGE_SALES: "manage_sales",
+	VIEW_REPORTS: "view_reports",
+	VIEW_LOCATIONS: "view_locations",
+	MANAGE_LOCATIONS: "manage_locations",
+	VIEW_PURCHASES: "view_purchases",
+	MANAGE_PURCHASES: "manage_purchases",
+	VIEW_EXPENSES: "view_expenses",
+	MANAGE_EXPENSES: "manage_expenses",
+	MANAGE_INVOICING: "manage_invoicing",
 } as const;
 
 export type PermissionKey = (typeof Permissions)[keyof typeof Permissions];

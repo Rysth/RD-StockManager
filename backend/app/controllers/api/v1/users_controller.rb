@@ -38,12 +38,13 @@ module Api
           
           users = @users.map do |user|
             user_data = user.as_json(
-              only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at]
+              only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at]
             )
             user_data['email'] = user.account.email
             user_data['verified'] = user.account.status == 'verified'
             user_data['account_status'] = user.account.status
             user_data['roles'] = user.roles.pluck(:name)
+            user_data['location_name'] = user.location&.name
             user_data
           end
           
@@ -69,11 +70,12 @@ module Api
       def show
         cache_key = "user:#{@user.id}:#{@user.updated_at.to_i}"
         user_data = Rails.cache.fetch(cache_key, expires_in: 10.minutes) do
-          data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+          data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
           data['email'] = @user.account.email
           data['verified'] = @user.account.status == 'verified'
           data['account_status'] = @user.account.status
           data['roles'] = @user.roles.pluck(:name)
+          data['location_name'] = @user.location&.name
           data
         end
         
@@ -111,14 +113,12 @@ module Api
             # Clear related caches
             Rails.cache.delete_matched("users:index*")
 
-            # ✅ Send welcome invitation email (NOT verification email)
-            EmailNotificationJob.perform_later(@user.id, 'admin_invitation')
-
-            user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+            user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
             user_data['email'] = account.email
             user_data['verified'] = true # Always true for admin-created users
             user_data['account_status'] = 'verified'
             user_data['roles'] = @user.roles.pluck(:name)
+            user_data['location_name'] = @user.location&.name
 
             render json: { status: :success, user: user_data }, status: :created
           else
@@ -152,12 +152,13 @@ module Api
           Rails.cache.delete("user:#{@user.id}:*")
           
           # Make sure to include the current data in the response
-          user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :created_at, :updated_at])
+          user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
           user_data['email'] = @user.account.email
           user_data['verified'] = @user.account.status == 'verified'
           user_data['account_status'] = @user.account.status
           user_data['roles'] = @user.roles.pluck(:name)
-          
+          user_data['location_name'] = @user.location&.name
+
           render json: { status: :success, user: user_data }
         else
           render json: { status: :error, errors: @user.errors.full_messages }, status: :unprocessable_entity
@@ -171,7 +172,7 @@ module Api
         end
         
         # Prevent managers from deleting other managers
-        if @user.has_role?(:manager) && !current_rodauth_user.has_role?(:admin)
+        if @user.has_role?(:business_owner) && !current_rodauth_user.has_role?(:admin)
           return render json: { status: :error, message: 'Solo los administradores pueden eliminar usuarios gerentes' }, status: :forbidden
         end
               
@@ -290,6 +291,7 @@ module Api
           :fullname,
           :identification,
           :phone_number,
+          :location_id,
           :password,
           :password_confirmation
         )
@@ -297,7 +299,7 @@ module Api
 
       def authorize_show
         # Users can only show their own profile unless they're admin/manager
-        unless current_rodauth_user&.has_role?(:admin) || current_rodauth_user&.has_role?(:manager) || @user.id == current_rodauth_user&.id
+        unless current_rodauth_user&.has_role?(:admin) || current_rodauth_user&.has_role?(:business_owner) || @user.id == current_rodauth_user&.id
           render json: { status: :error, message: 'No tienes permiso para ver este usuario' }, status: :forbidden
         end
       end
@@ -362,7 +364,7 @@ module Api
         # Make sure current roles are preserved if user is updating themselves
         if @user.id == current_rodauth_user&.id
           # Manager users cannot modify their own roles
-          if current_rodauth_user.has_role?(:manager) && !current_rodauth_user.has_role?(:admin)
+          if current_rodauth_user.has_role?(:business_owner) && !current_rodauth_user.has_role?(:admin)
             return render json: { 
               status: :error, 
               message: 'Los gerentes no pueden modificar sus propios roles' 
@@ -375,13 +377,13 @@ module Api
         
         # Check if non-admin is trying to remove manager role from a manager
         if !current_rodauth_user&.has_role?(:admin) && 
-           current_rodauth_user&.has_role?(:manager) &&
-           existing_roles.include?('manager')
+           current_rodauth_user&.has_role?(:business_owner) &&
+           existing_roles.include?('business_owner')
            
           requested_roles = params[:roles].split(',').map(&:strip)
           
           # If request doesn't include 'manager' but user was a manager before
-          if !requested_roles.include?('manager')
+          if !requested_roles.include?('business_owner')
             return render json: { 
               status: :error, 
               message: 'Solo los administradores pueden quitar el rol de gerente' 

@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 import { chartColors, type AvailableChartColorsKeys } from "../lib/chartUtils";
 
 interface DonutChartProps {
-  data: any[];
+  data: Record<string, unknown>[];
   category: string;
   value: string;
   className?: string;
@@ -43,7 +43,7 @@ export const DonutChart = ({
           >
             {data.map((entry, index) => (
               <Cell
-                key={`cell-${entry[category] ?? index}`}
+                key={`cell-${String(entry[category] ?? index)}`}
                 fill={`var(--color-${colors[index % colors.length]})`}
                 className={chartColors[colors[index % colors.length]]?.fill}
               />
