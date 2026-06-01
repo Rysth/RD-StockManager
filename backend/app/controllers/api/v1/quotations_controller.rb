@@ -105,7 +105,7 @@ module Api
 
       def set_quotation
         @quotation = if action_name == "show"
-                       Quotation.includes(:customer, :user, :sale, quotation_items: { product_variant: :product }).find(params[:id])
+                       Quotation.includes(:customer, :user, quotation_items: { product_variant: :product }).find(params[:id])
                      else
                        Quotation.includes(:quotation_items).find(params[:id])
                      end

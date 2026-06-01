@@ -35,7 +35,7 @@ const QuotePrintTemplate = forwardRef<HTMLDivElement, QuotePrintTemplateProps>(
     };
 
     const logoSrc = business?.logo_url || (logo as string);
-    const businessName = business?.name || "RysthDesign";
+    const businessName = business?.name || "StockManager";
     const businessPhone = business?.whatsapp || "";
 
     return (
@@ -213,7 +213,7 @@ const QuotePrintTemplate = forwardRef<HTMLDivElement, QuotePrintTemplateProps>(
           <p>Gracias por su preferencia</p>
           <div className="quote-footer-powered">
             <p>
-              Powered by <strong>RysthDesign</strong>
+              Powered by <strong>StockManager</strong>
             </p>
             <p className="quote-footer-website">www.rysthdesign.com</p>
           </div>

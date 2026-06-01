@@ -47,6 +47,21 @@ Permission.seed!
 require 'bcrypt'
 password_hash = BCrypt::Password.create("password123", cost: 12)
 
+def valid_cedula(sequence)
+  base = "09#{sequence.to_s.rjust(7, '0')}"
+  digits = base.chars.map(&:to_i)
+  sum = digits.each_with_index.sum do |digit, index|
+    value = index.even? ? digit * 2 : digit
+    value > 9 ? value - 9 : value
+  end
+  check_digit = (10 - (sum % 10)) % 10
+  "#{base}#{check_digit}"
+end
+
+def valid_ruc(sequence)
+  "#{valid_cedula(sequence)}001"
+end
+
 def create_user(email:, fullname:, username:, role:, password_hash:)
   account = Account.create!(email: email, password_hash: password_hash, status: 2) # verified
   user = User.create!(account: account, fullname: fullname, username: username)
@@ -193,10 +208,16 @@ first_names = %w[María José Andrea Carlos Gabriela Luis Daniela Jorge Verónic
 last_names  = %w[González Pérez Vera Macías Cedeño Zambrano Mendoza Loor Bravo Andrade Vélez Ponce Rodríguez Castro Intriago Palacios Moreira Salazar Chávez Burgos]
 cities      = ["Guayaquil", "Quito", "Cuenca", "Manta", "Machala", "Portoviejo", "Durán", "Ambato", "Loja", "Santo Domingo"]
 customers = 20.times.map do |i|
+  id_type = i.even? ? "cedula" : "ruc"
+  id_number = id_type == "cedula" ? valid_cedula(100_000 + i) : valid_ruc(100_000 + i)
   Customer.create!(
     name: "#{first_names[i]} #{last_names[i]}",
     phone: "09#{rand(10000000..99999999)}",
+    email: "cliente#{i + 1}@example.com",
     city: cities.sample,
+    id_type: id_type,
+    id_number: id_number,
+    address: "Calle #{i + 1} y Av. Principal",
     active: true
   )
 end
@@ -251,6 +272,7 @@ supplier_names = [
   "Comercial Gorras Ec", "Mayorista Deportivo"
 ]
 suppliers = supplier_names.map.with_index do |name, i|
+  id_number = valid_ruc(200_000 + i)
   Customer.create!(
     name: name,
     is_customer: false,
@@ -258,6 +280,9 @@ suppliers = supplier_names.map.with_index do |name, i|
     phone: "04#{rand(2000000..2999999)}",
     email: "ventas#{i + 1}@proveedor.com",
     city: ["Guayaquil", "Quito", "Ambato"].sample,
+    id_type: "ruc",
+    id_number: id_number,
+    address: "Km #{i + 1} vía principal",
     payment_term_days: [15, 30, 45].sample,
     active: true
   )
