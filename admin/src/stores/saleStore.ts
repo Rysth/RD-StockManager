@@ -94,6 +94,7 @@ interface SaleState {
   syncSaleItems: (id: number, items: SaleItemInput[]) => Promise<Sale>;
   deleteSale: (id: number) => Promise<void>;
   issueInvoice: (id: number) => Promise<Invoice>;
+  sendInvoiceEmail: (id: number) => Promise<void>;
   downloadInvoiceXml: (id: number) => Promise<void>;
   downloadInvoiceRide: (id: number) => Promise<void>;
   fetchReport: () => Promise<void>;
@@ -231,6 +232,14 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const msg = toMessage(error, "Error al emitir la factura electrónica");
       set({ error: msg, isSubmitting: false });
       throw new Error(msg);
+    }
+  },
+
+  sendInvoiceEmail: async (id) => {
+    try {
+      await api.post(`/api/v1/sales/${id}/send_invoice_email`);
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al enviar el correo de la factura"));
     }
   },
 

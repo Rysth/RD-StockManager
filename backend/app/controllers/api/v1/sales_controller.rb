@@ -3,7 +3,7 @@ module Api
     class SalesController < BaseController
       MONTH_ABBR_ES = [nil, "Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].freeze
 
-      INVOICE_ACTIONS = [:invoice, :invoice_xml, :invoice_ride].freeze
+      INVOICE_ACTIONS = [:invoice, :invoice_xml, :invoice_ride, :send_invoice_email].freeze
 
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
@@ -11,7 +11,7 @@ module Api
       before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
       before_action :set_sale, only: [:show, :update, :destroy, :sync_items]
       before_action :set_sale_for_invoice, only: [:invoice]
-      before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride]
+      before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride, :send_invoice_email]
 
       # GET /api/v1/sales
       def index
@@ -154,13 +154,27 @@ module Api
         render_error(e.message, :unprocessable_entity)
       end
 
+      # POST /api/v1/sales/:id/send_invoice_email — reenvía el email de la factura al cliente.
+      def send_invoice_email
+        inv = @sale.invoices.authorized.order(:created_at).last
+        return render_error("No hay factura autorizada para esta venta", :not_found) unless inv
+
+        email = @sale.customer&.email.presence
+        return render_error("El cliente no tiene correo registrado", :unprocessable_entity) unless email
+
+        InvoiceMailer.authorized(inv).deliver_later
+        render_success({}, "Factura enviada a #{email}")
+      rescue StandardError => e
+        render_error("No se pudo enviar el correo: #{e.message}", :unprocessable_entity)
+      end
+
       # GET /api/v1/sales/:id/invoice_xml — descarga el XML autorizado.
       def invoice_xml
         inv = @sale.invoices.authorized.order(:created_at).last
         return render_error("No hay factura autorizada para esta venta", :not_found) unless inv&.xml_autorizado.present?
 
         send_data inv.xml_autorizado, type: "application/xml",
-                  filename: "#{inv.clave_acceso}.xml", disposition: "attachment"
+                  filename: "XML_FACTURA_#{inv.numero_comprobante}.xml", disposition: "attachment"
       end
 
       # GET /api/v1/sales/:id/invoice_ride — descarga el RIDE (PDF).
@@ -169,7 +183,7 @@ module Api
         return render_error("No hay RIDE disponible para esta venta", :not_found) unless inv&.ride_pdf.present?
 
         send_data inv.ride_pdf, type: "application/pdf",
-                  filename: "#{inv.clave_acceso}.pdf", disposition: "attachment"
+                  filename: "RIDE_FACTURA_#{inv.numero_comprobante}.pdf", disposition: "attachment"
       end
 
       # GET /api/v1/sales/report

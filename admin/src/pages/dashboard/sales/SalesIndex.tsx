@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { AlertCircle, Download, Eye, FileText, Loader2, Pencil, Printer, ReceiptText, Trash2 } from "lucide-react";
+import { AlertCircle, Download, Eye, FileText, Loader2, Mail, Pencil, Printer, ReceiptText, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -131,6 +131,7 @@ function SalesList() {
     fetchSale,
     clearSelectedSale,
     issueInvoice,
+    sendInvoiceEmail,
     downloadInvoiceXml,
     downloadInvoiceRide,
   } = useSaleStore();
@@ -147,6 +148,7 @@ function SalesList() {
   const [completeId, setCompleteId] = useState<number | null>(null);
   const [invoiceConfirmId, setInvoiceConfirmId] = useState<number | null>(null);
   const [invoicingId, setInvoicingId] = useState<number | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
   const sriEnabled = business?.sri_enabled === true;
@@ -315,6 +317,18 @@ function SalesList() {
       await downloadInvoiceRide(id);
     } catch (e) {
       toast.error(errorMessage(e, "Error al descargar el RIDE"));
+    }
+  };
+
+  const handleSendEmail = async (id: number) => {
+    setSendingEmail(true);
+    try {
+      await sendInvoiceEmail(id);
+      toast.success("Factura enviada al correo del cliente");
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al enviar el correo"));
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -633,6 +647,20 @@ function SalesList() {
                           onClick={() => downloadRide(selectedSale.id)}
                         >
                           <FileText className="h-4 w-4" /> RIDE
+                        </Button>
+                        <Button
+                          variant="outline"
+                          className="flex-1 gap-2"
+                          disabled={sendingEmail || !selectedSale.customer_name}
+                          title={!selectedSale.customer_name ? "La venta no tiene cliente con email" : "Enviar factura por correo"}
+                          onClick={() => handleSendEmail(selectedSale.id)}
+                        >
+                          {sendingEmail ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Mail className="h-4 w-4" />
+                          )}
+                          Email
                         </Button>
                       </>
                     )}
