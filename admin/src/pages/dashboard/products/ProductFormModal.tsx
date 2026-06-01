@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, ImagePlus, ImageIcon } from "lucide-react";
+import { Plus, X, ImagePlus, ImageIcon, Layers, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
-import type { Product, ProductVariant, ProductImage } from "../../../types/inventory";
+import type {
+  Product,
+  ProductVariant,
+  ProductImage,
+} from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -74,9 +78,15 @@ const EMPTY_FORM: ProductForm = {
 
 function Thumb({ url, size = "h-16 w-16" }: { url?: string; size?: string }) {
   return url ? (
-    <img src={url} alt="" className={`${size} rounded-md object-cover border`} />
+    <img
+      src={url}
+      alt=""
+      className={`${size} rounded-md object-cover border`}
+    />
   ) : (
-    <div className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}>
+    <div
+      className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}
+    >
       <ImageIcon className="h-4 w-4" />
     </div>
   );
@@ -164,7 +174,11 @@ interface ProductFormModalProps {
   product: Product | null;
 }
 
-export default function ProductFormModal({ open, onClose, product }: ProductFormModalProps) {
+export default function ProductFormModal({
+  open,
+  onClose,
+  product,
+}: ProductFormModalProps) {
   const {
     categories,
     brands,
@@ -191,7 +205,10 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
         brand_id: product.brand_id != null ? String(product.brand_id) : "",
         base_price: String(product.base_price),
         cost: String(product.cost ?? ""),
-        wholesale_price: product.wholesale_price != null ? String(product.wholesale_price) : "",
+        wholesale_price:
+          product.wholesale_price != null
+            ? String(product.wholesale_price)
+            : "",
         wholesale_min_quantity: String(product.wholesale_min_quantity ?? 3),
         description: product.description ?? "",
         active: product.active,
@@ -232,14 +249,21 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
   const patchVariant = (index: number, patch: Partial<VariantForm>) =>
     setForm((f) => ({
       ...f,
-      variants: f.variants.map((v, i) => (i === index ? { ...v, ...patch } : v)),
+      variants: f.variants.map((v, i) =>
+        i === index ? { ...v, ...patch } : v,
+      ),
     }));
 
   const removeVariant = (index: number) =>
     setForm((f) => {
       const v = f.variants[index];
       if (v.id) {
-        return { ...f, variants: f.variants.map((x, i) => (i === index ? { ...x, _destroy: true } : x)) };
+        return {
+          ...f,
+          variants: f.variants.map((x, i) =>
+            i === index ? { ...x, _destroy: true } : x,
+          ),
+        };
       }
       return { ...f, variants: f.variants.filter((_, i) => i !== index) };
     });
@@ -248,9 +272,14 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
     if (!product) return;
     try {
       await deleteProductImage(product.id, imageId);
-      setForm((f) => ({ ...f, existingImages: f.existingImages.filter((i) => i.id !== imageId) }));
+      setForm((f) => ({
+        ...f,
+        existingImages: f.existingImages.filter((i) => i.id !== imageId),
+      }));
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al eliminar la imagen");
+      toast.error(
+        e instanceof Error ? e.message : "Error al eliminar la imagen",
+      );
     }
   };
 
@@ -259,9 +288,13 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
     if (!v.id) return;
     try {
       await deleteVariantImage(v.id, imageId);
-      patchVariant(variantIndex, { existingImages: v.existingImages.filter((i) => i.id !== imageId) });
+      patchVariant(variantIndex, {
+        existingImages: v.existingImages.filter((i) => i.id !== imageId),
+      });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al eliminar la imagen");
+      toast.error(
+        e instanceof Error ? e.message : "Error al eliminar la imagen",
+      );
     }
   };
 
@@ -271,10 +304,26 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
 
     const variantAttributes = form.variants
       .filter((v) => v.id || (!v._destroy && (v.size || v.color)))
-      .map((v) => ({ id: v.id, size: v.size, color: v.color, stock: Number(v.stock) || 0, _destroy: v._destroy }));
+      .map((v) => ({
+        id: v.id,
+        size: v.size,
+        color: v.color,
+        stock: Number(v.stock) || 0,
+        _destroy: v._destroy,
+      }));
 
-    if (!product && form.product_type === "service" && variantAttributes.length === 0) {
-      variantAttributes.push({ id: undefined, size: "Servicio", color: "", stock: 0, _destroy: undefined });
+    if (
+      !product &&
+      form.product_type === "service" &&
+      variantAttributes.length === 0
+    ) {
+      variantAttributes.push({
+        id: undefined,
+        size: "Servicio",
+        color: "",
+        stock: 0,
+        _destroy: undefined,
+      });
     }
 
     const payload = {
@@ -283,7 +332,9 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
       brand_id: form.brand_id ? Number(form.brand_id) : null,
       base_price: parseFloat(form.base_price) || 0,
       cost: parseFloat(form.cost) || 0,
-      wholesale_price: form.wholesale_price ? parseFloat(form.wholesale_price) : null,
+      wholesale_price: form.wholesale_price
+        ? parseFloat(form.wholesale_price)
+        : null,
       wholesale_min_quantity: Number(form.wholesale_min_quantity) || 3,
       description: form.description,
       active: form.active,
@@ -297,32 +348,50 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
         ? await updateProduct(product.id, payload)
         : await createProduct(payload);
 
-      if (form.pendingFiles.length) await uploadProductImages(saved.id, form.pendingFiles);
+      if (form.pendingFiles.length)
+        await uploadProductImages(saved.id, form.pendingFiles);
 
       const used = new Set<number>();
       for (const v of form.variants) {
         if (v._destroy || !v.pendingFiles.length) continue;
         const target = v.id
           ? saved.variants.find((s) => s.id === v.id)
-          : saved.variants.find((s) => s.size === v.size && s.color === v.color && !used.has(s.id));
+          : saved.variants.find(
+              (s) =>
+                s.size === v.size && s.color === v.color && !used.has(s.id),
+            );
         if (target) {
           used.add(target.id);
           await uploadVariantImages(target.id, v.pendingFiles);
         }
       }
 
-      await fetchProducts(pagination.current_page, pagination.per_page, currentFilters);
-      toast.success(product ? "Producto actualizado correctamente" : "Producto creado correctamente");
+      await fetchProducts(
+        pagination.current_page,
+        pagination.per_page,
+        currentFilters,
+      );
+      toast.success(
+        product
+          ? "Producto actualizado correctamente"
+          : "Producto creado correctamente",
+      );
       onClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al guardar el producto");
+      toast.error(
+        e instanceof Error ? e.message : "Error al guardar el producto",
+      );
     } finally {
       setSaving(false);
     }
   };
 
   const margin =
-    form.base_price && form.cost ? parseFloat(form.base_price) - parseFloat(form.cost) : null;
+    form.base_price && form.cost
+      ? parseFloat(form.base_price) - parseFloat(form.cost)
+      : null;
+
+  const visibleVariantCount = form.variants.filter((v) => !v._destroy).length;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -331,8 +400,12 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
         onInteractOutside={(e) => e.preventDefault()}
       >
         <DialogHeader>
-          <DialogTitle>{product ? "Editar Producto" : "Nuevo Producto"}</DialogTitle>
-          <DialogDescription>Datos del producto, precios, imágenes y variantes</DialogDescription>
+          <DialogTitle>
+            {product ? "Editar Producto" : "Nuevo Producto"}
+          </DialogTitle>
+          <DialogDescription>
+            Datos del producto, precios, imágenes y variantes
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
@@ -355,7 +428,11 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="">Sin marca</option>
-                {brands.map((b) => (<option key={b.id} value={b.id}>{b.name}</option>))}
+                {brands.map((b) => (
+                  <option key={b.id} value={b.id}>
+                    {b.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
@@ -363,7 +440,12 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
               <select
                 id="p-type"
                 value={form.product_type}
-                onChange={(e) => setForm({ ...form, product_type: e.target.value as "good" | "service" })}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    product_type: e.target.value as "good" | "service",
+                  })
+                }
                 className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
               >
                 <option value="good">Bien físico</option>
@@ -376,30 +458,60 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             <div className="space-y-2">
               <Label htmlFor="p-price">Precio venta</Label>
-              <Input id="p-price" type="number" step="0.01" value={form.base_price}
-                onChange={(e) => setForm({ ...form, base_price: e.target.value })} />
+              <Input
+                id="p-price"
+                type="number"
+                step="0.01"
+                value={form.base_price}
+                onChange={(e) =>
+                  setForm({ ...form, base_price: e.target.value })
+                }
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-cost">Costo unitario</Label>
-              <Input id="p-cost" type="number" step="0.01" value={form.cost}
-                onChange={(e) => setForm({ ...form, cost: e.target.value })} />
+              <Input
+                id="p-cost"
+                type="number"
+                step="0.01"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-wprice">Precio mayoreo</Label>
-              <Input id="p-wprice" type="number" step="0.01" placeholder="Opcional" value={form.wholesale_price}
-                onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })} />
+              <Input
+                id="p-wprice"
+                type="number"
+                step="0.01"
+                placeholder="Opcional"
+                value={form.wholesale_price}
+                onChange={(e) =>
+                  setForm({ ...form, wholesale_price: e.target.value })
+                }
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="p-wmin">Mín. mayoreo</Label>
-              <Input id="p-wmin" type="number" min="1" value={form.wholesale_min_quantity}
-                onChange={(e) => setForm({ ...form, wholesale_min_quantity: e.target.value })} />
+              <Input
+                id="p-wmin"
+                type="number"
+                min="1"
+                value={form.wholesale_min_quantity}
+                onChange={(e) =>
+                  setForm({ ...form, wholesale_min_quantity: e.target.value })
+                }
+              />
             </div>
           </div>
           {margin != null && (
             <p className="text-xs text-muted-foreground">
               Margen estimado por unidad:{" "}
               <span className="font-medium text-foreground">
-                {new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(margin)}
+                {new Intl.NumberFormat("es-EC", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(margin)}
               </span>
               {form.wholesale_price
                 ? ` · mayoreo desde ${form.wholesale_min_quantity} uds a ${new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(parseFloat(form.wholesale_price))}`
@@ -413,11 +525,17 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
             <select
               id="p-category"
               value={form.category_id}
-              onChange={(e) => setForm({ ...form, category_id: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, category_id: e.target.value })
+              }
               className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="">Selecciona...</option>
-              {categoryOptions.map((c) => (<option key={c.id} value={c.id}>{c.name}</option>))}
+              {categoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -427,7 +545,9 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
             <Textarea
               id="p-desc"
               value={form.description}
-              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, description: e.target.value })
+              }
             />
           </div>
 
@@ -447,10 +567,18 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
             <ImageGallery
               existing={form.existingImages}
               pending={form.pendingFiles}
-              onAddFiles={(files) => setForm((f) => ({ ...f, pendingFiles: [...f.pendingFiles, ...files] }))}
+              onAddFiles={(files) =>
+                setForm((f) => ({
+                  ...f,
+                  pendingFiles: [...f.pendingFiles, ...files],
+                }))
+              }
               onRemoveExisting={removeProductImage}
               onRemovePending={(i) =>
-                setForm((f) => ({ ...f, pendingFiles: f.pendingFiles.filter((_, idx) => idx !== i) }))
+                setForm((f) => ({
+                  ...f,
+                  pendingFiles: f.pendingFiles.filter((_, idx) => idx !== i),
+                }))
               }
             />
           </div>
@@ -458,74 +586,169 @@ export default function ProductFormModal({ open, onClose, product }: ProductForm
           {/* Variants */}
           <div className="space-y-3">
             <div className="flex items-center justify-between">
-              <Label>Variantes (talla / color / stock / imágenes)</Label>
+              <div className="flex items-center gap-2">
+                <Layers className="h-4 w-4 text-muted-foreground" />
+                <Label className="text-sm font-semibold">Variantes</Label>
+                {visibleVariantCount > 0 && (
+                  <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                    {visibleVariantCount}
+                  </span>
+                )}
+              </div>
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => setForm((f) => ({ ...f, variants: [...f.variants, emptyVariant()] }))}
+                onClick={() =>
+                  setForm((f) => ({
+                    ...f,
+                    variants: [...f.variants, emptyVariant()],
+                  }))
+                }
               >
-                <Plus className="h-3.5 w-3.5 mr-1" /> Agregar
+                <Plus className="h-3.5 w-3.5 mr-1" /> Agregar variante
               </Button>
             </div>
-            <div className="space-y-3">
-              {form.variants.map((v, index) =>
-                v._destroy ? null : (
-                  <div key={index} className="space-y-2 rounded-lg border p-3">
-                    <div className="flex items-center gap-2">
-                      <Input
-                        placeholder="Talla"
-                        value={v.size}
-                        onChange={(e) => patchVariant(index, { size: e.target.value })}
-                      />
-                      <Input
-                        placeholder="Color"
-                        value={v.color}
-                        onChange={(e) => patchVariant(index, { color: e.target.value })}
-                      />
-                      <Input
-                        type="number"
-                        placeholder="Stock"
-                        value={v.stock}
-                        className="w-24"
-                        onChange={(e) => patchVariant(index, { stock: Number(e.target.value) })}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 shrink-0 text-destructive"
-                        onClick={() => removeVariant(index)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+
+            {visibleVariantCount === 0 ? (
+              <div className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed py-8 text-center">
+                <Layers className="h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm text-muted-foreground">
+                  Sin variantes. Agrega tallas, colores y su stock.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {form.variants.map((v, index) => {
+                  if (v._destroy) return null;
+                  const variantNumber = form.variants
+                    .slice(0, index + 1)
+                    .filter((x) => !x._destroy).length;
+                  const title =
+                    [v.size, v.color].filter(Boolean).join(" / ") ||
+                    `Variante ${variantNumber}`;
+                  return (
+                    <div
+                      key={index}
+                      className="overflow-hidden rounded-xl border bg-muted/30 transition-colors hover:border-primary/30"
+                    >
+                      {/* Cabecera de la variante */}
+                      <div className="flex items-center justify-between border-b bg-background px-3 py-2">
+                        <div className="flex items-center gap-2">
+                          <span className="flex h-6 w-6 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                            {variantNumber}
+                          </span>
+                          <span className="text-sm font-medium">{title}</span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                          onClick={() => removeVariant(index)}
+                          title="Eliminar variante"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+
+                      {/* Cuerpo: campos + imágenes */}
+                      <div className="space-y-3 p-3">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              Talla
+                            </Label>
+                            <Input
+                              placeholder="Ej. M"
+                              value={v.size}
+                              onChange={(e) =>
+                                patchVariant(index, { size: e.target.value })
+                              }
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              Color
+                            </Label>
+                            <Input
+                              placeholder="Ej. Negro"
+                              value={v.color}
+                              onChange={(e) =>
+                                patchVariant(index, { color: e.target.value })
+                              }
+                              className="h-9"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">
+                              Stock
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              placeholder="0"
+                              value={v.stock}
+                              onChange={(e) =>
+                                patchVariant(index, {
+                                  stock: Number(e.target.value),
+                                })
+                              }
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">
+                            Imágenes de la variante
+                          </Label>
+                          <ImageGallery
+                            thumbSize="h-12 w-12"
+                            existing={v.existingImages}
+                            pending={v.pendingFiles}
+                            onAddFiles={(files) =>
+                              patchVariant(index, {
+                                pendingFiles: [...v.pendingFiles, ...files],
+                              })
+                            }
+                            onRemoveExisting={(imageId) =>
+                              removeVariantImage(index, imageId)
+                            }
+                            onRemovePending={(i) =>
+                              patchVariant(index, {
+                                pendingFiles: v.pendingFiles.filter(
+                                  (_, idx) => idx !== i,
+                                ),
+                              })
+                            }
+                          />
+                          {!v.id && v.pendingFiles.length > 0 && (
+                            <p className="text-xs text-muted-foreground">
+                              Las imágenes se subirán al guardar el producto.
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <ImageGallery
-                      thumbSize="h-12 w-12"
-                      existing={v.existingImages}
-                      pending={v.pendingFiles}
-                      onAddFiles={(files) => patchVariant(index, { pendingFiles: [...v.pendingFiles, ...files] })}
-                      onRemoveExisting={(imageId) => removeVariantImage(index, imageId)}
-                      onRemovePending={(i) =>
-                        patchVariant(index, { pendingFiles: v.pendingFiles.filter((_, idx) => idx !== i) })
-                      }
-                    />
-                    {!v.id && v.pendingFiles.length > 0 && (
-                      <p className="text-xs text-muted-foreground">
-                        Las imágenes se subirán al guardar el producto.
-                      </p>
-                    )}
-                  </div>
-                ),
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button variant="outline" onClick={onClose}>
+            Cancelar
+          </Button>
           <Button onClick={handleSubmit} disabled={saving}>
-            {saving ? "Guardando..." : product ? "Guardar cambios" : "Crear producto"}
+            {saving
+              ? "Guardando..."
+              : product
+                ? "Guardar cambios"
+                : "Crear producto"}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -315,7 +315,15 @@ export default function AppSidebar({
             <SidebarGroupLabel>Tienda</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {/* Para business_employee: solo POS, Ventas e Inventario */}
+                {/*
+                  Orden = flujo de trabajo paso a paso:
+                  1) Contactos → 2) Marcas/Categorías → 3) Inventario →
+                  4) Ubicaciones → 5) Compras → 6) Punto de Venta →
+                  7) Ventas → 8) Cotizaciones → 9) Facturas →
+                  10) Gastos → 11) Informes.
+                  Para business_employee: solo POS, Ventas e Inventario.
+                */}
+                {/* 1. Contactos (clientes y proveedores) */}
                 {canManageCustomers && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -331,36 +339,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canViewPurchases && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Compras"
-                      isActive={isActiveRoute("/dashboard/purchases")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/purchases">
-                        <Truck />
-                        <span>Compras</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {canViewInventory && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Inventario"
-                      isActive={isActiveRoute("/dashboard/products")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/products">
-                        <Package2 />
-                        <span>Inventario</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
+                {/* 2. Marcas y categorías (clasifican los productos) */}
                 {canManageProducts && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -376,6 +355,23 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 3. Inventario (productos) */}
+                {canViewInventory && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Inventario"
+                      isActive={isActiveRoute("/dashboard/products")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/products">
+                        <Package2 />
+                        <span>Inventario</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {/* 4. Ubicaciones (bodegas donde vive el stock) */}
                 {canManageLocations && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -391,6 +387,23 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 5. Compras (ingreso de mercancía / stock) */}
+                {canViewPurchases && !isBusinessEmployee && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Compras"
+                      isActive={isActiveRoute("/dashboard/purchases")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/purchases">
+                        <Truck />
+                        <span>Compras</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {/* 6. Punto de Venta */}
                 {(canManageSales ||
                   (canViewPurchases && !isBusinessEmployee)) && (
                   <SidebarMenuItem>
@@ -407,6 +420,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 7. Ventas (historial) */}
                 {canManageSales && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -422,6 +436,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 8. Cotizaciones */}
                 {canManageQuotations && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -437,6 +452,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 9. Facturas */}
                 {canManageInvoicing && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -452,6 +468,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 10. Gastos */}
                 {canViewExpenses && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
@@ -467,6 +484,7 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {/* 11. Informes */}
                 {canViewReports && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
