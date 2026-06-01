@@ -9,7 +9,7 @@ module Api
 
       # GET /api/v1/invoices
       def index
-        @q = Invoice.includes(sale: :customer).ransack(search_params)
+        @q = Invoice.includes(:sale).ransack(search_params)
         @q.sorts = "created_at desc" if @q.sorts.empty?
 
         @pagy, invoices = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -44,7 +44,7 @@ module Api
       private
 
       def set_invoice
-        @invoice = Invoice.includes(sale: :customer).find(params[:id])
+        @invoice = Invoice.find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Factura no encontrada", :not_found)
       end

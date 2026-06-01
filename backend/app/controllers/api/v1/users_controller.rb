@@ -113,9 +113,6 @@ module Api
             # Clear related caches
             Rails.cache.delete_matched("users:index*")
 
-            # ✅ Send welcome invitation email (NOT verification email)
-            EmailNotificationJob.perform_later(@user.id, 'admin_invitation')
-
             user_data = @user.as_json(only: [:id, :username, :fullname, :identification, :phone_number, :location_id, :created_at, :updated_at])
             user_data['email'] = account.email
             user_data['verified'] = true # Always true for admin-created users

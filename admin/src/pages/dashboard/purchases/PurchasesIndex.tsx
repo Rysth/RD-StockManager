@@ -51,7 +51,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { Separator } from "@/components/ui/separator";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
 
@@ -98,7 +97,6 @@ export default function PurchasesIndex() {
     clearSelectedPurchase,
     createPurchase,
     updatePurchaseStatus,
-    updatePurchasePayment,
     deletePurchase,
     createPayment,
   } = usePurchaseStore();

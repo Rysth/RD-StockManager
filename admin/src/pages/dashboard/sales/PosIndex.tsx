@@ -117,7 +117,7 @@ export default function PosIndex() {
   // Cart state
   const [customerId, setCustomerId] = useState<string>("");
   const [customerSearch, setCustomerSearch] = useState("");
-  const [customerSearching, setCustomerSearching] = useState(false);
+  const [_customerSearching, _setCustomerSearching] = useState(false);
   const [locationId, setLocationId] = useState<string>("");
   const [variantQuery, setVariantQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
@@ -150,8 +150,9 @@ export default function PosIndex() {
   // Customer by ID flow
   const [customerByOpen, setCustomerByOpen] = useState(false);
   const [customerByQuery, setCustomerByQuery] = useState("");
-  const [customerByResult, setCustomerByResult] = useState<Customer | null>(null);
-  const [customerByNotFound, setCustomerByNotFound] = useState(false);
+  const [_customerByResult, _setCustomerByResult] = useState<Customer | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_customerByNotFound, setCustomerByNotFound] = useState(false);
   const customerSearchRef = useRef<HTMLInputElement>(null);
 
   // Customer edit
@@ -317,9 +318,9 @@ export default function PosIndex() {
       const created = await createCustomer({
         name: quickForm.name,
         phone: quickForm.phone,
-        email: quickForm.email || null,
+        email: quickForm.email || undefined,
         city: quickForm.city,
-        id_number: quickForm.id_number || null,
+        id_number: quickForm.id_number || undefined,
         id_type: (quickForm.id_type as "cedula" | "pasaporte" | "ruc") || "cedula",
       });
       setCustomerId(String(created.id));
@@ -358,9 +359,9 @@ export default function PosIndex() {
       await updateCustomer(selectedCustomer.id, {
         name: editForm.name,
         phone: editForm.phone,
-        email: editForm.email || null,
+        email: editForm.email || undefined,
         city: editForm.city,
-        id_number: editForm.id_number || null,
+        id_number: editForm.id_number || undefined,
       });
       await fetchCustomers(1, 200, "");
       toast.success("Cliente actualizado");

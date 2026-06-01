@@ -213,7 +213,7 @@ class RodauthMain < Rodauth::Rails::Auth
     create_verify_account_email do
       RodauthMailer.verify_account(
         account[:email], 
-        "Verifica tu cuenta en R&R Template",
+        "Verifica tu cuenta en StockManager",
         "#{token_param_value(verify_account_key_value)}"# Remove account_id parameter
       )
     end
@@ -221,14 +221,14 @@ class RodauthMain < Rodauth::Rails::Auth
     create_reset_password_email do
       RodauthMailer.reset_password(
         account[:email],
-        "Restablece tu contraseña en R&R Template", 
+        "Restablece tu contraseña en StockManager", 
         "#{token_param_value(reset_password_key_value)}"
       )
     end
 
     # Email subjects in Spanish
-    verify_account_email_subject "Verifica tu cuenta en R&R Template"
-    reset_password_email_subject "Restablece tu contraseña en R&R Template"
+    verify_account_email_subject "Verifica tu cuenta en StockManager"
+    reset_password_email_subject "Restablece tu contraseña en StockManager"
 
   end
 end

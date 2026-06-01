@@ -28,7 +28,7 @@ class EmailNotificationJob < ApplicationJob
       RodauthMailer.admin_invitation(
         user.account.email,
         user.fullname,
-        "¡Bienvenido a R&R Template!"
+        "¡Bienvenido a StockManager!"
       ).deliver_now
       
       Rails.logger.info "Admin invitation email sent successfully to #{user.account.email}"
