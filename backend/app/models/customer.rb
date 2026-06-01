@@ -5,8 +5,11 @@ class Customer < ApplicationRecord
   has_many :purchases, dependent: :nullify
 
   validates :name, presence: { message: "El nombre es requerido" }
-  validates :id_type, inclusion: { in: %w[cedula pasaporte ruc], message: "Tipo de documento inválido" }, allow_blank: true
+  validates :id_type, presence: { message: "El tipo de documento es requerido" },
+                      inclusion: { in: %w[cedula pasaporte ruc], message: "Tipo de documento inválido" }
+  validates :id_number, presence: { message: "El número de documento es requerido" }
   validate :must_be_customer_or_supplier
+  validate :valid_id_number_for_type
 
   scope :active, -> { where(active: true) }
   scope :customers, -> { where(is_customer: true) }
@@ -42,5 +45,15 @@ class Customer < ApplicationRecord
     return if is_customer? || is_supplier?
 
     errors.add(:base, "El contacto debe ser cliente, proveedor o ambos")
+  end
+
+  def valid_id_number_for_type
+    return if id_type.blank? || id_number.blank?
+
+    sri_type = { "cedula" => "05", "ruc" => "04", "pasaporte" => "06" }[id_type]
+    result = SriFacturacion::IdentificacionValidator.validar(sri_type, id_number)
+    return if result.valido?
+
+    errors.add(:base, "Número de documento: #{result.error}")
   end
 end

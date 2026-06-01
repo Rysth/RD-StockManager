@@ -59,7 +59,7 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   name: "",
-  id_type: "",
+  id_type: "cedula",
   id_number: "",
   phone: "",
   email: "",
@@ -86,6 +86,18 @@ const selectClass =
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
+
+const validateIdNumber = (idType: string, idNumber: string) => {
+  const value = idNumber.trim();
+  if (!idType) return "El tipo de documento es requerido";
+  if (!value) return "El número de documento es requerido";
+  if (idType === "cedula" && !/^\d{10}$/.test(value)) return "La cédula debe tener 10 dígitos";
+  if (idType === "ruc" && !/^\d{13}$/.test(value)) return "El RUC debe tener 13 dígitos";
+  if (idType === "pasaporte" && (value.length < 5 || value.length > 20)) {
+    return "El pasaporte debe tener entre 5 y 20 caracteres";
+  }
+  return null;
+};
 
 function CustomersSkeleton() {
   return (
@@ -181,6 +193,11 @@ export default function CustomersIndex() {
     }
     if (!form.is_customer && !form.is_supplier) {
       toast.error("El contacto debe ser cliente, proveedor o ambos");
+      return;
+    }
+    const idError = validateIdNumber(form.id_type, form.id_number);
+    if (idError) {
+      toast.error(idError);
       return;
     }
     const payload = {
@@ -386,14 +403,14 @@ export default function CustomersIndex() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="id_type">Tipo de documento</Label>
+                <Label htmlFor="id_type">Tipo de documento *</Label>
                 <select
                   id="id_type"
                   value={form.id_type}
                   onChange={(e) => setForm({ ...form, id_type: e.target.value })}
                   className={selectClass}
+                  required
                 >
-                  <option value="">Sin documento</option>
                   {ID_TYPES.map((t) => (
                     <option key={t.value} value={t.value}>
                       {t.label}
@@ -402,12 +419,15 @@ export default function CustomersIndex() {
                 </select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="id_number">Número</Label>
+                <Label htmlFor="id_number">Número *</Label>
                 <Input
                   id="id_number"
                   value={form.id_number}
                   onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+                  inputMode={form.id_type === "pasaporte" ? "text" : "numeric"}
+                  maxLength={form.id_type === "ruc" ? 13 : form.id_type === "cedula" ? 10 : 20}
                   placeholder="0102030405"
+                  required
                 />
               </div>
             </div>

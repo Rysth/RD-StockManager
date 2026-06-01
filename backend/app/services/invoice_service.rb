@@ -28,6 +28,8 @@ class InvoiceService
   ID_TYPE_MAP = { "cedula" => "05", "ruc" => "04", "pasaporte" => "06" }.freeze
   # payment_method de Sale -> formaPago del SRI ("01" sin sistema financiero, "20" otros).
   FORMA_PAGO  = { "cash" => "01", "transfer" => "20" }.freeze
+  DUPLICATE_SECUENCIAL_IDENTIFIER = "45".freeze
+  MAX_DUPLICATE_SECUENCIAL_RETRIES = 25
 
   def self.generate(sale:)
     new(sale).generate
@@ -49,12 +51,23 @@ class InvoiceService
 
     @sri_config = build_sri_config(business)
 
-    invoice = reserve_invoice(business)
     comprador = build_comprador
-    factura   = build_factura(business, comprador, invoice.secuencial, invoice.establecimiento, invoice.punto_emision)
 
-    result = emitir(factura)
-    persist_invoice(invoice, comprador, factura, result)
+    attempts = 0
+    loop do
+      invoice = reserve_invoice(business)
+      factura = build_factura(business, comprador, invoice.secuencial, invoice.establecimiento, invoice.punto_emision)
+      result = emitir(factura)
+      persisted_invoice = persist_invoice(invoice, comprador, factura, result)
+
+      return persisted_invoice unless duplicate_secuencial?(result) && attempts < MAX_DUPLICATE_SECUENCIAL_RETRIES
+
+      attempts += 1
+      Rails.logger.warn(
+        "[InvoiceService] Secuencial #{invoice.numero_comprobante} ya registrado en SRI; " \
+        "reintentando con el siguiente (intento #{attempts}/#{MAX_DUPLICATE_SECUENCIAL_RETRIES})"
+      )
+    end
   end
 
   private
@@ -215,6 +228,17 @@ class InvoiceService
     invoice.update!(attrs)
     send_authorized_email(invoice) if invoice.authorized?
     invoice
+  end
+
+  def duplicate_secuencial?(result)
+    return false unless result&.estado == Invoice::ESTADO_DEVUELTA
+
+    Array(result.mensajes).any? do |mensaje|
+      mensaje[:identificador].to_s == DUPLICATE_SECUENCIAL_IDENTIFIER ||
+        mensaje["identificador"].to_s == DUPLICATE_SECUENCIAL_IDENTIFIER ||
+        mensaje[:mensaje].to_s.match?(/SECUENCIAL REGISTRADO/i) ||
+        mensaje["mensaje"].to_s.match?(/SECUENCIAL REGISTRADO/i)
+    end
   end
 
   def build_sri_config(business)
