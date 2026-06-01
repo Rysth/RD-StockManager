@@ -159,8 +159,12 @@ module Api
         inv = @sale.invoices.authorized.order(:created_at).last
         return render_error("No hay factura autorizada para esta venta", :not_found) unless inv
 
-        email = @sale.customer&.email.presence
+        email = (params[:email].presence || @sale.customer&.email.presence)
         return render_error("El cliente no tiene correo registrado", :unprocessable_entity) unless email
+
+        if @sale.customer && params[:email].present? && @sale.customer.email != params[:email]
+          @sale.customer.update(email: params[:email])
+        end
 
         InvoiceMailer.authorized(inv).deliver_later
         render_success({}, "Factura enviada a #{email}")
@@ -264,6 +268,7 @@ module Api
           sold_at: sale.sold_at,
           customer_id: sale.customer_id,
           customer_name: sale.customer&.name,
+          customer_email: sale.customer&.email,
           location_id: sale.location_id,
           location_name: sale.location&.name,
           seller: sale.user&.fullname,
@@ -287,7 +292,8 @@ module Api
               unit_price: item.unit_price,
               unit_cost: item.unit_cost,
               subtotal: item.subtotal,
-              profit: item.profit
+              profit: item.profit,
+              images: item.product_variant.images.map { |img| { id: img.id, url: url_for(img) } }
             }
           end
           data[:profit] = sale.sale_items.sum(&:profit)

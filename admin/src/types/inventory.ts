@@ -157,6 +157,7 @@ export interface SaleItem {
   unit_cost?: number;
   subtotal: number;
   profit?: number;
+  images?: { id: number; url: string }[];
 }
 
 export interface Sale {
@@ -167,6 +168,7 @@ export interface Sale {
   sold_at: string | null;
   customer_id: number | null;
   customer_name?: string | null;
+  customer_email?: string | null;
   location_id?: number | null;
   location_name?: string | null;
   seller?: string | null;

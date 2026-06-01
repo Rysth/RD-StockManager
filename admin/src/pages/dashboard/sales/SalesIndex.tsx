@@ -156,6 +156,8 @@ function SalesList() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editItems, setEditItems] = useState<{ product_variant_id: number; label: string; quantity: number; unit_price: number }[]>([]);
   const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [emailInput, setEmailInput] = useState("");
   const invoiceTarget = invoiceConfirmId
     ? selectedSale?.id === invoiceConfirmId
       ? selectedSale
@@ -320,10 +322,10 @@ function SalesList() {
     }
   };
 
-  const handleSendEmail = async (id: number) => {
+  const handleSendEmail = async (id: number, email?: string) => {
     setSendingEmail(true);
     try {
-      await sendInvoiceEmail(id);
+      await sendInvoiceEmail(id, email);
       toast.success("Factura enviada al correo del cliente");
     } catch (e) {
       toast.error(errorMessage(e, "Error al enviar el correo"));
@@ -472,7 +474,7 @@ function SalesList() {
           if (!open) clearSelectedSale();
         }}
       >
-        <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
           <SheetHeader>
             <SheetTitle>Detalle de venta {selectedSale ? `#${selectedSale.id}` : ""}</SheetTitle>
             <SheetDescription>Información completa de la transacción</SheetDescription>
@@ -520,6 +522,7 @@ function SalesList() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-12"></TableHead>
                       <TableHead>Producto</TableHead>
                       <TableHead className="text-center">Cant.</TableHead>
                       <TableHead className="text-right">Precio</TableHead>
@@ -529,6 +532,17 @@ function SalesList() {
                   <TableBody>
                     {selectedSale.items?.map((it) => (
                           <TableRow key={it.id}>
+                            <TableCell>
+                              {it.images?.[0] ? (
+                                <img
+                                  src={it.images[0].url}
+                                  alt={it.product_name}
+                                  className="h-10 w-10 rounded-md border object-cover"
+                                />
+                              ) : (
+                                <div className="h-10 w-10 rounded-md border bg-muted" />
+                              )}
+                            </TableCell>
                             <TableCell>
                               <p className="font-medium">{it.product_name}</p>
                               <p className="text-xs text-muted-foreground">
@@ -651,9 +665,16 @@ function SalesList() {
                         <Button
                           variant="outline"
                           className="flex-1 gap-2"
-                          disabled={sendingEmail || !selectedSale.customer_name}
-                          title={!selectedSale.customer_name ? "La venta no tiene cliente con email" : "Enviar factura por correo"}
-                          onClick={() => handleSendEmail(selectedSale.id)}
+                          disabled={sendingEmail}
+                          title="Enviar factura por correo"
+                          onClick={() => {
+                            if (selectedSale.customer_email) {
+                              handleSendEmail(selectedSale.id);
+                            } else {
+                              setEmailInput("");
+                              setEmailDialogOpen(true);
+                            }
+                          }}
                         >
                           {sendingEmail ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -713,54 +734,62 @@ function SalesList() {
             </DialogDescription>
           </DialogHeader>
           <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-            {editItems.map((it, idx) => (
-              <div key={it.product_variant_id} className="flex items-center gap-3 rounded-lg border p-3">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{it.label}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-20">
-                    <Label className="mb-1 block text-xs text-muted-foreground">Cant.</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      value={it.quantity}
-                      onChange={(e) => {
-                        const q = Math.max(0, Number(e.target.value));
-                        setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: q } : x)));
-                      }}
-                      className="h-8 text-center"
-                    />
+              {editItems.map((it, idx) => {
+                const img = selectedSale?.items?.find((si) => si.product_variant_id === it.product_variant_id)?.images?.[0];
+                return (
+                  <div key={it.product_variant_id} className="flex items-center gap-3 rounded-lg border p-3">
+                    {img ? (
+                      <img src={img.url} alt="" className="h-10 w-10 shrink-0 rounded-md border object-cover" />
+                    ) : (
+                      <div className="h-10 w-10 shrink-0 rounded-md border bg-muted" />
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{it.label}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-20">
+                        <Label className="mb-1 block text-xs text-muted-foreground">Cant.</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          value={it.quantity}
+                          onChange={(e) => {
+                            const q = Math.max(0, Number(e.target.value));
+                            setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: q } : x)));
+                          }}
+                          className="h-8 text-center"
+                        />
+                      </div>
+                      <div className="w-24">
+                        <Label className="mb-1 block text-xs text-muted-foreground">Precio</Label>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={it.unit_price}
+                          onChange={(e) => {
+                            const p = Number(e.target.value) || 0;
+                            setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, unit_price: p } : x)));
+                          }}
+                          className="h-8 text-right"
+                        />
+                      </div>
+                      <div className="w-20 text-right">
+                        <Label className="mb-1 block text-xs text-muted-foreground">Subtotal</Label>
+                        <p className="text-sm font-medium">{money(it.quantity * it.unit_price)}</p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="mt-5 h-8 w-8 shrink-0 text-destructive"
+                        onClick={() => setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: 0 } : x)))}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="w-24">
-                    <Label className="mb-1 block text-xs text-muted-foreground">Precio</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.01"
-                      value={it.unit_price}
-                      onChange={(e) => {
-                        const p = Number(e.target.value) || 0;
-                        setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, unit_price: p } : x)));
-                      }}
-                      className="h-8 text-right"
-                    />
-                  </div>
-                  <div className="w-20 text-right">
-                    <Label className="mb-1 block text-xs text-muted-foreground">Subtotal</Label>
-                    <p className="text-sm font-medium">{money(it.quantity * it.unit_price)}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="mt-5 h-8 w-8 shrink-0 text-destructive"
-                    onClick={() => setEditItems((prev) => prev.map((x, i) => (i === idx ? { ...x, quantity: 0 } : x)))}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            ))}
+                );
+              })}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
@@ -768,6 +797,44 @@ function SalesList() {
             </Button>
             <Button onClick={handleSaveItems} disabled={isSubmitting}>
               {isSubmitting ? "Guardando..." : "Guardar cambios"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Diálogo para agregar email del cliente ── */}
+      <Dialog open={emailDialogOpen} onOpenChange={setEmailDialogOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Correo del cliente</DialogTitle>
+            <DialogDescription>
+              El cliente no tiene un correo registrado. Ingresá uno para enviarle la factura.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="email">Correo electrónico</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="cliente@ejemplo.com"
+              value={emailInput}
+              onChange={(e) => setEmailInput(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEmailDialogOpen(false)}>
+              Cancelar
+            </Button>
+            <Button
+              disabled={!emailInput.trim() || sendingEmail}
+              onClick={() => {
+                if (selectedSale && emailInput.trim()) {
+                  handleSendEmail(selectedSale.id, emailInput.trim());
+                  setEmailDialogOpen(false);
+                }
+              }}
+            >
+              {sendingEmail ? "Enviando..." : "Enviar factura"}
             </Button>
           </DialogFooter>
         </DialogContent>

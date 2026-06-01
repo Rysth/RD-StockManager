@@ -94,7 +94,7 @@ interface SaleState {
   syncSaleItems: (id: number, items: SaleItemInput[]) => Promise<Sale>;
   deleteSale: (id: number) => Promise<void>;
   issueInvoice: (id: number) => Promise<Invoice>;
-  sendInvoiceEmail: (id: number) => Promise<void>;
+  sendInvoiceEmail: (id: number, email?: string) => Promise<void>;
   downloadInvoiceXml: (id: number) => Promise<void>;
   downloadInvoiceRide: (id: number) => Promise<void>;
   fetchReport: () => Promise<void>;
@@ -235,9 +235,10 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     }
   },
 
-  sendInvoiceEmail: async (id) => {
+  sendInvoiceEmail: async (id, email) => {
     try {
-      await api.post(`/api/v1/sales/${id}/send_invoice_email`);
+      const data = email ? { email } : {};
+      await api.post(`/api/v1/sales/${id}/send_invoice_email`, data);
     } catch (error) {
       throw new Error(toMessage(error, "Error al enviar el correo de la factura"));
     }
