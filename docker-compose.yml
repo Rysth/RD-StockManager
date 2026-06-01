@@ -81,11 +81,6 @@ services:
       - "SMTP_USER=${SMTP_USER}"
       - "SMTP_PASSWORD=${SMTP_PASSWORD}"
       - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
-      - "SRI_AMBIENTE=${SRI_AMBIENTE:-1}"
-      - "SRI_CERT_PATH=${SRI_CERT_PATH:-/rails/storage/sri_certs/certificado.p12}"
-      - "SRI_CERT_PASSWORD=${SRI_CERT_PASSWORD:-}"
-      - "SRI_MAX_RETRIES=${SRI_MAX_RETRIES:-3}"
-      - "SRI_RETRY_DELAY=${SRI_RETRY_DELAY:-2}"
     command: bash -c "bundle install && rm -f tmp/pids/server.pid && bundle exec rails db:migrate && bundle exec rails s -p ${PORT} -b '0.0.0.0'"
     # Postgres is provided externally in production; ensure DATABASE_URL points to it.
     networks:
@@ -121,11 +116,6 @@ services:
       - "SMTP_USER=${SMTP_USER}"
       - "SMTP_PASSWORD=${SMTP_PASSWORD}"
       - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
-      - "SRI_AMBIENTE=${SRI_AMBIENTE:-1}"
-      - "SRI_CERT_PATH=${SRI_CERT_PATH:-/rails/storage/sri_certs/certificado.p12}"
-      - "SRI_CERT_PASSWORD=${SRI_CERT_PASSWORD:-}"
-      - "SRI_MAX_RETRIES=${SRI_MAX_RETRIES:-3}"
-      - "SRI_RETRY_DELAY=${SRI_RETRY_DELAY:-2}"
     command: bash -c "bundle install && bundle exec sidekiq"
     # Postgres/Redis are external in production; ensure env vars point to those services.
     networks:

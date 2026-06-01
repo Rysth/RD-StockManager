@@ -36,15 +36,15 @@ class Business < ApplicationRecord
   end
 
   def sri_ambiente_for_emission
-    sri_ambiente.presence || ENV.fetch("SRI_AMBIENTE", "1")
+    sri_ambiente.presence || "1"
   end
 
   def sri_cert_path_for_emission
-    sri_cert_path.presence || ENV["SRI_CERT_PATH"]
+    sri_cert_path.presence
   end
 
   def sri_cert_password_for_emission
-    decrypted_sri_cert_password.presence || ENV["SRI_CERT_PASSWORD"]
+    decrypted_sri_cert_password.presence
   end
 
   def sri_cert_configured?

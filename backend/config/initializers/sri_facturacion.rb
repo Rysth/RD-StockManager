@@ -5,16 +5,14 @@
 # (DEVUELTA / NO AUTORIZADO). El certificado se carga de forma perezosa al emitir, por lo
 # que su ausencia no rompe el arranque de la app.
 #
-# Variables de entorno (ver .env.example):
-#   SRI_AMBIENTE        "1" pruebas (default) / "2" producción
-#   SRI_CERT_PATH       ruta absoluta al .p12 DENTRO del contenedor
-#   SRI_CERT_PASSWORD   clave del .p12
-#   SRI_MAX_RETRIES     reintentos de autorización (default 3)
-#   SRI_RETRY_DELAY     segundos entre reintentos (default 2)
+# La configuración del emisor, ambiente, certificado .p12/.pfx y clave se administra
+# desde Business. Estos valores globales son solo defaults técnicos para timeouts/reintentos.
 SriFacturacion.configure do |c|
-  c.ambiente      = ENV.fetch("SRI_AMBIENTE", "1")
-  c.cert_path     = ENV["SRI_CERT_PATH"]
-  c.cert_password = ENV["SRI_CERT_PASSWORD"]
-  c.max_retries   = Integer(ENV.fetch("SRI_MAX_RETRIES", "3"))
-  c.retry_delay   = Integer(ENV.fetch("SRI_RETRY_DELAY", "2"))
+  c.ambiente      = "1"
+  c.cert_path     = nil
+  c.cert_password = nil
+  c.max_retries   = 3
+  c.retry_delay   = 2
+  c.open_timeout  = 15
+  c.read_timeout  = 90
 end
