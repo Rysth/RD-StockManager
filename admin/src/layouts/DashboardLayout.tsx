@@ -54,6 +54,7 @@ export default function DashboardLayout() {
     canManageLocations: hasPermission(Permissions.MANAGE_LOCATIONS),
     canViewPurchases: hasPermission(Permissions.VIEW_PURCHASES),
     canViewExpenses: hasPermission(Permissions.VIEW_EXPENSES),
+    canManageInvoicing: hasPermission(Permissions.MANAGE_INVOICING),
   };
   const defaultRoute = getDefaultAdminRoute({
     user,

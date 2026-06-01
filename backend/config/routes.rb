@@ -79,6 +79,12 @@ Rails.application.routes.draw do
           put  :sync_items      # reemplaza los items de una venta pendiente
         end
       end
+      resources :invoices, only: [:index, :show] do
+        member do
+          get :xml   # descarga el XML autorizado de esa factura
+          get :ride  # descarga el RIDE (PDF) de esa factura
+        end
+      end
       resources :purchases do
         collection do
           get :due

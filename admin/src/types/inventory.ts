@@ -394,6 +394,26 @@ export interface InventoryValuationRow {
   sale_value: number;
 }
 
+export interface InvoiceListItem {
+  id: number;
+  sale_id: number;
+  estado: string;
+  authorized: boolean;
+  clave_acceso: string | null;
+  numero_comprobante: string;
+  numero_autorizacion: string | null;
+  fecha_autorizacion: string | null;
+  ambiente: string;
+  importe_total: string | number | null;
+  cliente: string;
+  identificacion: string | null;
+  sold_at: string | null;
+  has_xml: boolean;
+  has_ride: boolean;
+  created_at: string;
+  mensajes?: { tipo?: string; identificador?: string; mensaje?: string; informacion_adicional?: string }[];
+}
+
 export interface InventoryValuationReport {
   summary: {
     total_cost: number;

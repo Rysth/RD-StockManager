@@ -17,6 +17,7 @@ import {
   Truck,
   Receipt,
   BarChart3,
+  FileText,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,7 @@ interface StorePermissions {
   canManageLocations: boolean;
   canViewPurchases: boolean;
   canViewExpenses: boolean;
+  canManageInvoicing: boolean;
 }
 
 interface AppSidebarProps {
@@ -101,6 +103,7 @@ export default function AppSidebar({
     canManageLocations,
     canViewPurchases,
     canViewExpenses,
+    canManageInvoicing,
   } = storePermissions;
   const isBusinessEmployee = user.roles?.includes("business_employee");
 
@@ -112,7 +115,8 @@ export default function AppSidebar({
     canViewReports ||
     canManageLocations ||
     canViewPurchases ||
-    canViewExpenses;
+    canViewExpenses ||
+    canManageInvoicing;
   // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
   const { isMobile, state } = useSidebar();
@@ -409,6 +413,21 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/sales">
                         <ShoppingCart />
                         <span>Ventas</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageInvoicing && !isBusinessEmployee && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Facturas"
+                      isActive={isActiveRoute("/dashboard/invoices")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/invoices">
+                        <FileText />
+                        <span>Facturas</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

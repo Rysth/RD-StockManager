@@ -16,6 +16,7 @@ import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
 import PurchasesIndex from "../pages/dashboard/purchases/PurchasesIndex";
 import ExpensesIndex from "../pages/dashboard/expenses/ExpensesIndex";
+import InvoicesIndex from "../pages/dashboard/invoices/InvoicesIndex";
 import AdvancedReportsIndex from "../pages/dashboard/reports/AdvancedReportsIndex";
 import AuthSignIn from "../pages/auth/AuthSignIn";
 import AuthSignUp from "../pages/auth/AuthSignUp";
@@ -159,6 +160,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.VIEW_EXPENSES}>
             <ExpensesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "invoices",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_INVOICING}>
+            <InvoicesIndex />
           </ProtectedRoute>
         ),
       },
