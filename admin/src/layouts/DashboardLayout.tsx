@@ -50,6 +50,7 @@ export default function DashboardLayout() {
     canManageProducts: hasPermission(Permissions.MANAGE_PRODUCTS),
     canManageCustomers: hasPermission(Permissions.MANAGE_CUSTOMERS),
     canManageSales: hasPermission(Permissions.MANAGE_SALES),
+    canManageQuotations: hasPermission(Permissions.MANAGE_QUOTATIONS),
     canViewReports: hasPermission(Permissions.VIEW_REPORTS),
     canManageLocations: hasPermission(Permissions.MANAGE_LOCATIONS),
     canViewPurchases: hasPermission(Permissions.VIEW_PURCHASES),

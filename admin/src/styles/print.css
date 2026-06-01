@@ -1,0 +1,328 @@
+/* ========================================
+   Quote Print Template Styles
+   Portado desde RD-Silverleaf. Estilos autocontenidos para la plantilla A4
+   de cotización (impresión vía react-to-print / "Guardar como PDF").
+   ======================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap");
+
+.quote-print-template {
+    font-family:
+        "Inter",
+        -apple-system,
+        BlinkMacSystemFont,
+        sans-serif;
+    font-size: 12px;
+    color: #1a1a1a;
+    background: #fff;
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+    position: relative;
+}
+
+/* Header */
+.quote-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 3px solid #1a1a1a;
+}
+
+.quote-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.quote-logo {
+    width: 60px;
+    height: 60px;
+    object-fit: contain;
+}
+
+.quote-business-name {
+    font-family: "Poppins", sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: #1a1a1a;
+}
+
+.quote-header-right {
+    text-align: right;
+}
+
+.quote-title {
+    font-family: "Poppins", sans-serif;
+    font-size: 28px;
+    font-weight: 700;
+    color: #1a1a1a;
+    margin: 0;
+    line-height: 1.2;
+}
+
+.quote-subtitle {
+    font-size: 14px;
+    color: #666;
+    margin: 4px 0 0 0;
+    font-weight: 500;
+}
+
+/* Info Row */
+.quote-info-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    gap: 40px;
+}
+
+.quote-info-left,
+.quote-info-right {
+    flex: 1;
+}
+
+.quote-info-item {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 4px;
+    font-size: 11px;
+}
+
+.quote-info-label {
+    font-weight: 600;
+    color: #1a1a1a;
+    min-width: 70px;
+}
+
+.quote-info-value {
+    color: #333;
+}
+
+.quote-link {
+    color: #2563eb;
+    text-decoration: none;
+}
+
+/* Sections */
+.quote-section {
+    margin-bottom: 20px;
+}
+
+.quote-section-header {
+    background: #1a1a1a;
+    color: #fff;
+    padding: 8px 12px;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0;
+}
+
+.quote-client-info {
+    background: #f8f9fa;
+    padding: 12px;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+}
+
+.quote-client-row {
+    display: flex;
+    gap: 40px;
+}
+
+/* Table */
+.quote-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+}
+
+.quote-table thead {
+    background: #f3f4f6;
+}
+
+.quote-table th {
+    padding: 10px 8px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 2px solid #d1d5db;
+}
+
+.quote-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: top;
+}
+
+.quote-table .col-desc {
+    width: 40%;
+    text-align: left;
+}
+
+.quote-table .col-qty,
+.quote-table .col-price,
+.quote-table .col-subtotal {
+    text-align: right;
+    width: 10%;
+}
+
+.quote-table tbody tr:nth-child(even) {
+    background: #fafafa;
+}
+
+/* Totals */
+.quote-totals {
+    margin-top: 16px;
+    margin-left: auto;
+    width: 250px;
+}
+
+.quote-total-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 6px 12px;
+    font-size: 11px;
+}
+
+.quote-total-label {
+    font-weight: 500;
+    color: #374151;
+}
+
+.quote-total-value {
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+.quote-total-final {
+    background: #1a1a1a;
+    color: #fff;
+    font-size: 13px;
+    margin-top: 4px;
+}
+
+.quote-total-final .quote-total-label,
+.quote-total-final .quote-total-value {
+    color: #fff;
+    font-weight: 700;
+}
+
+/* Terms */
+.quote-terms {
+    padding: 12px;
+    background: #f8f9fa;
+    border: 1px solid #e5e7eb;
+    border-top: none;
+    font-size: 10px;
+    line-height: 1.6;
+}
+
+/* Notes */
+.quote-notes {
+    padding: 12px;
+    background: #fffbeb;
+    border: 1px solid #fcd34d;
+    border-top: none;
+    font-size: 11px;
+    color: #92400e;
+}
+
+/* Footer */
+.quote-footer {
+    margin-top: 30px;
+    text-align: center;
+    padding-top: 16px;
+    border-top: 2px solid #e5e7eb;
+    font-size: 11px;
+    color: #6b7280;
+}
+
+.quote-footer p {
+    margin: 4px 0;
+}
+
+.quote-footer-powered {
+    margin-top: 12px;
+    font-size: 10px;
+    color: #9ca3af;
+}
+
+.quote-footer-powered strong {
+    color: #4b5563;
+}
+
+.quote-footer-website {
+    color: #2563eb;
+    font-weight: 500;
+}
+
+/* ========================================
+   Print Media Styles
+   ======================================== */
+
+@media print {
+    @page {
+        size: A4;
+        margin: 0;
+    }
+
+    html, body {
+        width: 210mm;
+        height: 297mm;
+    }
+
+    body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    .quote-print-template {
+        padding: 15mm 20mm !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        min-height: 267mm !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
+    .quote-section-header {
+        background: #1a1a1a !important;
+        color: #fff !important;
+    }
+
+    .quote-total-final {
+        background: #1a1a1a !important;
+        color: #fff !important;
+    }
+
+    .quote-table thead {
+        background: #f3f4f6 !important;
+    }
+
+    .quote-table tbody tr:nth-child(even) {
+        background: #fafafa !important;
+    }
+
+    .quote-footer {
+        margin-top: auto !important;
+        padding-top: 8px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .quote-terms,
+    .quote-notes {
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+    }
+
+    .no-print,
+    button,
+    .print\:hidden {
+        display: none !important;
+    }
+}

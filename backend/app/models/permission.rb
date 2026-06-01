@@ -29,6 +29,7 @@ class Permission < ApplicationRecord
   MANAGE_PRODUCTS  = "manage_products".freeze
   MANAGE_CUSTOMERS = "manage_customers".freeze
   MANAGE_SALES     = "manage_sales".freeze
+  MANAGE_QUOTATIONS = "manage_quotations".freeze
   VIEW_REPORTS     = "view_reports".freeze
 
   # Locations / Warehouses (Tienda)
@@ -51,7 +52,7 @@ class Permission < ApplicationRecord
     VIEW_USERS, CREATE_USERS, EDIT_USERS, DELETE_USERS, EXPORT_USERS,
     VIEW_BUSINESS, EDIT_BUSINESS,
     EDIT_PROFILE,
-    VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
+    VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, MANAGE_QUOTATIONS, VIEW_REPORTS,
     VIEW_LOCATIONS, MANAGE_LOCATIONS,
     VIEW_PURCHASES, MANAGE_PURCHASES,
     VIEW_EXPENSES, MANAGE_EXPENSES,
@@ -68,7 +69,7 @@ class Permission < ApplicationRecord
       VIEW_DASHBOARD,
       VIEW_BUSINESS, EDIT_BUSINESS,
       EDIT_PROFILE,
-      VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, VIEW_REPORTS,
+      VIEW_INVENTORY, MANAGE_PRODUCTS, MANAGE_CUSTOMERS, MANAGE_SALES, MANAGE_QUOTATIONS, VIEW_REPORTS,
       VIEW_LOCATIONS, MANAGE_LOCATIONS,
       VIEW_PURCHASES, MANAGE_PURCHASES,
       VIEW_EXPENSES, MANAGE_EXPENSES,
@@ -77,7 +78,7 @@ class Permission < ApplicationRecord
     "business_employee" => [
       VIEW_DASHBOARD,
       EDIT_PROFILE,
-      VIEW_INVENTORY, MANAGE_CUSTOMERS, MANAGE_SALES,
+      VIEW_INVENTORY, MANAGE_CUSTOMERS, MANAGE_SALES, MANAGE_QUOTATIONS,
       VIEW_LOCATIONS
     ]
   }.freeze
@@ -107,6 +108,7 @@ class Permission < ApplicationRecord
       { key: MANAGE_PRODUCTS, name: "Gestionar Productos", group: "inventory", description: "Crear y editar productos y categorías" },
       { key: MANAGE_CUSTOMERS, name: "Gestionar Contactos", group: "customers", description: "Crear y editar clientes y proveedores" },
       { key: MANAGE_SALES, name: "Gestionar Ventas", group: "sales", description: "Registrar y gestionar ventas" },
+      { key: MANAGE_QUOTATIONS, name: "Gestionar Cotizaciones", group: "quotations", description: "Crear, enviar y convertir cotizaciones" },
       { key: VIEW_REPORTS, name: "Ver Reportes", group: "reports", description: "Acceder a reportes de ventas" },
 
       # Locations (Tienda)

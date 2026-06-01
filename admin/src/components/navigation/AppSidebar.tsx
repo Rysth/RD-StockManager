@@ -18,6 +18,7 @@ import {
   Receipt,
   BarChart3,
   FileText,
+  FileSignature,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,6 +60,7 @@ interface StorePermissions {
   canManageProducts: boolean;
   canManageCustomers: boolean;
   canManageSales: boolean;
+  canManageQuotations: boolean;
   canViewReports: boolean;
   canManageLocations: boolean;
   canViewPurchases: boolean;
@@ -99,6 +101,7 @@ export default function AppSidebar({
     canManageProducts,
     canManageCustomers,
     canManageSales,
+    canManageQuotations,
     canViewReports,
     canManageLocations,
     canViewPurchases,
@@ -112,6 +115,7 @@ export default function AppSidebar({
     canManageProducts ||
     canManageCustomers ||
     canManageSales ||
+    canManageQuotations ||
     canViewReports ||
     canManageLocations ||
     canViewPurchases ||
@@ -413,6 +417,21 @@ export default function AppSidebar({
                       <NavLink to="/dashboard/sales">
                         <ShoppingCart />
                         <span>Ventas</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageQuotations && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Cotizaciones"
+                      isActive={isActiveRoute("/dashboard/quotations")}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/quotations">
+                        <FileSignature />
+                        <span>Cotizaciones</span>
                       </NavLink>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

@@ -70,16 +70,20 @@ class Business < ApplicationRecord
   # Sidekiq background job callbacks
   after_update :sync_storage_async, if: -> { logo.attached? }
 
+  # Negocio singleton del despliegue. Los valores por defecto se toman de
+  # variables de entorno para que cada cliente (cada branch/despliegue) configure
+  # su identidad sin editar código. Tras el primer arranque se administran desde
+  # el panel. Ver BUSINESS_* en el entorno de despliegue.
   def self.current
     first || create(
-      name: "EDLU Store",
-      slogan: "Venta de gorras y calzados",
-      whatsapp: "+593983236580",
-      tiktok: "edlu_store_ec",
-      email: "storeedlu@gmail.com",
-      location: "Guayas-Guayaquil",
-      instagram: "",
-      facebook: ""
+      name: ENV.fetch("BUSINESS_NAME", "EDLU Store"),
+      slogan: ENV.fetch("BUSINESS_SLOGAN", "Venta de gorras y calzados"),
+      whatsapp: ENV.fetch("BUSINESS_WHATSAPP", "+593983236580"),
+      tiktok: ENV.fetch("BUSINESS_TIKTOK", "edlu_store_ec"),
+      email: ENV.fetch("BUSINESS_EMAIL", "storeedlu@gmail.com"),
+      location: ENV.fetch("BUSINESS_LOCATION", "Guayas-Guayaquil"),
+      instagram: ENV.fetch("BUSINESS_INSTAGRAM", ""),
+      facebook: ENV.fetch("BUSINESS_FACEBOOK", "")
     )
   end
 

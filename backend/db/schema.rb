@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_01_152000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_01_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -330,6 +330,41 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_152000) do
     t.index ["user_id"], name: "index_purchases_on_user_id"
   end
 
+  create_table "quotation_items", force: :cascade do |t|
+    t.bigint "quotation_id", null: false
+    t.bigint "product_variant_id"
+    t.string "description", null: false
+    t.decimal "quantity", precision: 10, scale: 2, default: "1.0", null: false
+    t.decimal "unit_price", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_variant_id"], name: "index_quotation_items_on_product_variant_id"
+    t.index ["quotation_id"], name: "index_quotation_items_on_quotation_id"
+  end
+
+  create_table "quotations", force: :cascade do |t|
+    t.bigint "customer_id"
+    t.bigint "user_id"
+    t.bigint "location_id"
+    t.bigint "sale_id"
+    t.string "quotation_number", null: false
+    t.integer "status", default: 0, null: false
+    t.date "valid_until"
+    t.text "notes"
+    t.decimal "tax_rate", precision: 5, scale: 2, default: "15.0", null: false
+    t.decimal "subtotal", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "tax_amount", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "total", precision: 10, scale: 2, default: "0.0", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["customer_id"], name: "index_quotations_on_customer_id"
+    t.index ["location_id"], name: "index_quotations_on_location_id"
+    t.index ["quotation_number"], name: "index_quotations_on_quotation_number", unique: true
+    t.index ["sale_id"], name: "index_quotations_on_sale_id"
+    t.index ["status"], name: "index_quotations_on_status"
+    t.index ["user_id"], name: "index_quotations_on_user_id"
+  end
+
   create_table "role_permissions", force: :cascade do |t|
     t.bigint "role_id", null: false
     t.bigint "permission_id", null: false
@@ -440,6 +475,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_152000) do
   add_foreign_key "purchases", "customers"
   add_foreign_key "purchases", "locations"
   add_foreign_key "purchases", "users"
+  add_foreign_key "quotation_items", "product_variants"
+  add_foreign_key "quotation_items", "quotations"
+  add_foreign_key "quotations", "customers"
+  add_foreign_key "quotations", "locations"
+  add_foreign_key "quotations", "sales"
+  add_foreign_key "quotations", "users"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
   add_foreign_key "sale_items", "product_variants"

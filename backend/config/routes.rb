@@ -86,6 +86,11 @@ Rails.application.routes.draw do
           get :ride  # descarga el RIDE (PDF) de esa factura
         end
       end
+      resources :quotations do
+        member do
+          post :convert # genera una venta a partir de la cotización aceptada
+        end
+      end
       resources :purchases do
         collection do
           get :due
