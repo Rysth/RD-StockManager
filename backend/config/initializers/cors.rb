@@ -6,9 +6,23 @@
 # Read more: https://github.com/cyu/rack-cors
 
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
+  lan_origin_patterns = if Rails.env.development?
+    [
+      %r{\Ahttps?://localhost:\d+\z},
+      %r{\Ahttps?://127\.0\.0\.1:\d+\z},
+      %r{\Ahttps?://10\.\d+\.\d+\.\d+:\d+\z},
+      %r{\Ahttps?://192\.168\.\d+\.\d+:\d+\z},
+      %r{\Ahttps?://172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+:\d+\z}
+    ]
+  else
+    []
+  end
+
+  allowed_origins = FrontendUrls.allowed_origins + lan_origin_patterns
+
   # Web client configuration - more restrictive for security
   allow do
-    origins(*FrontendUrls.allowed_origins)
+    origins(*allowed_origins)
 
     # Specific resource configuration for API v1 endpoints
     resource '/api/v1/*',
@@ -20,7 +34,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
   # Legacy API endpoints (for backward compatibility during transition)
   allow do
-    origins(*FrontendUrls.allowed_origins)
+    origins(*allowed_origins)
 
     resource '/api/*',
       headers: %w[Authorization Content-Type Accept X-Requested-With],
@@ -31,7 +45,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
 
   # Public endpoints (less restrictive but still controlled)
   allow do
-    origins(*FrontendUrls.allowed_origins)
+    origins(*allowed_origins)
 
     resource '/api/v1/public/*',
       headers: %w[Content-Type Accept X-Requested-With],

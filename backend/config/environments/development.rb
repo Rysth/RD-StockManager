@@ -36,7 +36,19 @@ Rails.application.configure do
   config.action_mailer.perform_caching = false
 
   # Set localhost to be used by links generated in mailer templates.
-  config.action_mailer.default_url_options = { host: "localhost:5173" }
+  config.action_mailer.default_url_options = FrontendUrls.admin_mailer_url_options
+
+  # Allow access from LAN hosts during development.
+  config.hosts << /\Alocalhost\z/
+  config.hosts << /\A127\.0\.0\.1\z/
+  config.hosts << /\A0\.0\.0\.0\z/
+  config.hosts << /\A10\.\d+\.\d+\.\d+\z/
+  config.hosts << /\A192\.168\.\d+\.\d+\z/
+  config.hosts << /\A172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+\z/
+
+  ENV.fetch("HOSTS_WHITELIST", "").split(/[\s,]+/).map(&:strip).reject(&:empty?).each do |host|
+    config.hosts << host
+  end
 
   # Configure mailer delivery method and perform deliveries.
   config.action_mailer.delivery_method = :letter_opener_web

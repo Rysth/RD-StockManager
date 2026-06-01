@@ -17,6 +17,9 @@ Rails.application.configure do
 
   # Explicitly allow current API host to avoid HostAuthorization 403s
   config.hosts << "api.example.com"
+  ENV.fetch("HOSTS_WHITELIST", "").split(/[\s,]+/).map(&:strip).reject(&:empty?).each do |host|
+    config.hosts << host
+  end
 
   # Enable serving of images, stylesheets, and JavaScripts from an asset server.
   # config.asset_host = "http://assets.example.com"

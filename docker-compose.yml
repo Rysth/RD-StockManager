@@ -69,6 +69,7 @@ services:
       - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-https://storefront.example.com}
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
       - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-https://storefront.example.com}
+      - HOSTS_WHITELIST=${HOSTS_WHITELIST:-api.example.com}
       - RAILS_ENV=${RAILS_ENV}
       - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
       - REDIS_URL=${REDIS_URL}
@@ -104,6 +105,7 @@ services:
       - STOREFRONT_FRONTEND_URL=${STOREFRONT_FRONTEND_URL:-https://storefront.example.com}
       - ADMIN_ALLOWED_ORIGINS=${ADMIN_ALLOWED_ORIGINS:-https://admin.example.com}
       - STOREFRONT_ALLOWED_ORIGINS=${STOREFRONT_ALLOWED_ORIGINS:-https://storefront.example.com}
+      - HOSTS_WHITELIST=${HOSTS_WHITELIST:-api.example.com}
       - RAILS_ENV=${RAILS_ENV}
       - "DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:5432/${DB_NAME}"
       - REDIS_URL=${REDIS_URL}
