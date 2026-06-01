@@ -10,6 +10,8 @@ class Business < ApplicationRecord
   validates :tiktok, format: { with: /\A[a-zA-Z0-9._]+\z/, message: "debe ser un nombre de usuario de TikTok válido" }, allow_blank: true
   validates :ruc, format: { with: /\A\d{13}\z/, message: "debe tener 13 dígitos" }, allow_blank: true
   validates :sri_ambiente, inclusion: { in: SRI_AMBIENTES, message: "debe ser 1 (pruebas) o 2 (producción)" }
+  validates :sri_next_factura_secuencial,
+            numericality: { only_integer: true, greater_than_or_equal_to: 1 }
 
   # Indica si el negocio tiene todos los datos necesarios para emitir facturas electrónicas.
   def sri_ready?

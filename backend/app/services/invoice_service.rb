@@ -65,17 +65,24 @@ class InvoiceService
     est = business.establecimiento
     pe  = business.punto_emision
     ActiveRecord::Base.transaction do
-      Business.lock.find(business.id)
-      last = Invoice.where(establecimiento: est, punto_emision: pe).maximum(:secuencial).to_i
+      locked_business = Business.lock.find(business.id)
+      local_next = Invoice.where(establecimiento: est, punto_emision: pe).maximum(:secuencial).to_i + 1
+      next_secuencial = [locked_business.sri_next_factura_secuencial.to_i, local_next].max
+
       Invoice.create!(
         sale: @sale,
-        secuencial: last + 1,
+        secuencial: next_secuencial,
         establecimiento: est,
         punto_emision: pe,
         ambiente: @sri_config.ambiente.to_s,
         estado: Invoice::ESTADO_ERROR,
         mensajes: [{ identificador: "LOCAL", mensaje: "Secuencial reservado", tipo: "INFO" }]
-      )
+      ).tap do
+        locked_business.update_columns(
+          sri_next_factura_secuencial: next_secuencial + 1,
+          updated_at: Time.current
+        )
+      end
     end
   rescue ActiveRecord::RecordNotUnique => e
     raise InvoiceError, "Colisión de secuencial, reintente la emisión: #{e.message}"

@@ -63,11 +63,14 @@ module Api
       end
 
       def sri_admin_params
-        params.except(:id, :controller, :action).permit(:sri_enabled, :sri_ambiente, :sri_cert_password)
+        params.except(:id, :controller, :action).permit(
+          :sri_enabled, :sri_ambiente, :sri_cert_password, :sri_next_factura_secuencial
+        )
       end
 
       def sri_admin_params_present?
-        params.key?(:sri_enabled) || params.key?(:sri_ambiente) || params.key?(:sri_certificate) || params.key?(:sri_cert_password)
+        params.key?(:sri_enabled) || params.key?(:sri_ambiente) || params.key?(:sri_certificate) ||
+          params.key?(:sri_cert_password) || params.key?(:sri_next_factura_secuencial)
       end
 
       def admin_user?
@@ -147,6 +150,7 @@ module Api
           contribuyente_rimpe: business.contribuyente_rimpe,
           sri_enabled: business.sri_enabled,
           sri_ambiente: business.sri_ambiente_for_emission,
+          sri_next_factura_secuencial: business.sri_next_factura_secuencial,
           sri_ready: business.sri_ready?,
           sri_missing_requirements: business.sri_missing_requirements,
           sri_cert_configured: business.sri_cert_configured?,

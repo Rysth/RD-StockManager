@@ -47,6 +47,7 @@ interface BusinessFormData {
   contribuyente_rimpe: string;
   sri_enabled: boolean;
   sri_ambiente: string;
+  sri_next_factura_secuencial: number;
   sri_cert_password: string;
   sri_certificate?: FileList;
   logo?: FileList;
@@ -146,6 +147,7 @@ export default function BusinessSettings() {
               contribuyente_rimpe: business.contribuyente_rimpe || "",
               sri_enabled: business.sri_enabled || false,
               sri_ambiente: business.sri_ambiente || "1",
+              sri_next_factura_secuencial: business.sri_next_factura_secuencial || 1,
               sri_cert_password: "",
             };
           })()
@@ -235,6 +237,7 @@ export default function BusinessSettings() {
       if (canManageSriConfig) {
         formData.append("sri_enabled", String(data.sri_enabled || false));
         formData.append("sri_ambiente", data.sri_ambiente || "1");
+        formData.append("sri_next_factura_secuencial", String(data.sri_next_factura_secuencial || 1));
         if (data.sri_cert_password) formData.append("sri_cert_password", data.sri_cert_password);
         if (data.sri_certificate && data.sri_certificate[0]) {
           formData.append("sri_certificate", data.sri_certificate[0]);
@@ -1015,6 +1018,25 @@ export default function BusinessSettings() {
                                 <option value="1">Pruebas</option>
                                 <option value="2">Producción</option>
                               </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                                Próxima factura
+                              </Label>
+                              <Input
+                                type="number"
+                                min={1}
+                                step={1}
+                                className="h-9"
+                                {...businessForm.register("sri_next_factura_secuencial", {
+                                  valueAsNumber: true,
+                                  min: { value: 1, message: "Debe ser mayor o igual a 1" },
+                                })}
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Si otro equipo ya emitió hasta la 14, coloca 15.
+                              </p>
                             </div>
 
                             <div className="space-y-1.5">

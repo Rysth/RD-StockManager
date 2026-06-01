@@ -21,6 +21,7 @@ interface Business {
   contribuyente_rimpe?: string | null;
   sri_enabled?: boolean;
   sri_ambiente?: string | null;
+  sri_next_factura_secuencial?: number | null;
   sri_ready?: boolean;
   sri_missing_requirements?: string[];
   sri_cert_configured?: boolean;
@@ -48,6 +49,7 @@ interface BusinessData {
   contribuyente_rimpe?: string;
   sri_enabled?: boolean;
   sri_ambiente?: string;
+  sri_next_factura_secuencial?: number;
   sri_cert_password?: string;
 }
 
