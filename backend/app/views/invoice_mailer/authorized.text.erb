@@ -22,10 +22,10 @@ adjuntan los documentos a este correo.
   ARCHIVOS ADJUNTOS
 ----------------------------------------------------------------
 
-  • RIDE_FACTURA_<%= @invoice.numero_comprobante %>.pdf
+  • RIDE_<%= @invoice.numero_comprobante %>.pdf
     Representación impresa del documento electrónico
 
-  • XML_FACTURA_<%= @invoice.numero_comprobante %>.xml
+  • Factura_<%= @invoice.numero_comprobante %>.xml
     XML autorizado por el SRI (para tu contabilidad)
 
 ----------------------------------------------------------------
@@ -44,4 +44,4 @@ adjuntan los documentos a este correo.
 <% end %><% if @business.facebook.present? %>  Facebook   :  <%= @business.facebook %>
 <% end %>
 <% end %>Este correo fue generado automáticamente. Por favor no respondas.
-Powered by StockManager by RysthDesign
+Powered by RysthDesign · www.rysthdesign.com

@@ -104,14 +104,14 @@
                     <p style="margin:0 0 4px;font-size:12px;color:#1e40af;">
                       &nbsp;&nbsp;•&nbsp;
                       <span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:monospace;">
-                        RIDE_FACTURA_<%= @invoice.numero_comprobante %>.pdf
+                        RIDE_<%= @invoice.numero_comprobante %>.pdf
                       </span>
                       — Representación impresa del documento electrónico
                     </p>
                     <p style="margin:0;font-size:12px;color:#1e40af;">
                       &nbsp;&nbsp;•&nbsp;
                       <span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:monospace;">
-                        XML_FACTURA_<%= @invoice.numero_comprobante %>.xml
+                        Factura_<%= @invoice.numero_comprobante %>.xml
                       </span>
                       — XML autorizado por el SRI (para tu contabilidad)
                     </p>
@@ -191,11 +191,20 @@
           <!-- FOOTER -->
           <tr>
             <td style="background:#0c1f36;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center;">
-              <p style="margin:0 0 4px;color:rgba(255,255,255,0.4);font-size:11px;line-height:1.6;">
+              <p style="margin:0 0 6px;color:rgba(255,255,255,0.4);font-size:11px;line-height:1.6;">
                 Este correo fue generado automáticamente. Por favor no respondas a este mensaje.
               </p>
-              <p style="margin:0;color:rgba(255,255,255,0.25);font-size:10px;">
-                Powered by <strong style="color:rgba(255,255,255,0.4);">StockManager by RysthDesign</strong>
+              <p style="margin:0 0 4px;color:rgba(255,255,255,0.25);font-size:10px;">
+                Powered by
+                <a href="https://www.rysthdesign.com" target="_blank"
+                   style="color:rgba(255,255,255,0.5);font-weight:700;text-decoration:none;">
+                  RysthDesign
+                </a>
+                &nbsp;·&nbsp;
+                <a href="https://www.rysthdesign.com" target="_blank"
+                   style="color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;">
+                  www.rysthdesign.com
+                </a>
               </p>
             </td>
           </tr>

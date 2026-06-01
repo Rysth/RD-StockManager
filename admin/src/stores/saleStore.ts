@@ -37,8 +37,13 @@ type ApiError = {
 
 function applyInvoiceState(state: SaleState, id: number, invoice: Invoice) {
   return {
-    sales: state.sales.map((sale) => (sale.id === id ? { ...sale, invoice } : sale)),
-    selectedSale: state.selectedSale?.id === id ? { ...state.selectedSale, invoice } : state.selectedSale,
+    sales: state.sales.map((sale) =>
+      sale.id === id ? { ...sale, invoice } : sale,
+    ),
+    selectedSale:
+      state.selectedSale?.id === id
+        ? { ...state.selectedSale, invoice }
+        : state.selectedSale,
   };
 }
 
@@ -51,7 +56,11 @@ function toMessage(error: unknown, fallback: string): string {
     return "No tienes permisos para realizar esta acción.";
   if (response?.data?.errors?.length) {
     return response.data.errors
-      .map((err) => (typeof err === "string" ? err : err?.mensaje || err?.message || String(err)))
+      .map((err) =>
+        typeof err === "string"
+          ? err
+          : err?.mensaje || err?.message || String(err),
+      )
       .join(", ");
   }
   if (response?.data?.message) return response.data.message;
@@ -59,7 +68,10 @@ function toMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function filenameFromDisposition(disposition: string | undefined, fallback: string) {
+function filenameFromDisposition(
+  disposition: string | undefined,
+  fallback: string,
+) {
   const match = disposition?.match(/filename="?([^";]+)"?/i);
   return match?.[1] || fallback;
 }
@@ -86,7 +98,11 @@ interface SaleState {
   error: string | null;
   currentFilters: SaleFilters;
 
-  fetchSales: (page?: number, perPage?: number, filters?: SaleFilters) => Promise<void>;
+  fetchSales: (
+    page?: number,
+    perPage?: number,
+    filters?: SaleFilters,
+  ) => Promise<void>;
   fetchSale: (id: number) => Promise<void>;
   clearSelectedSale: () => void;
   createSale: (data: CreateSaleData) => Promise<Sale>;
@@ -115,7 +131,10 @@ export const useSaleStore = create<SaleState>((set, get) => ({
   fetchSales: async (page = 1, perPage = 12, filters = {}) => {
     set({ isLoading: true, error: null, currentFilters: filters });
     try {
-      const params: Record<string, string | number> = { page, per_page: perPage };
+      const params: Record<string, string | number> = {
+        page,
+        per_page: perPage,
+      };
       if (filters.search) params.search = filters.search;
       if (filters.status) params.status = filters.status;
       if (filters.location_id) params.location_id = filters.location_id;
@@ -127,7 +146,10 @@ export const useSaleStore = create<SaleState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      set({ error: toMessage(error, "Error al obtener las ventas"), isLoading: false });
+      set({
+        error: toMessage(error, "Error al obtener las ventas"),
+        isLoading: false,
+      });
       throw error;
     }
   },
@@ -138,7 +160,10 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const response = await api.get(`/api/v1/sales/${id}`);
       set({ selectedSale: response.data.sale as Sale, isLoadingDetail: false });
     } catch (error) {
-      set({ error: toMessage(error, "Error al obtener la venta"), isLoadingDetail: false });
+      set({
+        error: toMessage(error, "Error al obtener la venta"),
+        isLoadingDetail: false,
+      });
     }
   },
 
@@ -160,7 +185,11 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       });
       set({ isSubmitting: false });
       // Refrescar primera página
-      await get().fetchSales(1, get().pagination.per_page, get().currentFilters);
+      await get().fetchSales(
+        1,
+        get().pagination.per_page,
+        get().currentFilters,
+      );
       return response.data.sale as Sale;
     } catch (error) {
       const msg = toMessage(error, "Error al registrar la venta");
@@ -174,7 +203,11 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     try {
       await api.put(`/api/v1/sales/${id}`, { sale: { status } });
       const { pagination, currentFilters } = get();
-      await get().fetchSales(pagination.current_page, pagination.per_page, currentFilters);
+      await get().fetchSales(
+        pagination.current_page,
+        pagination.per_page,
+        currentFilters,
+      );
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la venta");
       set({ error: msg, isLoading: false });
@@ -211,7 +244,9 @@ export const useSaleStore = create<SaleState>((set, get) => ({
   syncSaleItems: async (id, items) => {
     set({ isSubmitting: true, error: null });
     try {
-      const response = await api.put(`/api/v1/sales/${id}/sync_items`, { items });
+      const response = await api.put(`/api/v1/sales/${id}/sync_items`, {
+        items,
+      });
       const sale = response.data.sale as Sale;
       set((state) => ({
         selectedSale: state.selectedSale?.id === id ? sale : state.selectedSale,
@@ -248,12 +283,18 @@ export const useSaleStore = create<SaleState>((set, get) => ({
     try {
       const response = await api.post(`/api/v1/sales/${id}/invoice`);
       const invoice = response.data.invoice as Invoice;
-      set((state) => ({ ...applyInvoiceState(state, id, invoice), isSubmitting: false }));
+      set((state) => ({
+        ...applyInvoiceState(state, id, invoice),
+        isSubmitting: false,
+      }));
       return invoice;
     } catch (error) {
       const invoice = (error as ApiError).response?.data?.invoice;
       if (invoice) {
-        set((state) => ({ ...applyInvoiceState(state, id, invoice), isSubmitting: false }));
+        set((state) => ({
+          ...applyInvoiceState(state, id, invoice),
+          isSubmitting: false,
+        }));
         return invoice;
       }
       const msg = toMessage(error, "Error al emitir la factura electrónica");
@@ -267,16 +308,24 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const data = email ? { email } : {};
       await api.post(`/api/v1/sales/${id}/send_invoice_email`, data);
     } catch (error) {
-      throw new Error(toMessage(error, "Error al enviar el correo de la factura"));
+      throw new Error(
+        toMessage(error, "Error al enviar el correo de la factura"),
+      );
     }
   },
 
   downloadInvoiceXml: async (id) => {
     try {
-      const response = await api.get(`/api/v1/sales/${id}/invoice_xml`, { responseType: "blob" });
+      const response = await api.get(`/api/v1/sales/${id}/invoice_xml`, {
+        responseType: "blob",
+      });
+      const saleCode = get().selectedSale?.code ?? `VTA-${id}`;
       downloadBlob(
         response.data,
-        filenameFromDisposition(response.headers["content-disposition"], `factura-${id}.xml`),
+        filenameFromDisposition(
+          response.headers["content-disposition"],
+          `Factura_${saleCode}.xml`,
+        ),
       );
     } catch (error) {
       throw new Error(toMessage(error, "Error al descargar el XML autorizado"));
@@ -285,10 +334,16 @@ export const useSaleStore = create<SaleState>((set, get) => ({
 
   downloadInvoiceRide: async (id) => {
     try {
-      const response = await api.get(`/api/v1/sales/${id}/invoice_ride`, { responseType: "blob" });
+      const response = await api.get(`/api/v1/sales/${id}/invoice_ride`, {
+        responseType: "blob",
+      });
+      const saleCode = get().selectedSale?.code ?? `VTA-${id}`;
       downloadBlob(
         response.data,
-        filenameFromDisposition(response.headers["content-disposition"], `factura-${id}.pdf`),
+        filenameFromDisposition(
+          response.headers["content-disposition"],
+          `RIDE_${saleCode}.pdf`,
+        ),
       );
     } catch (error) {
       throw new Error(toMessage(error, "Error al descargar el RIDE"));
@@ -310,7 +365,10 @@ export const useSaleStore = create<SaleState>((set, get) => ({
         isLoading: false,
       });
     } catch (error) {
-      set({ error: toMessage(error, "Error al obtener el reporte"), isLoading: false });
+      set({
+        error: toMessage(error, "Error al obtener el reporte"),
+        isLoading: false,
+      });
     }
   },
 }));

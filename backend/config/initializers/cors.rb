@@ -15,7 +15,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       headers: %w[Authorization Content-Type Accept X-Requested-With],
       methods: [:get, :post, :put, :patch, :delete, :options, :head],
       credentials: true,
-      expose: ['Authorization', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
+      expose: ['Authorization', 'Content-Disposition', 'X-RateLimit-Limit', 'X-RateLimit-Remaining', 'X-RateLimit-Reset']
   end
 
   # Legacy API endpoints (for backward compatibility during transition)
@@ -26,7 +26,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
       headers: %w[Authorization Content-Type Accept X-Requested-With],
       methods: [:get, :post, :put, :patch, :delete, :options, :head],
       credentials: true,
-      expose: ['Authorization']
+      expose: ['Authorization', 'Content-Disposition']
   end
 
   # Public endpoints (less restrictive but still controlled)
@@ -49,7 +49,7 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
         headers: %w[Authorization Content-Type Accept X-Requested-With],
         methods: [:get, :post, :put, :patch, :delete, :options, :head],
         credentials: false,  # Desktop apps use token auth
-        expose: ['Authorization', 'X-RateLimit-Limit', 'X-RateLimit-Remaining']
+        expose: ['Authorization', 'Content-Disposition', 'X-RateLimit-Limit', 'X-RateLimit-Remaining']
     end
   end
 end
