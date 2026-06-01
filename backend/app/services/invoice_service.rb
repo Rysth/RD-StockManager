@@ -105,7 +105,7 @@ class InvoiceService
       emisor: emisor,
       comprador: comprador,
       detalles: detalles,
-      fecha_emision: (@sale.sold_at || Time.current).to_date,
+      fecha_emision: (@sale.sold_at || Time.current).in_time_zone('America/Guayaquil').to_date,
       secuencial: secuencial,
       pagos: [pago],
       tipo_emision: "1"

@@ -133,7 +133,7 @@ export const useAuthStore = create<AuthState>()(
       login: async (data) => {
         set({ isLoading: true, error: null });
         try {
-          await api.post(
+          const response = await api.post(
             "/api/v1/auth/login",
             {
               email: data.email,
@@ -141,6 +141,18 @@ export const useAuthStore = create<AuthState>()(
             },
             { withCredentials: true }
           );
+
+          // Si la cuenta requiere OTP (administradores), pasamos al paso de
+          // verificación en vez de completar la sesión.
+          if (response.data?.otp_required) {
+            set({
+              isLoading: false,
+              isOtpRequired: true,
+              otpEmail: data.email,
+              otpToken: response.data?.otp_token || null,
+            });
+            return;
+          }
 
           // Fetch user info after successful login
           const fetchedUser = await get().fetchUserInfo();

@@ -133,6 +133,53 @@ class RodauthMain < Rodauth::Rails::Auth
       user.add_role(:user) if user_role
     end
 
+    # ==> OTP (2FA por correo) — SOLO para administradores
+    # Tras un login válido, si la cuenta pertenece a un admin convertimos el login en
+    # "parcial": generamos y enviamos un código OTP por correo y exigimos verificarlo
+    # (POST /api/v1/auth/verify-otp) antes de completar la sesión. Los demás roles
+    # (business_owner, business_employee, user) inician sesión normalmente.
+    after_login do
+      account_record = Account.find(account_id)
+      user_record = User.find_by(account_id: account_id)
+
+      if user_record&.has_role?(:admin)
+        # Generar y enviar el código OTP
+        otp_code = OtpCode.generate_for_account(account_record)
+        if Rails.env.test?
+          OtpMailer.send_code(account_record.email, otp_code.code, otp_code.expires_at).deliver_now
+        else
+          OtpMailer.send_code(account_record.email, otp_code.code, otp_code.expires_at).deliver_later
+        end
+
+        # Token que el frontend reenviará para identificar esta sesión OTP
+        otp_token = SecureRandom.hex(32)
+
+        # Marcar el login como parcial y limpiar la sesión autenticada de Rodauth
+        session[:otp_required] = true
+        session[:otp_email] = account[:email]
+        session[:partial_login_account_id] = account_id
+
+        clear_session
+
+        # Restaurar los datos de la sesión OTP tras el clear
+        session[:otp_required] = true
+        session[:otp_email] = account[:email]
+        session[:partial_login_account_id] = account_id
+        session[:otp_token] = otp_token
+
+        # Responder "OTP requerido" y detener el flujo normal de login
+        response.status = 200
+        response['Content-Type'] = 'application/json'
+        response.write(JSON.generate({
+          otp_required: true,
+          otp_token: otp_token,
+          email: account[:email],
+          message: "Código OTP enviado a tu correo electrónico"
+        }))
+        request.halt
+      end
+    end
+
     # ==> Param translation (frontend sends 'token', Rodauth expects 'key')
     before_verify_account_route do
       request.params['key'] ||= request.params['token']
