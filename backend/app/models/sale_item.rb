@@ -2,10 +2,12 @@ class SaleItem < ApplicationRecord
   audited associated_with: :sale
 
   belongs_to :sale
-  belongs_to :product_variant
+  belongs_to :product_variant, optional: true
 
   before_validation :set_unit_price, on: :create
+  before_validation :set_description
 
+  validates :description, presence: { message: "La descripción es requerida" }, if: -> { product_variant.blank? }
   validates :quantity, numericality: { greater_than: 0, only_integer: true, message: "La cantidad debe ser mayor a 0" }
   validate :sufficient_stock, on: :create
 
@@ -19,7 +21,7 @@ class SaleItem < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id sale_id product_variant_id quantity unit_price created_at updated_at]
+    %w[id sale_id product_variant_id description quantity unit_price created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)
@@ -33,6 +35,10 @@ class SaleItem < ApplicationRecord
   def set_unit_price
     self.unit_price = product_variant&.product&.base_price || 0 unless unit_price.present? && unit_price.positive?
     self.unit_cost = product_variant&.product&.cost || 0 if unit_cost.blank? || unit_cost.zero?
+  end
+
+  def set_description
+    self.description = product_variant&.product&.name if description.blank? && product_variant.present?
   end
 
   # Ensure there is enough stock at the sale's location to fulfil this line item

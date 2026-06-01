@@ -1,6 +1,6 @@
 # Convierte una cotización aceptada en una venta (Sale) pendiente.
-# Solo las líneas con product_variant se trasladan a la venta; las líneas de
-# servicio libres (sin variante de inventario) se omiten y se reportan.
+# Las líneas con product_variant descuentan inventario al completar la venta; las
+# líneas de servicio libres se trasladan sin afectar stock.
 # La venta queda en estado :pending — no descuenta stock hasta que se complete
 # por el flujo normal de Ventas.
 class QuotationConversionService
@@ -24,12 +24,8 @@ class QuotationConversionService
     raise AlreadyConvertedError, "La cotización ya fue convertida en venta" if @quotation.converted?
     raise InvalidStatusError, "Solo se pueden convertir cotizaciones aceptadas" unless @quotation.accepted?
 
-    variant_items = @quotation.quotation_items.select { |item| item.product_variant_id.present? }
-    skipped = @quotation.quotation_items.reject { |item| item.product_variant_id.present? }
-
-    if variant_items.empty?
-      raise NoConvertibleItemsError, "La cotización no tiene productos del inventario para convertir en venta"
-    end
+    items = @quotation.quotation_items.to_a
+    raise NoConvertibleItemsError, "La cotización no tiene líneas para convertir en venta" if items.empty?
 
     seller = @user || @quotation.user
     raise Error, "No se pudo determinar el vendedor de la venta" if seller.blank?
@@ -44,9 +40,10 @@ class QuotationConversionService
         payment_method: :cash
       )
 
-      variant_items.each do |item|
+      items.each do |item|
         sale.sale_items.create!(
           product_variant_id: item.product_variant_id,
+          description: item.description,
           quantity: item.quantity.to_i,
           unit_price: item.unit_price
         )
@@ -56,6 +53,6 @@ class QuotationConversionService
       @quotation.update!(sale: sale)
     end
 
-    Result.new(sale: sale, skipped: skipped)
+    Result.new(sale: sale, skipped: [])
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_01_160000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_01_163000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -388,12 +388,13 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_160000) do
 
   create_table "sale_items", force: :cascade do |t|
     t.bigint "sale_id", null: false
-    t.bigint "product_variant_id", null: false
+    t.bigint "product_variant_id"
     t.integer "quantity", default: 1, null: false
     t.decimal "unit_price", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
+    t.string "description"
     t.index ["product_variant_id"], name: "index_sale_items_on_product_variant_id"
     t.index ["sale_id"], name: "index_sale_items_on_sale_id"
   end

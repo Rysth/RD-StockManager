@@ -284,16 +284,16 @@ module Api
             {
               id: item.id,
               product_variant_id: item.product_variant_id,
-              sku: item.product_variant.sku,
-              product_name: item.product_variant.product.name,
-              size: item.product_variant.size,
-              color: item.product_variant.color,
+              sku: item.product_variant&.sku,
+              product_name: item.product_variant&.product&.name || item.description,
+              size: item.product_variant&.size,
+              color: item.product_variant&.color,
               quantity: item.quantity,
               unit_price: item.unit_price,
               unit_cost: item.unit_cost,
               subtotal: item.subtotal,
               profit: item.profit,
-              images: item.product_variant.images.map { |img| { id: img.id, url: url_for(img) } }
+              images: item.product_variant ? item.product_variant.images.map { |img| { id: img.id, url: url_for(img) } } : []
             }
           end
           data[:profit] = sale.sale_items.sum(&:profit)

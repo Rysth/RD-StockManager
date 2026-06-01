@@ -7,7 +7,7 @@ module Api
 
       # GET /api/v1/quotations
       def index
-        @q = Quotation.includes(:customer, :user, :sale, :quotation_items).ransack(search_params)
+        @q = Quotation.includes(:customer, :user, :quotation_items).ransack(search_params)
         @q.sorts = "created_at desc" if @q.sorts.empty?
 
         @pagy, quotations = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -81,7 +81,7 @@ module Api
 
         message = "Cotización convertida en venta ##{result.sale.id}"
         if result.skipped.any?
-          message += ". Se omitieron #{result.skipped.size} línea(s) de servicio sin producto de inventario."
+          message += ". Se omitieron #{result.skipped.size} línea(s)."
         end
 
         Rails.cache.delete("inventory:stats")
@@ -100,7 +100,11 @@ module Api
       private
 
       def set_quotation
-        @quotation = Quotation.includes(:customer, :user, :sale, quotation_items: { product_variant: :product }).find(params[:id])
+        @quotation = if action_name == "show"
+                       Quotation.includes(:customer, :user, :sale, quotation_items: { product_variant: :product }).find(params[:id])
+                     else
+                       Quotation.includes(:quotation_items).find(params[:id])
+                     end
       rescue ActiveRecord::RecordNotFound
         render_error("Cotización no encontrada", :not_found)
       end
