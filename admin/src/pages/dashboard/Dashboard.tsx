@@ -1,8 +1,9 @@
 import { lazy, Suspense, useEffect } from "react";
-import { Navigate, NavLink } from "react-router-dom";
+import { Navigate, NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useSaleStore } from "../../stores/saleStore";
 import { useInventoryStore } from "../../stores/inventoryStore";
+import { usePurchaseStore } from "../../stores/purchaseStore";
 import { Permissions } from "../../types/auth";
 import { StatsCard } from "@/components/ui/stats-card";
 import {
@@ -13,6 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
@@ -34,6 +36,10 @@ import {
   ArrowRight,
   Truck,
   Receipt,
+  Clock,
+  CheckCircle2,
+  ImageIcon,
+  PackagePlus,
 } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -41,11 +47,15 @@ const AreaChart = lazy(() =>
   import("../../components/AreaChart").then((m) => ({ default: m.AreaChart })),
 );
 const ComboChart = lazy(() =>
-  import("../../components/ComboChart").then((m) => ({ default: m.ComboChart })),
+  import("../../components/ComboChart").then((m) => ({
+    default: m.ComboChart,
+  })),
 );
 
 const money = (n: number) =>
-  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n || 0);
+  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(
+    n || 0,
+  );
 
 function ChartFallback() {
   return (
@@ -63,10 +73,19 @@ function DashboardSkeleton() {
     <div className="space-y-6">
       <Skeleton className="h-28 w-full rounded-xl" />
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-36 rounded-xl" />
+        ))}
       </div>
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        {[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-36 rounded-xl" />)}
+        {[1, 2, 3, 4].map((i) => (
+          <Skeleton key={i} className="h-36 rounded-xl" />
+        ))}
+      </div>
+      <div className="grid gap-4 lg:grid-cols-3">
+        {[1, 2, 3].map((i) => (
+          <Skeleton key={i} className="h-72 rounded-xl" />
+        ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Skeleton className="h-96 rounded-xl" />
@@ -76,31 +95,124 @@ function DashboardSkeleton() {
   );
 }
 
-// Acceso rápido: icono, etiqueta, ruta y si requiere permiso
+// Acceso rápido
 const QUICK_LINKS = [
-  { to: "/dashboard/pos",       icon: ShoppingBag, label: "Nueva venta",    color: "text-emerald-600", bg: "bg-emerald-50", perm: Permissions.MANAGE_SALES },
-  { to: "/dashboard/purchases", icon: Truck,        label: "Nueva compra",   color: "text-blue-600",    bg: "bg-blue-50",    perm: Permissions.VIEW_PURCHASES },
-  { to: "/dashboard/expenses",  icon: Receipt,      label: "Nuevo gasto",    color: "text-amber-600",   bg: "bg-amber-50",   perm: Permissions.VIEW_EXPENSES },
-  { to: "/dashboard/customers", icon: Users2,       label: "Contactos",      color: "text-violet-600",  bg: "bg-violet-50",  perm: Permissions.MANAGE_CUSTOMERS },
-  { to: "/dashboard/products",  icon: Package2,     label: "Inventario",     color: "text-teal-600",    bg: "bg-teal-50",    perm: Permissions.VIEW_INVENTORY },
-  { to: "/dashboard/sales",     icon: ShoppingCart, label: "Ver ventas",     color: "text-rose-600",    bg: "bg-rose-50",    perm: Permissions.MANAGE_SALES },
+  {
+    to: "/dashboard/pos",
+    icon: ShoppingBag,
+    label: "Nueva venta",
+    color: "text-emerald-600",
+    bg: "bg-emerald-50",
+    perm: Permissions.MANAGE_SALES,
+  },
+  {
+    to: "/dashboard/pos",
+    icon: PackagePlus,
+    label: "Ingreso rápido",
+    color: "text-blue-600",
+    bg: "bg-blue-50",
+    perm: Permissions.VIEW_PURCHASES,
+  },
+  {
+    to: "/dashboard/expenses",
+    icon: Receipt,
+    label: "Nuevo gasto",
+    color: "text-amber-600",
+    bg: "bg-amber-50",
+    perm: Permissions.VIEW_EXPENSES,
+  },
+  {
+    to: "/dashboard/customers",
+    icon: Users2,
+    label: "Contactos",
+    color: "text-violet-600",
+    bg: "bg-violet-50",
+    perm: Permissions.MANAGE_CUSTOMERS,
+  },
+  {
+    to: "/dashboard/products",
+    icon: Package2,
+    label: "Inventario",
+    color: "text-teal-600",
+    bg: "bg-teal-50",
+    perm: Permissions.VIEW_INVENTORY,
+  },
+  {
+    to: "/dashboard/sales",
+    icon: ShoppingCart,
+    label: "Ver ventas",
+    color: "text-rose-600",
+    bg: "bg-rose-50",
+    perm: Permissions.MANAGE_SALES,
+  },
 ];
+
+function PanelHeader({
+  title,
+  count,
+  linkTo,
+  linkLabel = "Ver todos →",
+}: {
+  title: string;
+  count?: number;
+  linkTo: string;
+  linkLabel?: string;
+}) {
+  return (
+    <CardHeader className="pb-3">
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-base font-semibold">
+          {title}
+          {count !== undefined && count > 0 && (
+            <Badge variant="secondary" className="ml-2 text-xs">
+              {count}
+            </Badge>
+          )}
+        </CardTitle>
+        <NavLink
+          to={linkTo}
+          className="flex items-center gap-1 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          {linkLabel} <ArrowRight className="h-3 w-3" />
+        </NavLink>
+      </div>
+    </CardHeader>
+  );
+}
 
 export default function Dashboard() {
   const { user, hasPermission } = useAuthStore();
-  const { report, isLoading: salesLoading, fetchReport } = useSaleStore();
-  const { stats, fetchStats } = useInventoryStore();
+  const {
+    report,
+    sales,
+    isLoading: salesLoading,
+    fetchReport,
+    fetchSales,
+  } = useSaleStore();
+  const { stats, lowStock, fetchStats, fetchLowStock } = useInventoryStore();
+  const { duePurchases, fetchDue } = usePurchaseStore();
+  const navigate = useNavigate();
 
-  const canViewReports   = hasPermission(Permissions.VIEW_REPORTS);
+  const canViewReports = hasPermission(Permissions.VIEW_REPORTS);
   const canViewInventory = hasPermission(Permissions.VIEW_INVENTORY);
+  const canManageSales = hasPermission(Permissions.MANAGE_SALES);
+  const canViewPurchases = hasPermission(Permissions.VIEW_PURCHASES);
 
-  // Empleados sin reports → redirect a ventas
   if (!canViewReports) return <Navigate to="/dashboard/sales" replace />;
 
   useEffect(() => {
-    fetchReport().catch((e) => toast.error(e?.message || "Error al cargar reportes"));
+    fetchReport().catch((e) =>
+      toast.error(e?.message || "Error al cargar reportes"),
+    );
     if (canViewInventory) {
       fetchStats().catch(() => {});
+      fetchLowStock().catch(() => {});
+    }
+    if (canManageSales) {
+      fetchSales(1, 8, { status: "pending" }).catch(() => {});
+    }
+    if (canViewPurchases) {
+      fetchDue().catch(() => {});
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -116,7 +228,21 @@ export default function Dashboard() {
 
   const firstName = user?.fullname?.split(" ")[0] || "bienvenido";
   const hour = new Date().getHours();
-  const greeting = hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+  const greeting =
+    hour < 12 ? "Buenos días" : hour < 19 ? "Buenas tardes" : "Buenas noches";
+
+  const pendingSales = sales.filter((s) => s.status === "pending");
+  const isOverdue = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    return new Date(dateStr) < new Date(new Date().toDateString());
+  };
+  const isDueSoon = (dateStr: string | null) => {
+    if (!dateStr) return false;
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = (d.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+    return diff >= 0 && diff <= 7;
+  };
 
   return (
     <div className="space-y-6">
@@ -133,17 +259,19 @@ export default function Dashboard() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {QUICK_LINKS.filter((l) => hasPermission(l.perm)).slice(0, 4).map((l) => (
-                <NavLink
-                  key={l.to}
-                  to={l.to}
-                  className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/25"
-                >
-                  <l.icon className="size-3.5" />
-                  {l.label}
-                  <ArrowRight className="size-3" />
-                </NavLink>
-              ))}
+              {QUICK_LINKS.filter((l) => hasPermission(l.perm))
+                .slice(0, 4)
+                .map((l) => (
+                  <NavLink
+                    key={l.to}
+                    to={l.to}
+                    className="flex items-center gap-1.5 rounded-lg bg-white/15 px-3 py-1.5 text-sm font-medium backdrop-blur-sm transition-colors hover:bg-white/25"
+                  >
+                    <l.icon className="size-3.5" />
+                    {l.label}
+                    <ArrowRight className="size-3" />
+                  </NavLink>
+                ))}
             </div>
           </div>
         </CardContent>
@@ -167,7 +295,11 @@ export default function Dashboard() {
           iconColor="text-teal-600"
           iconBgColor="bg-teal-50"
           variant="colored"
-          trend={{ value: `${marginPct}%`, isPositive: marginPct >= 0, label: "margen" }}
+          trend={{
+            value: `${marginPct}%`,
+            isPositive: marginPct >= 0,
+            label: "margen",
+          }}
         />
         <StatsCard
           title="Ingresos semana"
@@ -205,19 +337,37 @@ export default function Dashboard() {
             title="Stock bajo"
             value={stats.low_stock_count}
             icon={AlertTriangle}
-            iconColor={stats.low_stock_count > 0 ? "text-amber-600" : "text-emerald-600"}
-            iconBgColor={stats.low_stock_count > 0 ? "bg-amber-50" : "bg-emerald-50"}
+            iconColor={
+              stats.low_stock_count > 0 ? "text-amber-600" : "text-emerald-600"
+            }
+            iconBgColor={
+              stats.low_stock_count > 0 ? "bg-amber-50" : "bg-emerald-50"
+            }
             variant="colored"
-            description={stats.low_stock_count > 0 ? "Requieren reposición" : "Stock saludable"}
+            description={
+              stats.low_stock_count > 0
+                ? "Requieren reposición"
+                : "Stock saludable"
+            }
           />
           <StatsCard
             title="Sin stock"
             value={stats.out_of_stock_count}
             icon={Package2}
-            iconColor={stats.out_of_stock_count > 0 ? "text-rose-600" : "text-emerald-600"}
-            iconBgColor={stats.out_of_stock_count > 0 ? "bg-rose-50" : "bg-emerald-50"}
+            iconColor={
+              stats.out_of_stock_count > 0
+                ? "text-rose-600"
+                : "text-emerald-600"
+            }
+            iconBgColor={
+              stats.out_of_stock_count > 0 ? "bg-rose-50" : "bg-emerald-50"
+            }
             variant="colored"
-            description={stats.out_of_stock_count > 0 ? "Variantes agotadas" : "Todas con stock"}
+            description={
+              stats.out_of_stock_count > 0
+                ? "Variantes agotadas"
+                : "Todas con stock"
+            }
           />
           <StatsCard
             title="Clientes"
@@ -227,6 +377,194 @@ export default function Dashboard() {
             iconBgColor="bg-blue-50"
             variant="colored"
           />
+        </div>
+      )}
+
+      {/* ── Paneles operativos ── */}
+      {(canManageSales || canViewInventory || canViewPurchases) && (
+        <div className="grid gap-4 lg:grid-cols-3">
+          {/* Panel 1: Ventas pendientes */}
+          {canManageSales && (
+            <Card className="shadow-sm">
+              <PanelHeader
+                title="Ventas pendientes"
+                count={pendingSales.length}
+                linkTo="/dashboard/sales"
+              />
+              <CardContent className="p-0">
+                {pendingSales.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                    <p>No hay ventas pendientes</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {pendingSales.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        onClick={() => navigate("/dashboard/sales")}
+                        className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold text-primary">
+                            {s.code}
+                          </p>
+                          <p className="truncate text-sm">
+                            {s.customer_name || "Consumidor final"}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.sold_at
+                              ? new Date(s.sold_at).toLocaleDateString("es-EC")
+                              : "—"}
+                          </p>
+                        </div>
+                        <div className="ml-3 shrink-0 text-right">
+                          <p className="font-semibold">{money(s.total)}</p>
+                          <Badge
+                            variant="secondary"
+                            className="mt-0.5 bg-amber-100 text-amber-800 text-[10px]"
+                          >
+                            <Clock className="mr-1 h-2.5 w-2.5" /> Pendiente
+                          </Badge>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Panel 2: Stock crítico */}
+          {canViewInventory && (
+            <Card className="shadow-sm">
+              <PanelHeader
+                title="Stock crítico"
+                count={lowStock.length}
+                linkTo="/dashboard/products"
+                linkLabel="Ver inventario →"
+              />
+              <CardContent className="p-0">
+                {lowStock.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                    <p>Todo el inventario tiene stock</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {lowStock.slice(0, 8).map((v) => (
+                      <button
+                        key={v.id}
+                        type="button"
+                        onClick={() => navigate("/dashboard/products")}
+                        className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                      >
+                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border bg-muted text-muted-foreground">
+                          <ImageIcon className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium">
+                            {v.product_name}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {[v.size, v.color].filter(Boolean).join(" / ") ||
+                              v.sku}
+                          </p>
+                        </div>
+                        <Badge
+                          variant="secondary"
+                          className={`shrink-0 text-[10px] ${
+                            v.stock === 0
+                              ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {v.stock === 0 ? "Sin stock" : `${v.stock} uds`}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Panel 3: Compras por vencer/pagar */}
+          {canViewPurchases && (
+            <Card className="shadow-sm">
+              <PanelHeader
+                title="Por pagar / vencer"
+                count={duePurchases.length}
+                linkTo="/dashboard/purchases"
+                linkLabel="Ver compras →"
+              />
+              <CardContent className="p-0">
+                {duePurchases.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 py-8 text-center text-sm text-muted-foreground">
+                    <CheckCircle2 className="h-8 w-8 text-emerald-400" />
+                    <p>Sin compras por pagar</p>
+                  </div>
+                ) : (
+                  <div className="divide-y">
+                    {duePurchases.slice(0, 8).map((p) => {
+                      const overdue = isOverdue(p.due_date ?? null);
+                      const soon = !overdue && isDueSoon(p.due_date ?? null);
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={() => navigate("/dashboard/purchases")}
+                          className="flex w-full items-center justify-between px-4 py-3 text-left transition-colors hover:bg-muted/50"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-primary">
+                              {p.code}
+                            </p>
+                            <p className="truncate text-sm">
+                              {p.supplier_name || "Sin proveedor"}
+                            </p>
+                            {p.due_date && (
+                              <p
+                                className={`text-xs ${overdue ? "text-red-600 font-medium" : soon ? "text-amber-600" : "text-muted-foreground"}`}
+                              >
+                                Vence:{" "}
+                                {new Date(p.due_date).toLocaleDateString(
+                                  "es-EC",
+                                )}
+                              </p>
+                            )}
+                          </div>
+                          <div className="ml-3 shrink-0 text-right">
+                            <p className="font-semibold text-destructive">
+                              {money(p.balance_due)}
+                            </p>
+                            <Badge
+                              variant="secondary"
+                              className={`mt-0.5 text-[10px] ${
+                                overdue
+                                  ? "bg-red-100 text-red-700"
+                                  : soon
+                                    ? "bg-amber-100 text-amber-700"
+                                    : "bg-blue-100 text-blue-700"
+                              }`}
+                            >
+                              <Truck className="mr-1 h-2.5 w-2.5" />
+                              {overdue
+                                ? "Vencida"
+                                : soon
+                                  ? "Vence pronto"
+                                  : "Por pagar"}
+                            </Badge>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       )}
 
@@ -265,7 +603,11 @@ export default function Dashboard() {
                 data={report.revenue_by_month}
                 index="label"
                 enableBiaxial
-                barSeries={{ categories: ["revenue"], yAxisLabel: "Ingresos", colors: ["blue"] }}
+                barSeries={{
+                  categories: ["revenue"],
+                  yAxisLabel: "Ingresos",
+                  colors: ["blue"],
+                }}
                 lineSeries={{
                   categories: ["profit"],
                   showYAxis: true,
@@ -286,7 +628,9 @@ export default function Dashboard() {
       <Card className="shadow-sm">
         <CardHeader>
           <CardTitle>Top 10 productos más vendidos</CardTitle>
-          <CardDescription>Por unidades vendidas en ventas completadas</CardDescription>
+          <CardDescription>
+            Por unidades vendidas en ventas completadas
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <Table>
@@ -303,16 +647,23 @@ export default function Dashboard() {
               {report.top_products.length ? (
                 report.top_products.map((p, i) => (
                   <TableRow key={`${p.name}-${i}`}>
-                    <TableCell className="text-muted-foreground font-medium">{i + 1}</TableCell>
+                    <TableCell className="text-muted-foreground font-medium">
+                      {i + 1}
+                    </TableCell>
                     <TableCell className="font-medium">{p.name}</TableCell>
                     <TableCell>{p.brand || "—"}</TableCell>
                     <TableCell className="text-right">{p.units_sold}</TableCell>
-                    <TableCell className="text-right font-medium">{money(p.revenue)}</TableCell>
+                    <TableCell className="text-right font-medium">
+                      {money(p.revenue)}
+                    </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={5}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     Aún no hay ventas registradas.
                   </TableCell>
                 </TableRow>

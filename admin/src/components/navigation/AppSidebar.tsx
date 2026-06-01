@@ -391,7 +391,8 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {canManageSales && (
+                {(canManageSales ||
+                  (canViewPurchases && !isBusinessEmployee)) && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild

@@ -119,7 +119,12 @@ export const router = createBrowserRouter([
       {
         path: "pos",
         element: (
-          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+          <ProtectedRoute
+            requiredPermission={[
+              Permissions.MANAGE_SALES,
+              Permissions.VIEW_PURCHASES,
+            ]}
+          >
             <PosIndex />
           </ProtectedRoute>
         ),

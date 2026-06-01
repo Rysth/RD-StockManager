@@ -12,16 +12,19 @@ import {
   UserPlus,
   Printer,
   User,
+  PackagePlus,
+  CheckCircle,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
+import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
+import { Permissions } from "../../../types/auth";
 import type { PaymentMethod, ProductVariant } from "../../../types/inventory";
-import type { Customer } from "../../../types/inventory";
 import { printTicket } from "../../../lib/ticket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -49,15 +52,23 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 
+type Mode = "sale" | "purchase";
+
 const money = (n: number) =>
-  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
+  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(
+    n || 0,
+  );
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
 function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
   return url ? (
-    <img src={url} alt="" className={`${size} rounded-md border object-cover`} />
+    <img
+      src={url}
+      alt=""
+      className={`${size} rounded-md border object-cover`}
+    />
   ) : (
     <div
       className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}
@@ -75,10 +86,11 @@ interface CartItem {
   base_price: number;
   wholesale_price: number | null;
   wholesale_min_quantity: number;
+  cost: number;
   quantity: number;
-  max: number;
-  unit_price: number;
-  price_edited: boolean;
+  max: number; // stock disponible (tope solo en venta)
+  unit_value: number; // precio (venta) o costo (compra)
+  value_edited: boolean;
 }
 
 interface VariantOption {
@@ -90,10 +102,14 @@ interface VariantOption {
   base_price: number;
   wholesale_price: number | null;
   wholesale_min_quantity: number;
+  cost: number;
 }
 
 function suggestedPrice(
-  item: Pick<CartItem, "base_price" | "wholesale_price" | "wholesale_min_quantity" | "quantity">
+  item: Pick<
+    CartItem,
+    "base_price" | "wholesale_price" | "wholesale_min_quantity" | "quantity"
+  >,
 ) {
   if (
     item.wholesale_price &&
@@ -106,27 +122,51 @@ function suggestedPrice(
 }
 
 export default function PosIndex() {
-  const { products, categories, fetchProducts, fetchCategories } = useInventoryStore();
-  const { customers, fetchCustomers, createCustomer, updateCustomer } = useCustomerStore();
-  const { createSale, isSubmitting } = useSaleStore();
+  const { products, categories, fetchProducts, fetchCategories } =
+    useInventoryStore();
+  const { customers, fetchCustomers, createCustomer, updateCustomer } =
+    useCustomerStore();
+  const { createSale, isSubmitting: isSubmittingSale } = useSaleStore();
+  const { createPurchase, isSubmitting: isSubmittingPurchase } =
+    usePurchaseStore();
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
-  const { user } = useAuthStore();
-  const restrictedToBranch = !!user?.restricted_to_location && !!user?.location_id;
+  const { user, hasPermission } = useAuthStore();
+  const restrictedToBranch =
+    !!user?.restricted_to_location && !!user?.location_id;
 
-  // Cart state
-  const [customerId, setCustomerId] = useState<string>("");
-  const [customerSearch, setCustomerSearch] = useState("");
-  const [_customerSearching, _setCustomerSearching] = useState(false);
+  const isBusinessEmployee = user?.roles?.includes("business_employee");
+  const canSell = hasPermission(Permissions.MANAGE_SALES);
+  const canPurchase =
+    hasPermission(Permissions.VIEW_PURCHASES) && !isBusinessEmployee;
+
+  // ── Mode (venta / compra) ────────────────────────────────────
+  const [mode, setMode] = useState<Mode>(() => (canSell ? "sale" : "purchase"));
+  const isSubmitting =
+    mode === "sale" ? isSubmittingSale : isSubmittingPurchase;
+
+  // ── Shared state ─────────────────────────────────────────────
   const [locationId, setLocationId] = useState<string>("");
   const [variantQuery, setVariantQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
   const [cart, setCart] = useState<CartItem[]>([]);
+
+  // ── Sale-only state ──────────────────────────────────────────
+  const [customerId, setCustomerId] = useState<string>("");
+  const [customerSearch, setCustomerSearch] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
 
-  // Dialog state
+  // ── Purchase-only state ──────────────────────────────────────
+  const [supplierId, setSupplierId] = useState("");
+  const [reference, setReference] = useState("");
+  const [discount, setDiscount] = useState("0");
+  const [tax, setTax] = useState("0");
+  const [paid, setPaid] = useState("0");
+  const [dueDate, setDueDate] = useState("");
+
+  // ── Dialog state ─────────────────────────────────────────────
   const [selectedProduct, setSelectedProduct] = useState<{
     id: number;
     name: string;
@@ -134,6 +174,7 @@ export default function PosIndex() {
     base_price: number;
     wholesale_price: number | null;
     wholesale_min_quantity: number;
+    cost: number;
     thumb?: string;
     variants: {
       id: number;
@@ -146,24 +187,39 @@ export default function PosIndex() {
   } | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmStatus, setConfirmStatus] = useState<"draft" | "received">(
+    "received",
+  );
 
-  // Customer by ID flow
+  // Customer flows (sale only)
   const [customerByOpen, setCustomerByOpen] = useState(false);
   const [customerByQuery, setCustomerByQuery] = useState("");
-  const [_customerByResult, _setCustomerByResult] = useState<Customer | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [_customerByNotFound, setCustomerByNotFound] = useState(false);
   const customerSearchRef = useRef<HTMLInputElement>(null);
-
-  // Customer edit
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
-  const [editForm, setEditForm] = useState({ name: "", phone: "", city: "", id_number: "", email: "" });
-
-  // Quick customer creation
+  const [editForm, setEditForm] = useState({
+    name: "",
+    phone: "",
+    city: "",
+    id_number: "",
+    email: "",
+  });
   const [quickOpen, setQuickOpen] = useState(false);
-  const [quickForm, setQuickForm] = useState({ name: "", phone: "", city: "", id_number: "", id_type: "cedula", email: "" });
+  const [quickForm, setQuickForm] = useState({
+    name: "",
+    phone: "",
+    city: "",
+    id_number: "",
+    id_type: "cedula",
+    email: "",
+  });
   const [quickSaving, setQuickSaving] = useState(false);
+
+  const suppliers = useMemo(
+    () => customers.filter((c) => c.is_supplier),
+    [customers],
+  );
 
   useEffect(() => {
     fetchProducts(1, 200, {});
@@ -174,8 +230,6 @@ export default function PosIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Default the POS to the business' main location once they load.
-  // Empleados restringidos quedan fijados a su sucursal asignada.
   useEffect(() => {
     if (restrictedToBranch && user?.location_id) {
       setLocationId(String(user.location_id));
@@ -188,72 +242,110 @@ export default function PosIndex() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locations, restrictedToBranch]);
 
+  // Cambiar de modo limpia el carrito y los datos específicos (operación distinta).
+  const switchMode = (next: Mode) => {
+    if (next === mode) return;
+    setMode(next);
+    setCart([]);
+    setVariantQuery("");
+    setCustomerId("");
+    setCustomerSearch("");
+    setPaymentMethod("cash");
+    setCashOnDelivery(false);
+    setShippingCost(0);
+    setSupplierId("");
+    setReference("");
+    setDiscount("0");
+    setTax("0");
+    setPaid("0");
+    setDueDate("");
+  };
+
   // Stock de una variante en la ubicación seleccionada (cae al total si no hay desglose).
   const stockAt = (v: ProductVariant): number => {
     if (locationId && v.stock_by_location?.length) {
-      const found = v.stock_by_location.find((sl) => String(sl.location_id) === locationId);
+      const found = v.stock_by_location.find(
+        (sl) => String(sl.location_id) === locationId,
+      );
       return found ? found.quantity : 0;
     }
     return v.stock;
   };
 
-  // ── Categories that have in-stock products ──────────────────
+  // ── Categorías con productos relevantes según el modo ─────────
   const activeCategoryIds = useMemo(() => {
     const ids = new Set<number>();
     products.forEach((p) => {
-      if (p.category_id && p.variants.some((v) => stockAt(v) > 0)) {
-        ids.add(p.category_id);
-      }
+      // En compra mostramos todo; en venta solo lo que tiene stock.
+      const relevant =
+        mode === "purchase" || p.variants.some((v) => stockAt(v) > 0);
+      if (p.category_id && relevant) ids.add(p.category_id);
     });
     return ids;
-  }, [products, locationId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, locationId, mode]);
 
   const filteredCategories = useMemo(
     () => categories.filter((c) => activeCategoryIds.has(c.id)),
     [categories, activeCategoryIds],
   );
 
-  // ── Product grid data ────────────────────────────────────────
+  // ── Grid de productos ────────────────────────────────────────
   const productGroups = useMemo(() => {
     const q = variantQuery.trim().toLowerCase();
     return products
       .filter((p) => {
-        if (categoryFilter !== "all" && p.category_id !== categoryFilter) return false;
-        if (!p.variants.some((v) => stockAt(v) > 0)) return false;
+        if (categoryFilter !== "all" && p.category_id !== categoryFilter)
+          return false;
+        // En venta requerimos stock; en compra no.
+        if (mode === "sale" && !p.variants.some((v) => stockAt(v) > 0))
+          return false;
         if (!q) return true;
-        const productMatch = `${p.name} ${p.brand ?? ""}`.toLowerCase().includes(q);
+        const productMatch = `${p.name} ${p.brand ?? ""}`
+          .toLowerCase()
+          .includes(q);
         const variantMatch = p.variants.some((v) =>
-          `${v.sku} ${v.size ?? ""} ${v.color ?? ""}`.toLowerCase().includes(q)
+          `${v.sku} ${v.size ?? ""} ${v.color ?? ""}`.toLowerCase().includes(q),
         );
         return productMatch || variantMatch;
       })
-      .map((p) => ({
-        id: p.id,
-        name: p.name,
-        brand: p.brand,
-        base_price: p.base_price,
-        wholesale_price: p.wholesale_price ?? null,
-        wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
-        thumb: p.images?.[0]?.url,
-        variantCount: p.variants.filter((v) => stockAt(v) > 0).length,
-        variants: p.variants
-          .filter((v) => stockAt(v) > 0)
-          .map((v) => ({
-            id: v.id,
-            size: v.size,
-            color: v.color,
-            stock: stockAt(v),
-            sku: v.sku,
-            thumb: v.images?.[0]?.url || p.images?.[0]?.url,
-          })),
-      }));
-  }, [products, variantQuery, categoryFilter, locationId]);
+      .map((p) => {
+        const variants = (
+          mode === "sale"
+            ? p.variants.filter((v) => stockAt(v) > 0)
+            : p.variants
+        ).map((v) => ({
+          id: v.id,
+          size: v.size,
+          color: v.color,
+          stock: stockAt(v),
+          sku: v.sku,
+          thumb: v.images?.[0]?.url || p.images?.[0]?.url,
+        }));
+        return {
+          id: p.id,
+          name: p.name,
+          brand: p.brand,
+          base_price: p.base_price,
+          wholesale_price: p.wholesale_price ?? null,
+          wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
+          cost: p.cost,
+          thumb: p.images?.[0]?.url,
+          variantCount: variants.length,
+          variants,
+        };
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, variantQuery, categoryFilter, locationId, mode]);
 
-  // ── Cart operations ──────────────────────────────────────────
+  // ── Operaciones de carrito ───────────────────────────────────
   function withQuantity(item: CartItem, quantity: number): CartItem {
-    const q = Math.max(1, Math.min(quantity, item.max));
+    const cap = mode === "sale" ? item.max : Number.MAX_SAFE_INTEGER;
+    const q = Math.max(1, Math.min(quantity, cap));
     const next = { ...item, quantity: q };
-    if (!item.price_edited) next.unit_price = suggestedPrice(next);
+    // En venta, si no se editó el precio, recalcula (puede aplicar mayoreo).
+    if (mode === "sale" && !item.value_edited)
+      next.unit_value = suggestedPrice(next);
     return next;
   }
 
@@ -261,12 +353,12 @@ export default function PosIndex() {
     setCart((prev) => {
       const existing = prev.find((i) => i.product_variant_id === v.id);
       if (existing) {
-        if (existing.quantity >= existing.max) {
+        if (mode === "sale" && existing.quantity >= existing.max) {
           toast.error("No hay más stock disponible");
           return prev;
         }
         return prev.map((i) =>
-          i.product_variant_id === v.id ? withQuantity(i, i.quantity + 1) : i
+          i.product_variant_id === v.id ? withQuantity(i, i.quantity + 1) : i,
         );
       }
       const base: CartItem = {
@@ -277,10 +369,11 @@ export default function PosIndex() {
         base_price: v.base_price,
         wholesale_price: v.wholesale_price,
         wholesale_min_quantity: v.wholesale_min_quantity,
+        cost: v.cost,
         quantity: 1,
         max: v.stock,
-        unit_price: v.base_price,
-        price_edited: false,
+        unit_value: mode === "sale" ? v.base_price : v.cost,
+        value_edited: false,
       };
       return [...prev, withQuantity(base, 1)];
     });
@@ -288,13 +381,21 @@ export default function PosIndex() {
 
   const setQuantity = (id: number, qty: number) =>
     setCart((prev) =>
-      prev.map((i) => (i.product_variant_id === id ? withQuantity(i, qty) : i))
+      prev.map((i) => (i.product_variant_id === id ? withQuantity(i, qty) : i)),
+    );
+
+  const setUnitValue = (id: number, value: number) =>
+    setCart((prev) =>
+      prev.map((i) =>
+        i.product_variant_id === id
+          ? { ...i, unit_value: value, value_edited: true }
+          : i,
+      ),
     );
 
   const removeItem = (id: number) =>
     setCart((prev) => prev.filter((i) => i.product_variant_id !== id));
 
-  // Al cambiar de ubicación, el stock disponible cambia: limpiamos el carrito.
   const handleLocationChange = (value: string) => {
     setLocationId(value);
     if (cart.length) {
@@ -303,16 +404,27 @@ export default function PosIndex() {
     }
   };
 
-  const itemsTotal = cart.reduce((sum, i) => sum + i.unit_price * i.quantity, 0);
-  const total = itemsTotal + shippingCost;
+  // ── Totales ──────────────────────────────────────────────────
+  const itemsTotal = cart.reduce(
+    (sum, i) => sum + i.unit_value * i.quantity,
+    0,
+  );
+  const discountNum = Number(discount || 0);
+  const taxNum = Number(tax || 0);
+  const total =
+    mode === "sale"
+      ? itemsTotal + shippingCost
+      : itemsTotal - discountNum + taxNum;
   const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
+  const selectedSupplier = suppliers.find((s) => String(s.id) === supplierId);
 
-  // ── Quick customer create ────────────────────────────────────
+  // ── Cliente rápido (venta) ───────────────────────────────────
   const saveQuickCustomer = async () => {
     if (!quickForm.name.trim()) return toast.error("El nombre es requerido");
     if (!quickForm.phone.trim()) return toast.error("El teléfono es requerido");
-    if (!quickForm.email.trim()) return toast.error("El correo electrónico es requerido");
+    if (!quickForm.email.trim())
+      return toast.error("El correo electrónico es requerido");
     setQuickSaving(true);
     try {
       const created = await createCustomer({
@@ -321,14 +433,22 @@ export default function PosIndex() {
         email: quickForm.email || undefined,
         city: quickForm.city,
         id_number: quickForm.id_number || undefined,
-        id_type: (quickForm.id_type as "cedula" | "pasaporte" | "ruc") || "cedula",
+        id_type:
+          (quickForm.id_type as "cedula" | "pasaporte" | "ruc") || "cedula",
       });
       setCustomerId(String(created.id));
       setCustomerSearch(created.name);
       await fetchCustomers(1, 200, "");
       toast.success(`Cliente ${created.name} creado y seleccionado`);
       setQuickOpen(false);
-      setQuickForm({ name: "", phone: "", city: "", id_number: "", id_type: "cedula", email: "" });
+      setQuickForm({
+        name: "",
+        phone: "",
+        city: "",
+        id_number: "",
+        id_type: "cedula",
+        email: "",
+      });
     } catch (e) {
       toast.error(errorMessage(e, "Error al crear el cliente"));
     } finally {
@@ -353,7 +473,8 @@ export default function PosIndex() {
     if (!selectedCustomer) return;
     if (!editForm.name.trim()) return toast.error("El nombre es requerido");
     if (!editForm.phone.trim()) return toast.error("El teléfono es requerido");
-    if (!editForm.email.trim()) return toast.error("El correo electrónico es requerido");
+    if (!editForm.email.trim())
+      return toast.error("El correo electrónico es requerido");
     setEditSaving(true);
     try {
       await updateCustomer(selectedCustomer.id, {
@@ -373,14 +494,18 @@ export default function PosIndex() {
     }
   };
 
-  // ── Print ticket ─────────────────────────────────────────────
+  // ── Imprimir ticket (venta) ──────────────────────────────────
   const handlePrintTicket = () => {
     const ok = printTicket({
-      businessName: publicBusiness?.name || "EDLU Store",
+      businessName: publicBusiness?.name || "StockManager",
       businessSlogan: publicBusiness?.slogan || "",
       date: new Date(),
       customerName: selectedCustomer?.name || "Consumidor final",
-      lines: cart.map((i) => ({ label: i.label, quantity: i.quantity, unit_price: i.unit_price })),
+      lines: cart.map((i) => ({
+        label: i.label,
+        quantity: i.quantity,
+        unit_price: i.unit_value,
+      })),
       shippingCost,
       total,
       paymentMethod,
@@ -389,7 +514,36 @@ export default function PosIndex() {
     if (!ok) toast.error("Permite ventanas emergentes para imprimir");
   };
 
-  // ── Submit sale ──────────────────────────────────────────────
+  // ── Confirmar / registrar ────────────────────────────────────
+  const openConfirm = (status?: "draft" | "received") => {
+    if (cart.length === 0) {
+      toast.error("Agrega al menos un producto");
+      return;
+    }
+    if (status) setConfirmStatus(status);
+    setConfirmOpen(true);
+  };
+
+  const resetAfterSubmit = () => {
+    setConfirmOpen(false);
+    setCart([]);
+    setVariantQuery("");
+    if (mode === "sale") {
+      setCustomerId("");
+      setCustomerSearch("");
+      setPaymentMethod("cash");
+      setCashOnDelivery(false);
+      setShippingCost(0);
+    } else {
+      setSupplierId("");
+      setReference("");
+      setDiscount("0");
+      setTax("0");
+      setPaid("0");
+      setDueDate("");
+    }
+  };
+
   const submitSale = async () => {
     try {
       await createSale({
@@ -402,63 +556,129 @@ export default function PosIndex() {
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
           quantity: i.quantity,
-          unit_price: i.unit_price,
+          unit_price: i.unit_value,
         })),
       });
       toast.success(
         cashOnDelivery
           ? "Pedido registrado — pendiente de entrega y pago"
-          : "Venta completada correctamente"
+          : "Venta completada correctamente",
       );
-      setConfirmOpen(false);
-      setCart([]);
-      setCustomerId("");
-      setVariantQuery("");
-      setPaymentMethod("cash");
-      setCashOnDelivery(false);
-      setShippingCost(0);
+      resetAfterSubmit();
     } catch (e) {
       toast.error(errorMessage(e, "Error al registrar la venta"));
     }
   };
 
+  const submitPurchase = async () => {
+    try {
+      await createPurchase({
+        customer_id: supplierId ? Number(supplierId) : null,
+        location_id: locationId ? Number(locationId) : null,
+        status: confirmStatus,
+        discount: discountNum,
+        tax: taxNum,
+        paid_amount: Number(paid || 0),
+        due_date: dueDate || null,
+        reference: reference || null,
+        notes: null,
+        items: cart.map((i) => ({
+          product_variant_id: i.product_variant_id,
+          quantity: i.quantity,
+          unit_cost: i.unit_value,
+        })),
+      });
+      toast.success(
+        confirmStatus === "received"
+          ? "Mercancía recibida — stock actualizado"
+          : "Compra guardada como borrador",
+      );
+      resetAfterSubmit();
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al registrar la compra"));
+    }
+  };
+
+  const isSale = mode === "sale";
+
   // ── Render ───────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Encabezado + toggle de modo */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Punto de Venta</h1>
-          <p className="text-sm text-muted-foreground">Registra una venta nueva</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            {isSale ? "Punto de Venta" : "Ingreso de mercancía"}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isSale
+              ? "Registra una venta nueva"
+              : "Registra una compra a proveedor"}
+          </p>
         </div>
-        {restrictedToBranch ? (
-          <div className="flex items-center gap-2">
-            <Label className="text-sm text-muted-foreground">Sucursal</Label>
-            <Badge variant="secondary" className="gap-1.5">
-              <Truck className="h-3.5 w-3.5" />
-              {user?.location_name || "Asignada"}
-            </Badge>
-          </div>
-        ) : (
-          locations.length > 1 && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor="pos-location" className="text-sm text-muted-foreground">
-                Ubicación
-              </Label>
-              <select
-                id="pos-location"
-                value={locationId}
-                onChange={(e) => handleLocationChange(e.target.value)}
-                className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Toggle venta / compra */}
+          {canSell && canPurchase && (
+            <div className="inline-flex rounded-lg border bg-muted/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => switchMode("sale")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  isSale
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
               >
-                {locations.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
+                <ShoppingCart className="h-4 w-4" /> Vender
+              </button>
+              <button
+                type="button"
+                onClick={() => switchMode("purchase")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  !isSale
+                    ? "bg-background shadow-sm text-foreground"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <PackagePlus className="h-4 w-4" /> Comprar
+              </button>
             </div>
-          )
-        )}
+          )}
+
+          {restrictedToBranch ? (
+            <div className="flex items-center gap-2">
+              <Label className="text-sm text-muted-foreground">Sucursal</Label>
+              <Badge variant="secondary" className="gap-1.5">
+                <Truck className="h-3.5 w-3.5" />
+                {user?.location_name || "Asignada"}
+              </Badge>
+            </div>
+          ) : (
+            locations.length > 1 && (
+              <div className="flex items-center gap-2">
+                <Label
+                  htmlFor="pos-location"
+                  className="text-sm text-muted-foreground"
+                >
+                  {isSale ? "Ubicación" : "Destino"}
+                </Label>
+                <select
+                  id="pos-location"
+                  value={locationId}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  {locations.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          )}
+        </div>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-12">
@@ -506,7 +726,9 @@ export default function PosIndex() {
             {productGroups.length ? (
               productGroups.map((p) => {
                 const inCartCount = cart
-                  .filter((c) => p.variants.some((v) => v.id === c.product_variant_id))
+                  .filter((c) =>
+                    p.variants.some((v) => v.id === c.product_variant_id),
+                  )
                   .reduce((s, c) => s + c.quantity, 0);
                 return (
                   <button
@@ -517,7 +739,11 @@ export default function PosIndex() {
                   >
                     <div className="relative aspect-square w-full bg-muted">
                       {p.thumb ? (
-                        <img src={p.thumb} alt="" className="h-full w-full object-cover" />
+                        <img
+                          src={p.thumb}
+                          alt=""
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
                           <ImageIcon className="h-8 w-8" />
@@ -527,7 +753,8 @@ export default function PosIndex() {
                         variant="secondary"
                         className="absolute left-1.5 top-1.5 bg-background/85 text-foreground backdrop-blur-sm text-[10px]"
                       >
-                        {p.variantCount} {p.variantCount === 1 ? "talla" : "tallas"}
+                        {p.variantCount}{" "}
+                        {p.variantCount === 1 ? "talla" : "tallas"}
                       </Badge>
                       {inCartCount > 0 && (
                         <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
@@ -536,12 +763,21 @@ export default function PosIndex() {
                       )}
                     </div>
                     <div className="flex flex-1 flex-col gap-0.5 p-2.5">
-                      <p className="line-clamp-2 text-sm font-medium leading-tight">{p.name}</p>
+                      <p className="line-clamp-2 text-sm font-medium leading-tight">
+                        {p.name}
+                      </p>
                       {p.brand && (
-                        <p className="truncate text-[11px] text-muted-foreground">{p.brand}</p>
+                        <p className="truncate text-[11px] text-muted-foreground">
+                          {p.brand}
+                        </p>
                       )}
                       <p className="mt-auto pt-1 font-semibold text-primary">
-                        {money(p.base_price)}
+                        {money(isSale ? p.base_price : p.cost)}
+                        {!isSale && (
+                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
+                            costo
+                          </span>
+                        )}
                       </p>
                     </div>
                   </button>
@@ -549,79 +785,119 @@ export default function PosIndex() {
               })
             ) : (
               <p className="col-span-full px-3 py-12 text-center text-sm text-muted-foreground">
-                Sin resultados con stock disponible.
+                {isSale
+                  ? "Sin resultados con stock disponible."
+                  : "Sin resultados."}
               </p>
             )}
           </div>
         </div>
 
-        {/* ── Carrito ── */}
+        {/* ── Carrito / Orden ── */}
         <div className="lg:col-span-5 xl:col-span-4">
           <Card className="sticky top-4 rounded-xl">
             <CardContent className="flex max-h-[calc(100vh-7rem)] flex-col gap-4 p-4">
               <div className="flex items-center gap-2 font-semibold">
-                <ShoppingCart className="h-5 w-5" /> Carrito
-                <Badge variant="secondary" className="ml-auto">{itemCount}</Badge>
+                {isSale ? (
+                  <ShoppingCart className="h-5 w-5" />
+                ) : (
+                  <PackagePlus className="h-5 w-5" />
+                )}
+                {isSale ? "Carrito" : "Orden de compra"}
+                <Badge variant="secondary" className="ml-auto">
+                  {itemCount}
+                </Badge>
               </div>
 
-              {/* Cliente: buscar por cédula o seleccionar */}
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    ref={customerSearchRef}
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      if (customerId) setCustomerId("");
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        const num = customerSearch.trim();
-                        if (!num) { setCustomerId(""); return; }
-                        const found = customers.find((c) => c.id_number === num);
-                        if (found) {
-                          setCustomerId(String(found.id));
-                          setCustomerSearch(`${found.name}${found.id_number ? ` (${found.id_number})` : ""}`);
-                          toast.success(`Cliente: ${found.name}`);
-                        } else {
-                          setCustomerByQuery(num);
-                          setCustomerByNotFound(true);
-                          setCustomerByOpen(true);
+              {/* Selector: cliente (venta) o proveedor (compra) */}
+              {isSale ? (
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      ref={customerSearchRef}
+                      value={customerSearch}
+                      onChange={(e) => {
+                        setCustomerSearch(e.target.value);
+                        if (customerId) setCustomerId("");
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          const num = customerSearch.trim();
+                          if (!num) {
+                            setCustomerId("");
+                            return;
+                          }
+                          const found = customers.find(
+                            (c) => c.id_number === num,
+                          );
+                          if (found) {
+                            setCustomerId(String(found.id));
+                            setCustomerSearch(
+                              `${found.name}${found.id_number ? ` (${found.id_number})` : ""}`,
+                            );
+                            toast.success(`Cliente: ${found.name}`);
+                          } else {
+                            setCustomerByQuery(num);
+                            setCustomerByNotFound(true);
+                            setCustomerByOpen(true);
+                          }
                         }
-                      }
-                    }}
-                    placeholder="Cédula / Enter para buscar..."
-                    className="h-9 pr-8"
-                  />
-                  <Search className="pointer-events-none absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
-                </div>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-9 w-9 shrink-0"
-                  title="Nuevo cliente"
-                  onClick={() => setQuickOpen(true)}
-                >
-                  <UserPlus className="h-4 w-4" />
-                </Button>
-                {customerId && (
-                  <Badge
-                    variant="secondary"
-                    className="shrink-0 self-center text-xs cursor-pointer"
-                    onClick={openEditCustomer}
+                      }}
+                      placeholder="Cédula / Enter para buscar..."
+                      className="h-9 pr-8"
+                    />
+                    <Search className="pointer-events-none absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    className="h-9 w-9 shrink-0"
+                    title="Nuevo cliente"
+                    onClick={() => setQuickOpen(true)}
                   >
-                    <User className="mr-1 h-3 w-3" />
-                    {selectedCustomer?.name || "Seleccionado"}
-                  </Badge>
-                )}
-              </div>
+                    <UserPlus className="h-4 w-4" />
+                  </Button>
+                  {customerId && (
+                    <Badge
+                      variant="secondary"
+                      className="shrink-0 self-center text-xs cursor-pointer"
+                      onClick={openEditCustomer}
+                    >
+                      <User className="mr-1 h-3 w-3" />
+                      {selectedCustomer?.name || "Seleccionado"}
+                    </Badge>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <select
+                    value={supplierId}
+                    onChange={(e) => setSupplierId(e.target.value)}
+                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="">Sin proveedor</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <Input
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="Referencia / N° factura"
+                    className="h-9"
+                  />
+                </div>
+              )}
 
               {/* Líneas del carrito */}
               <div className="-mx-1 flex-1 space-y-2 overflow-y-auto px-1">
                 {cart.length ? (
                   cart.map((i) => {
                     const wholesaleApplies =
+                      isSale &&
                       !!i.wholesale_price &&
                       i.wholesale_price > 0 &&
                       i.quantity >= i.wholesale_min_quantity;
@@ -632,40 +908,69 @@ export default function PosIndex() {
                       >
                         <Thumb url={i.thumb} size="h-10 w-10" />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium">{i.label}</p>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-xs text-muted-foreground">
-                              {money(i.unit_price)} c/u
-                            </span>
-                            {wholesaleApplies && (
-                              <Badge
-                                variant="secondary"
-                                className="bg-blue-100 px-1 py-0 text-[10px] text-blue-800"
-                              >
-                                Mayoreo
-                              </Badge>
-                            )}
-                          </div>
+                          <p className="truncate text-sm font-medium">
+                            {i.label}
+                          </p>
+                          {isSale ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-xs text-muted-foreground">
+                                {money(i.unit_value)} c/u
+                              </span>
+                              {wholesaleApplies && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-blue-100 px-1 py-0 text-[10px] text-blue-800"
+                                >
+                                  Mayoreo
+                                </Badge>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="mt-0.5 flex items-center gap-1">
+                              <span className="text-[11px] text-muted-foreground">
+                                Costo:
+                              </span>
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                value={i.unit_value}
+                                onChange={(e) =>
+                                  setUnitValue(
+                                    i.product_variant_id,
+                                    Number(e.target.value) || 0,
+                                  )
+                                }
+                                className="h-6 w-20 px-1.5 text-xs"
+                              />
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center rounded-md border">
                           <button
                             type="button"
                             className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => setQuantity(i.product_variant_id, i.quantity - 1)}
+                            onClick={() =>
+                              setQuantity(i.product_variant_id, i.quantity - 1)
+                            }
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-7 text-center text-sm">{i.quantity}</span>
+                          <span className="w-7 text-center text-sm">
+                            {i.quantity}
+                          </span>
                           <button
                             type="button"
                             className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
-                            onClick={() => setQuantity(i.product_variant_id, i.quantity + 1)}
+                            onClick={() =>
+                              setQuantity(i.product_variant_id, i.quantity + 1)
+                            }
                           >
                             <Plus className="h-3 w-3" />
                           </button>
                         </div>
                         <span className="w-16 text-right text-sm font-medium">
-                          {money(i.unit_price * i.quantity)}
+                          {money(i.unit_value * i.quantity)}
                         </span>
                         <Button
                           variant="ghost"
@@ -680,85 +985,157 @@ export default function PosIndex() {
                   })
                 ) : (
                   <p className="py-10 text-center text-sm text-muted-foreground">
-                    Toca un producto para agregarlo a la venta.
+                    {isSale
+                      ? "Toca un producto para agregarlo a la venta."
+                      : "Toca un producto para agregarlo a la compra."}
                   </p>
                 )}
               </div>
 
-              {/* Método de pago */}
-              <div className="space-y-2 border-t pt-3">
-                <p className="text-xs font-medium text-muted-foreground">Método de pago</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("cash")}
-                    className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
-                      paymentMethod === "cash"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    <Banknote className="h-4 w-4" /> Efectivo
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setPaymentMethod("transfer")}
-                    className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
-                      paymentMethod === "transfer"
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "hover:bg-muted"
-                    }`}
-                  >
-                    <ArrowLeftRight className="h-4 w-4" /> Transferencia
-                  </button>
-                </div>
-                <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
-                  <Checkbox
-                    checked={cashOnDelivery}
-                    onCheckedChange={(c) => setCashOnDelivery(c === true)}
-                  />
-                  <Truck className="h-4 w-4 text-muted-foreground" />
-                  Pago contra entrega
-                </label>
-              </div>
+              {/* Condiciones: pago (venta) o términos (compra) */}
+              {isSale ? (
+                <>
+                  <div className="space-y-2 border-t pt-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Método de pago
+                    </p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("cash")}
+                        className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                          paymentMethod === "cash"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <Banknote className="h-4 w-4" /> Efectivo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPaymentMethod("transfer")}
+                        className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${
+                          paymentMethod === "transfer"
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        <ArrowLeftRight className="h-4 w-4" /> Transferencia
+                      </button>
+                    </div>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
+                      <Checkbox
+                        checked={cashOnDelivery}
+                        onCheckedChange={(c) => setCashOnDelivery(c === true)}
+                      />
+                      <Truck className="h-4 w-4 text-muted-foreground" />
+                      Pago contra entrega
+                    </label>
+                  </div>
 
-              {/* Costo de envío */}
-              <div className="space-y-2 border-t pt-3">
-                <p className="text-xs font-medium text-muted-foreground">Costo de envío</p>
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShippingCost(0)}
-                    className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
-                      shippingCost === 0 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
-                    }`}
-                  >
-                    Gratis
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShippingCost(3)}
-                    className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
-                      shippingCost === 3 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"
-                    }`}
-                  >
-                    $3
-                  </button>
-                  <Input
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={shippingCost ? String(shippingCost) : ""}
-                    placeholder="Otro"
-                    className="h-8"
-                    onChange={(e) => setShippingCost(Math.max(0, Number(e.target.value) || 0))}
-                  />
+                  <div className="space-y-2 border-t pt-3">
+                    <p className="text-xs font-medium text-muted-foreground">
+                      Costo de envío
+                    </p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setShippingCost(0)}
+                        className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                          shippingCost === 0
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        Gratis
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShippingCost(3)}
+                        className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${
+                          shippingCost === 3
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "hover:bg-muted"
+                        }`}
+                      >
+                        $3
+                      </button>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={shippingCost ? String(shippingCost) : ""}
+                        placeholder="Otro"
+                        className="h-8"
+                        onChange={(e) =>
+                          setShippingCost(
+                            Math.max(0, Number(e.target.value) || 0),
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3 border-t pt-3">
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Descuento
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={discount}
+                        onChange={(e) => setDiscount(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        IVA
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={tax}
+                        onChange={(e) => setTax(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-[11px] text-muted-foreground">
+                        Pagado
+                      </Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={paid}
+                        onChange={(e) => setPaid(e.target.value)}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[11px] text-muted-foreground">
+                      Fecha de vencimiento (crédito)
+                    </Label>
+                    <Input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Total + acción */}
               <div className="space-y-3 border-t pt-3">
-                {shippingCost > 0 && (
+                {isSale && shippingCost > 0 && (
                   <div className="space-y-0.5 text-sm">
                     <div className="flex items-center justify-between text-muted-foreground">
                       <span>Subtotal</span>
@@ -770,17 +1147,60 @@ export default function PosIndex() {
                     </div>
                   </div>
                 )}
+                {!isSale && (discountNum > 0 || taxNum > 0) && (
+                  <div className="space-y-0.5 text-sm">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Subtotal</span>
+                      <span>{money(itemsTotal)}</span>
+                    </div>
+                    {discountNum > 0 && (
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Descuento</span>
+                        <span>-{money(discountNum)}</span>
+                      </div>
+                    )}
+                    {taxNum > 0 && (
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>IVA</span>
+                        <span>{money(taxNum)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center justify-between text-lg font-bold">
                   <span>Total</span>
                   <span>{money(total)}</span>
                 </div>
-                <Button
-                  className="h-11 w-full text-base"
-                  disabled={cart.length === 0}
-                  onClick={() => setConfirmOpen(true)}
-                >
-                  {cashOnDelivery ? "Registrar pedido (contra entrega)" : "Completar Venta"}
-                </Button>
+
+                {isSale ? (
+                  <Button
+                    className="h-11 w-full text-base"
+                    disabled={cart.length === 0}
+                    onClick={() => openConfirm()}
+                  >
+                    {cashOnDelivery
+                      ? "Registrar pedido (contra entrega)"
+                      : "Completar Venta"}
+                  </Button>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={cart.length === 0}
+                      onClick={() => openConfirm("draft")}
+                    >
+                      Guardar borrador
+                    </Button>
+                    <Button
+                      className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                      disabled={cart.length === 0}
+                      onClick={() => openConfirm("received")}
+                    >
+                      <CheckCircle className="h-4 w-4" /> Recibir
+                    </Button>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -788,13 +1208,18 @@ export default function PosIndex() {
       </div>
 
       {/* ── Selector de variante ── */}
-      <Dialog open={!!selectedProduct} onOpenChange={(open) => !open && setSelectedProduct(null)}>
+      <Dialog
+        open={!!selectedProduct}
+        onOpenChange={(open) => !open && setSelectedProduct(null)}
+      >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{selectedProduct?.name}</DialogTitle>
             <DialogDescription>
               {selectedProduct?.brand && `${selectedProduct.brand} · `}
-              Desde {money(selectedProduct?.base_price ?? 0)} · Selecciona talla/color
+              {isSale
+                ? `Desde ${money(selectedProduct?.base_price ?? 0)} · Selecciona talla/color`
+                : `Costo ${money(selectedProduct?.cost ?? 0)} · Selecciona talla/color`}
             </DialogDescription>
           </DialogHeader>
 
@@ -820,7 +1245,8 @@ export default function PosIndex() {
 
             <div className="flex-1 space-y-2">
               {selectedProduct?.variants.map((v) => {
-                const sizeLabel = [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
+                const sizeLabel =
+                  [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
                 const inCart = cart.find((c) => c.product_variant_id === v.id);
                 return (
                   <div
@@ -835,7 +1261,8 @@ export default function PosIndex() {
                         <div>
                           <p className="font-medium text-sm">{sizeLabel}</p>
                           <p className="text-xs text-muted-foreground">
-                            {v.stock} en stock · <span className="font-mono">{v.sku}</span>
+                            {v.stock} en stock ·{" "}
+                            <span className="font-mono">{v.sku}</span>
                           </p>
                         </div>
                       </div>
@@ -856,7 +1283,7 @@ export default function PosIndex() {
                           type="button"
                           className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
                           onClick={() => setQuantity(v.id, inCart.quantity + 1)}
-                          disabled={inCart.quantity >= inCart.max}
+                          disabled={isSale && inCart.quantity >= inCart.max}
                         >
                           <Plus className="h-3 w-3" />
                         </button>
@@ -864,6 +1291,7 @@ export default function PosIndex() {
                     ) : (
                       <Button
                         size="sm"
+                        disabled={isSale && v.stock <= 0}
                         onClick={() =>
                           addToCart({
                             id: v.id,
@@ -873,7 +1301,9 @@ export default function PosIndex() {
                             stock: v.stock,
                             base_price: selectedProduct.base_price,
                             wholesale_price: selectedProduct.wholesale_price,
-                            wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
+                            wholesale_min_quantity:
+                              selectedProduct.wholesale_min_quantity,
+                            cost: selectedProduct.cost,
                           })
                         }
                       >
@@ -887,31 +1317,49 @@ export default function PosIndex() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" className="w-full" onClick={() => setSelectedProduct(null)}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setSelectedProduct(null)}
+            >
               Cerrar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Cliente no encontrado ── */}
-      <AlertDialog open={customerByOpen} onOpenChange={(o) => { if (!o) setCustomerByOpen(false); }}>
+      {/* ── Cliente no encontrado (venta) ── */}
+      <AlertDialog
+        open={customerByOpen}
+        onOpenChange={(o) => {
+          if (!o) setCustomerByOpen(false);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cliente no encontrado</AlertDialogTitle>
             <AlertDialogDescription>
-              No se encontró un cliente con cédula <strong>{customerByQuery}</strong>.
-              ¿Deseas registrarlo?
+              No se encontró un cliente con cédula{" "}
+              <strong>{customerByQuery}</strong>. ¿Deseas registrarlo?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => { setCustomerByOpen(false); setCustomerByNotFound(false); }}>
+            <AlertDialogCancel
+              onClick={() => {
+                setCustomerByOpen(false);
+                setCustomerByNotFound(false);
+              }}
+            >
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setCustomerByOpen(false);
-                setQuickForm((f) => ({ ...f, id_number: customerByQuery, id_type: "cedula" }));
+                setQuickForm((f) => ({
+                  ...f,
+                  id_number: customerByQuery,
+                  id_type: "cedula",
+                }));
                 setQuickOpen(true);
               }}
             >
@@ -921,13 +1369,14 @@ export default function PosIndex() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* ── Nuevo cliente rápido ── */}
+      {/* ── Nuevo cliente rápido (venta) ── */}
       <Dialog open={quickOpen} onOpenChange={setQuickOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Nuevo cliente</DialogTitle>
             <DialogDescription>
-              Registra los datos básicos. Podrás completarlos después desde Clientes.
+              Registra los datos básicos. Podrás completarlos después desde
+              Clientes.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-1">
@@ -937,7 +1386,9 @@ export default function PosIndex() {
                 id="qc-name"
                 placeholder="Ej. María González"
                 value={quickForm.name}
-                onChange={(e) => setQuickForm((f) => ({ ...f, name: e.target.value }))}
+                onChange={(e) =>
+                  setQuickForm((f) => ({ ...f, name: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -946,7 +1397,9 @@ export default function PosIndex() {
                 id="qc-id-number"
                 placeholder="Número de identificación"
                 value={quickForm.id_number}
-                onChange={(e) => setQuickForm((f) => ({ ...f, id_number: e.target.value }))}
+                onChange={(e) =>
+                  setQuickForm((f) => ({ ...f, id_number: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -955,7 +1408,9 @@ export default function PosIndex() {
                 id="qc-phone"
                 placeholder="09XXXXXXXX"
                 value={quickForm.phone}
-                onChange={(e) => setQuickForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) =>
+                  setQuickForm((f) => ({ ...f, phone: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -965,7 +1420,9 @@ export default function PosIndex() {
                 type="email"
                 placeholder="cliente@ejemplo.com"
                 value={quickForm.email}
-                onChange={(e) => setQuickForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={(e) =>
+                  setQuickForm((f) => ({ ...f, email: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -974,7 +1431,9 @@ export default function PosIndex() {
                 id="qc-city"
                 placeholder="Guayaquil"
                 value={quickForm.city}
-                onChange={(e) => setQuickForm((f) => ({ ...f, city: e.target.value }))}
+                onChange={(e) =>
+                  setQuickForm((f) => ({ ...f, city: e.target.value }))
+                }
               />
             </div>
           </div>
@@ -989,7 +1448,7 @@ export default function PosIndex() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Editar cliente ── */}
+      {/* ── Editar cliente (venta) ── */}
       <Dialog open={editOpen} onOpenChange={setEditOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
@@ -1004,7 +1463,9 @@ export default function PosIndex() {
               <Input
                 id="ec-name"
                 value={editForm.name}
-                onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, name: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -1013,7 +1474,9 @@ export default function PosIndex() {
                 id="ec-phone"
                 placeholder="09XXXXXXXX"
                 value={editForm.phone}
-                onChange={(e) => setEditForm((f) => ({ ...f, phone: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, phone: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -1023,7 +1486,9 @@ export default function PosIndex() {
                 type="email"
                 placeholder="cliente@ejemplo.com"
                 value={editForm.email}
-                onChange={(e) => setEditForm((f) => ({ ...f, email: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, email: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -1032,7 +1497,9 @@ export default function PosIndex() {
                 id="ec-city"
                 placeholder="Guayaquil"
                 value={editForm.city}
-                onChange={(e) => setEditForm((f) => ({ ...f, city: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, city: e.target.value }))
+                }
               />
             </div>
             <div className="space-y-1.5">
@@ -1041,7 +1508,9 @@ export default function PosIndex() {
                 id="ec-id-number"
                 placeholder="Número de identificación"
                 value={editForm.id_number}
-                onChange={(e) => setEditForm((f) => ({ ...f, id_number: e.target.value }))}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, id_number: e.target.value }))
+                }
               />
             </div>
           </div>
@@ -1056,19 +1525,39 @@ export default function PosIndex() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Confirmación + ticket ── */}
+      {/* ── Confirmación ── */}
       <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Confirmar venta</DialogTitle>
-            <DialogDescription>Revisa el resumen antes de registrar.</DialogDescription>
+            <DialogTitle>
+              {isSale
+                ? "Confirmar venta"
+                : confirmStatus === "received"
+                  ? "Recibir mercancía"
+                  : "Guardar borrador"}
+            </DialogTitle>
+            <DialogDescription>
+              Revisa el resumen antes de registrar.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Cliente</span>
-              <span className="font-medium">{selectedCustomer?.name || "Consumidor final"}</span>
+              <span className="text-muted-foreground">
+                {isSale ? "Cliente" : "Proveedor"}
+              </span>
+              <span className="font-medium">
+                {isSale
+                  ? selectedCustomer?.name || "Consumidor final"
+                  : selectedSupplier?.name || "Sin proveedor"}
+              </span>
             </div>
+            {!isSale && reference && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Referencia</span>
+                <span className="font-medium">{reference}</span>
+              </div>
+            )}
 
             <Separator />
 
@@ -1084,9 +1573,11 @@ export default function PosIndex() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p>
-                      {i.quantity} × {money(i.unit_price)}
+                      {i.quantity} × {money(i.unit_value)}
                     </p>
-                    <p className="font-medium">{money(i.unit_price * i.quantity)}</p>
+                    <p className="font-medium">
+                      {money(i.unit_value * i.quantity)}
+                    </p>
                   </div>
                 </div>
               ))}
@@ -1094,7 +1585,7 @@ export default function PosIndex() {
 
             <Separator />
 
-            {shippingCost > 0 && (
+            {isSale && shippingCost > 0 && (
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
@@ -1104,6 +1595,26 @@ export default function PosIndex() {
                   <span>Envío</span>
                   <span>{money(shippingCost)}</span>
                 </div>
+              </div>
+            )}
+            {!isSale && (discountNum > 0 || taxNum > 0) && (
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Subtotal</span>
+                  <span>{money(itemsTotal)}</span>
+                </div>
+                {discountNum > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Descuento</span>
+                    <span>-{money(discountNum)}</span>
+                  </div>
+                )}
+                {taxNum > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA</span>
+                    <span>{money(taxNum)}</span>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1117,51 +1628,79 @@ export default function PosIndex() {
             <div className="space-y-1">
               {locations.length > 1 && locationId && (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Ubicación</span>
+                  <span className="text-muted-foreground">
+                    {isSale ? "Ubicación" : "Destino"}
+                  </span>
                   <span className="font-medium">
                     {locations.find((l) => String(l.id) === locationId)?.name}
                   </span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Método de pago</span>
-                <span className="font-medium">
-                  {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
-                </span>
-              </div>
-              {cashOnDelivery && (
+              {isSale ? (
+                <>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Método de pago
+                    </span>
+                    <span className="font-medium">
+                      {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
+                    </span>
+                  </div>
+                  {cashOnDelivery && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Modalidad</span>
+                      <span className="font-medium text-amber-600">
+                        Pago contra entrega
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">
+                      Estado al registrar
+                    </span>
+                    <span
+                      className={`font-medium ${cashOnDelivery ? "text-amber-600" : "text-emerald-600"}`}
+                    >
+                      {cashOnDelivery ? "Pendiente" : "Completada"}
+                    </span>
+                  </div>
+                </>
+              ) : (
                 <div className="flex justify-between">
-                  <span className="text-muted-foreground">Modalidad</span>
-                  <span className="font-medium text-amber-600">Pago contra entrega</span>
+                  <span className="text-muted-foreground">
+                    Estado al registrar
+                  </span>
+                  <span
+                    className={`font-medium ${confirmStatus === "received" ? "text-emerald-600" : "text-amber-600"}`}
+                  >
+                    {confirmStatus === "received"
+                      ? "Recibida (stock actualizado)"
+                      : "Borrador"}
+                  </span>
                 </div>
               )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Estado al registrar</span>
-                <span
-                  className={`font-medium ${
-                    cashOnDelivery ? "text-amber-600" : "text-emerald-600"
-                  }`}
-                >
-                  {cashOnDelivery ? "Pendiente" : "Completada"}
-                </span>
-              </div>
             </div>
           </div>
 
           <DialogFooter className="flex-col gap-2 sm:flex-row">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={handlePrintTicket}
-              disabled={cart.length === 0}
-            >
-              <Printer className="h-4 w-4" /> Imprimir / PDF
-            </Button>
+            {isSale && (
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={handlePrintTicket}
+                disabled={cart.length === 0}
+              >
+                <Printer className="h-4 w-4" /> Imprimir / PDF
+              </Button>
+            )}
             <div className="flex gap-2 sm:ml-auto">
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>
                 Volver a editar
               </Button>
-              <Button onClick={submitSale} disabled={isSubmitting}>
+              <Button
+                onClick={isSale ? submitSale : submitPurchase}
+                disabled={isSubmitting}
+              >
                 {isSubmitting ? "Procesando..." : "Confirmar y registrar"}
               </Button>
             </div>
