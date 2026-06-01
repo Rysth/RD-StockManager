@@ -55,7 +55,11 @@ module Api
       end
 
       def business_params
-        params.except(:id, :controller, :action).permit(
+        params.slice(
+          :name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo, :email, :location,
+          :ruc, :razon_social, :dir_matriz, :dir_establecimiento, :obligado_contabilidad,
+          :establecimiento, :punto_emision, :contribuyente_especial, :contribuyente_rimpe
+        ).permit(
           :name, :slogan, :whatsapp, :instagram, :facebook, :tiktok, :logo, :email, :location,
           :ruc, :razon_social, :dir_matriz, :dir_establecimiento, :obligado_contabilidad,
           :establecimiento, :punto_emision, :contribuyente_especial, :contribuyente_rimpe
@@ -63,7 +67,9 @@ module Api
       end
 
       def sri_admin_params
-        params.except(:id, :controller, :action).permit(
+        params.slice(
+          :sri_enabled, :sri_ambiente, :sri_cert_password, :sri_next_factura_secuencial
+        ).permit(
           :sri_enabled, :sri_ambiente, :sri_cert_password, :sri_next_factura_secuencial
         )
       end
