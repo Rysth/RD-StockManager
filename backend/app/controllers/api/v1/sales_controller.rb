@@ -173,7 +173,7 @@ module Api
           @sale.customer.update(email: params[:email])
         end
 
-        InvoiceMailer.authorized(inv).deliver_later
+        InvoiceMailer.authorized(inv, email).deliver_later
         render_success({}, "Factura enviada a #{email}")
       rescue StandardError => e
         render_error("No se pudo enviar el correo: #{e.message}", :unprocessable_entity)

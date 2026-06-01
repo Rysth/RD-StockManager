@@ -1,9 +1,11 @@
 class InvoiceMailer < ApplicationMailer
-  def authorized(invoice)
+  def authorized(invoice, recipient_email = nil)
     @invoice  = invoice
     @sale     = invoice.sale
     @customer = @sale.customer
+    @customer_name = @customer&.name.presence || "Cliente"
     @business = Business.current
+    recipient_email ||= @customer&.email
 
     # Logo embebido (cid:) para clientes de correo que bloquean imágenes externas
     if @business.logo.attached?
@@ -22,7 +24,7 @@ class InvoiceMailer < ApplicationMailer
     } if invoice.ride_pdf.present?
 
     mail(
-      to: @customer.email,
+      to: recipient_email,
       subject: "Factura electronica #{invoice.numero_comprobante} - #{@business.name_or_default}"
     )
   end
