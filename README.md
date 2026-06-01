@@ -79,7 +79,33 @@ Servicios principales:
 
 ## Facturacion Electronica SRI
 
-La facturacion electronica es opcional y queda desactivada por defecto en cada negocio. Los valores `.env` siguen disponibles como respaldo local/desarrollo:
+La facturacion electronica (Ecuador) es **opcional** y queda **desactivada por defecto en cada negocio**. La emision usa la gema local `backend/vendor/gems/sri_facturacion` (Ruby puro: clave de acceso, XML 1.1.0, firma XAdES-BES, envio SOAP al SRI y generacion del RIDE en PDF).
+
+La configuracion se hace de dos formas. La **UI por negocio es la fuente principal**; el `.env` queda como respaldo de desarrollo.
+
+### A) Configuracion por negocio (recomendada, desde el admin)
+
+Toda la configuracion vive en `Configuracion > Negocio > Facturacion SRI`. Solo el rol **admin** puede activar SRI, elegir ambiente y subir/cambiar el certificado; un **business_owner** con permiso puede editar los datos legales pero no la activacion ni el certificado.
+
+1. **Datos legales del emisor** (obligatorios para emitir):
+   - RUC (13 digitos)
+   - Razon social
+   - Direccion matriz
+   - Establecimiento (`001`) y punto de emision (`001`)
+   - Obligado a llevar contabilidad (SI/NO) y leyendas opcionales (contribuyente especial, RIMPE)
+2. **Certificado de firma**: sube el archivo `.p12`/`.pfx` y su clave.
+   - El certificado se guarda en `backend/storage/sri_certs/` con permisos `0600`.
+   - La clave se almacena **cifrada (AES-256-GCM)**; no se muestra ni se imprime.
+3. **Ambiente**: `1` = Pruebas (default) · `2` = Produccion. **Prueba siempre primero en ambiente 1.**
+4. **Activa** la casilla de facturacion SRI.
+
+> ⚠️ **Critico:** el **RUC del emisor debe coincidir con el RUC para el que se emitio el certificado** `.p12`. Si no coinciden, el SRI rechaza el comprobante (DEVUELTA / NO AUTORIZADO).
+
+El sistema solo permite emitir cuando el negocio esta "listo" (`sri_ready?`): SRI activado + datos legales completos + certificado y clave cargados. Si falta algo, la UI lista los requisitos pendientes.
+
+### B) Respaldo por variables de entorno (desarrollo)
+
+Si prefieres no usar la UI, puedes configurar el certificado global via `.env` (ver `.env.example` y `backend/config/initializers/sri_facturacion.rb`):
 
 ```env
 SRI_AMBIENTE=1
@@ -89,26 +115,27 @@ SRI_MAX_RETRIES=3
 SRI_RETRY_DELAY=2
 ```
 
-Desde el admin tambien se puede cargar el certificado `.p12/.pfx` en `Configuracion > Negocio > Facturacion SRI`. Si usas el respaldo `.env`, el certificado debe vivir localmente en:
+`SRI_CERT_PATH` es la ruta **dentro del contenedor**; coloca el archivo localmente en `backend/storage/sri_certs/certificado.p12`. La configuracion por negocio tiene prioridad: el `.env` solo se usa como valor por defecto cuando el negocio no tiene su propio certificado/ambiente.
 
-```txt
-backend/storage/sri_certs/certificado.p12
-```
+> **Seguridad:** no subas certificados ni claves al repositorio. Los archivos `.p12` y `.pfx` estan ignorados por git.
 
-No subas certificados ni claves al repositorio. Los archivos `.p12` y `.pfx` estan ignorados por git.
+### Emitir una factura
 
-Para emitir una factura:
+1. Confirma que el negocio tiene SRI activado y los datos legales/certificado cargados (paso A).
+2. Registra una venta **completada** desde el POS.
+3. Abre la venta en `Ventas` y, en el drawer de detalle, confirma **Emitir factura SRI** (permiso `manage_invoicing`: admin y business_owner).
+4. El modal muestra el progreso: firma del XML, envio al SRI y espera de autorizacion. Un rechazo muestra `mensaje` e `informacion_adicional` del SRI.
+5. Cuando queda **AUTORIZADA**, descarga el **XML** autorizado y el **RIDE (PDF)** desde el mismo drawer.
 
-1. Como admin, activa la facturacion SRI del negocio, configura ambiente y carga certificado/clave.
-2. Configura los datos legales en `Configuracion > Negocio > Facturacion SRI`.
-3. Registra una venta completada desde el POS.
-4. Abre la venta en `Ventas`.
-5. Desde el drawer de detalle, confirma `Emitir factura SRI`.
-6. Descarga XML/RIDE cuando quede autorizada.
+Si SRI esta desactivado, el flujo de ventas sigue funcionando con nota de venta / ticket 80mm.
 
-Si SRI esta desactivado, el flujo de ventas sigue funcionando con nota de venta/ticket 80mm.
+### Correo al cliente
 
-Si el cliente tiene email, el sistema envia automaticamente el XML autorizado y RIDE PDF adjuntos.
+Si la factura queda autorizada y el cliente tiene email, `InvoiceMailer` envia automaticamente el **XML autorizado** y el **RIDE PDF** adjuntos. Consumidor final o clientes sin email no reciben correo. En desarrollo, los correos se revisan en Letter Opener (`http://localhost:3001/letter_opener`).
+
+### El RIDE (PDF)
+
+El RIDE se genera dentro de la gema (`sri_facturacion/lib/sri_facturacion/ride.rb`) con Prawn: encabezado fiscal del emisor, caja de comprobante con numero y estado autorizado, datos del cliente, clave de acceso, QR, tabla de detalle y bloque de totales, con pie **StockManager by RysthDesign**.
 
 ## Comandos Utiles
 

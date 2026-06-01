@@ -526,6 +526,46 @@ Seeds actualizados para demostrar versatilidad:
 
 ---
 
+## Fase 16 — Pulido RIDE, docs SRI y reporte de Valuación de Inventario
+
+> Pulido de presentación y cierre de la brecha "Informe de acciones" del modelo Kosari.
+
+### 16.1 — RIDE rediseñado (gema, Prawn puro)
+- `sri_facturacion/lib/sri_facturacion/ride.rb` reescrito manteniendo la API de la gema: banda
+  de acento, encabezado fiscal con jerarquía (razón social, nombre comercial, RUC, leyendas),
+  caja de comprobante con badge verde **DOCUMENTO AUTORIZADO**, bloque cliente + clave de acceso
+  alineado con el QR, tabla de detalle con **filas alternas (zebra)** y caja de totales con
+  **VALOR TOTAL** destacado. Sin dependencias nuevas; los 59 specs de la gema siguen verdes.
+
+### 16.2 — README: configuración de facturación SRI
+- Sección reescrita: configuración por **UI por negocio** (primaria, solo admin activa/sube cert),
+  requisitos `sri_ready?`, advertencia **RUC del emisor = RUC del certificado**, ambiente
+  pruebas/producción, respaldo `.env`, pasos de emisión (permiso `manage_invoicing`), correo al
+  cliente y descripción del RIDE.
+
+### 16.3 — Limpieza de permisos (frontend)
+- `UsersIndex.tsx` y `UsersDelete.tsx` usan las constantes `Permissions.EDIT_USERS` /
+  `Permissions.DELETE_USERS` en vez de strings literales. Backend `ROLE_DEFAULTS` y frontend
+  `Permissions` verificados 1:1 (21 claves). Gating del `AppSidebar` confirmado correcto:
+  admin = todo, business_owner = todo menos Usuarios, business_employee = Inventario + POS + Ventas.
+
+### 16.4 — Reporte de Valuación de Inventario (brecha Kosari "Informe de acciones")
+- Backend: `ReportsController#inventory_valuation` (`GET /api/v1/reports/inventory_valuation?location_id=`,
+  permiso `view_reports`). Costo (`products.cost`) y valor de venta (`products.base_price`) por variante;
+  cantidad desde `stock_levels` por ubicación o el stock denormalizado. Devuelve `summary`
+  (total_cost, total_sale_value, potential_profit, total_units, sku_count) + `rows` ordenadas por valor.
+- Frontend: tipo `InventoryValuationReport`, `reportStore.fetchInventoryValuationReport` y sub-tab
+  **Valuación** en `AdvancedReportsIndex` (3 cards + tabla), reusa el selector de ubicación.
+
+### Verificación Fase 16
+- [x] Specs de la gema SRI en verde (`rspec`: 59 examples, 0 failures)
+- [x] RIDE de muestra renderiza correctamente (revisado en PDF)
+- [x] `GET /reports/inventory_valuation` responde 401 sin auth y datos correctos con auth (admin)
+- [x] Filtro `?location_id=` ajusta cantidades y totales por sucursal (2161 → 1640 unidades en seeds)
+- [x] Archivos modificados compilan sin errores de tipos (`tsc -b`)
+
+---
+
 ## Alineación con Kosari / UltimatePOS
 
 > Estado de las funciones del POS de Kosari frente a lo implementado.
@@ -606,7 +646,7 @@ Seeds actualizados para demostrar versatilidad:
 | Informe de compra y venta | ✅ | Ventas + compras |
 | Informe fiscal | ✅ | IVA cobrado vs pagado |
 | Informes de contacto | ✅ | Saldos y última transacción |
-| Informe de acciones (stock) | 🟡 | Stats de inventario + export Excel por ubicación; sin reporte de valuación dedicado |
+| Informe de acciones (stock) | ✅ | Reporte de **Valuación de inventario** (costo, valor de venta y ganancia potencial por ubicación, Fase 16.4) + stats + export Excel |
 | Informe de gastos | ✅ | Por categoría / ubicación |
 | Productos en tendencia (marca/categoría/subcategoría/unidad/fechas) | 🟡 | Top productos por marca/categoría; sin subcategoría/unidad ni rango de fechas configurable |
 | Informe de caja registradora | ✅ | Flujo de efectivo |
@@ -617,4 +657,4 @@ Seeds actualizados para demostrar versatilidad:
 - **Productos:** subcategorías, unidades de medida (UOM), plantillas de variación, precio automático por margen.
 - **Personalización de factura por UI / por ubicación.**
 - **Roles personalizables desde la UI.**
-- **Reportes:** valuación de stock dedicada y tendencias por subcategoría/unidad con rango de fechas.
+- **Reportes:** tendencias por subcategoría/unidad con rango de fechas (la valuación de stock dedicada se completó en la Fase 16.4).

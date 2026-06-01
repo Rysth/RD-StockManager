@@ -7,6 +7,7 @@ import type {
   ExpenseReport,
   CashRegisterReport,
   SalesRepRow,
+  InventoryValuationReport,
 } from "../types/inventory";
 
 type ApiError = {
@@ -46,6 +47,7 @@ interface ReportState {
   expenseReport: ExpenseReport | null;
   cashRegisterReport: CashRegisterReport | null;
   salesRepReport: SalesRepRow[] | null;
+  inventoryValuationReport: InventoryValuationReport | null;
   filters: ReportFilters;
   isLoading: boolean;
   error: string | null;
@@ -58,6 +60,7 @@ interface ReportState {
   fetchExpenseReport: () => Promise<void>;
   fetchCashRegisterReport: () => Promise<void>;
   fetchSalesRepReport: () => Promise<void>;
+  fetchInventoryValuationReport: () => Promise<void>;
 }
 
 export const useReportStore = create<ReportState>((set, get) => ({
@@ -67,6 +70,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
   expenseReport: null,
   cashRegisterReport: null,
   salesRepReport: null,
+  inventoryValuationReport: null,
   filters: { locationId: null, startDate: null, endDate: null },
   isLoading: false,
   error: null,
@@ -81,6 +85,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
       get().fetchExpenseReport(),
       get().fetchCashRegisterReport(),
       get().fetchSalesRepReport(),
+      get().fetchInventoryValuationReport(),
     ]);
   },
 
@@ -141,6 +146,16 @@ export const useReportStore = create<ReportState>((set, get) => ({
       set({ salesRepReport: data.sales_reps as SalesRepRow[], isLoading: false });
     } catch (error) {
       set({ error: toMessage(error, "Error al obtener el reporte de vendedores"), isLoading: false });
+    }
+  },
+
+  fetchInventoryValuationReport: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get("/api/v1/reports/inventory_valuation", { params: toParams(get().filters) });
+      set({ inventoryValuationReport: data as InventoryValuationReport, isLoading: false });
+    } catch (error) {
+      set({ error: toMessage(error, "Error al obtener la valuación de inventario"), isLoading: false });
     }
   },
 }));

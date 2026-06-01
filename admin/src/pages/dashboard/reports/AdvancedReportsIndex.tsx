@@ -34,6 +34,8 @@ import {
   TrendingDown,
   MapPin,
   CalendarRange,
+  Boxes,
+  Coins,
 } from "lucide-react";
 
 const AreaChart = lazy(() =>
@@ -89,6 +91,7 @@ export default function AdvancedReportsIndex() {
     expenseReport,
     cashRegisterReport,
     salesRepReport,
+    inventoryValuationReport,
     filters,
     isLoading,
     setFilters,
@@ -132,7 +135,8 @@ export default function AdvancedReportsIndex() {
     !contactReport &&
     !expenseReport &&
     !cashRegisterReport &&
-    !salesRepReport;
+    !salesRepReport &&
+    !inventoryValuationReport;
   if (firstLoad) return <ReportsSkeleton />;
 
   // Totales agregados para Contactos.
@@ -153,7 +157,7 @@ export default function AdvancedReportsIndex() {
               <div>
                 <h1 className="text-xl font-bold tracking-tight">Informes</h1>
                 <p className="mt-1 text-sm text-primary-foreground/80">
-                  Compras, impuestos, contactos, gastos, caja y vendedores
+                  Compras, impuestos, contactos, gastos, caja, vendedores y valuación de stock
                 </p>
               </div>
             </div>
@@ -231,6 +235,7 @@ export default function AdvancedReportsIndex() {
           <TabsTrigger value="expenses"><Receipt className="mr-1.5 size-4" />Gastos</TabsTrigger>
           <TabsTrigger value="cash"><Wallet className="mr-1.5 size-4" />Caja</TabsTrigger>
           <TabsTrigger value="reps"><DollarSign className="mr-1.5 size-4" />Vendedores</TabsTrigger>
+          <TabsTrigger value="valuation"><Boxes className="mr-1.5 size-4" />Valuación</TabsTrigger>
         </TabsList>
 
         {/* Compras */}
@@ -644,6 +649,98 @@ export default function AdvancedReportsIndex() {
               </Table>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Valuación de inventario */}
+        <TabsContent value="valuation" className="space-y-4">
+          {inventoryValuationReport && (
+            <>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <StatsCard
+                  title="Inversión en stock (costo)"
+                  value={money(inventoryValuationReport.summary.total_cost)}
+                  icon={Coins}
+                  iconColor="text-blue-600"
+                  iconBgColor="bg-blue-50"
+                  variant="colored"
+                  description={`${inventoryValuationReport.summary.total_units} unidades · ${inventoryValuationReport.summary.sku_count} SKU`}
+                />
+                <StatsCard
+                  title="Valor de venta del stock"
+                  value={money(inventoryValuationReport.summary.total_sale_value)}
+                  icon={Boxes}
+                  iconColor="text-violet-600"
+                  iconBgColor="bg-violet-50"
+                  variant="colored"
+                />
+                <StatsCard
+                  title="Ganancia potencial"
+                  value={money(inventoryValuationReport.summary.potential_profit)}
+                  icon={TrendingUp}
+                  iconColor="text-emerald-600"
+                  iconBgColor="bg-emerald-50"
+                  variant="colored"
+                  description="Si se vende todo el stock"
+                />
+              </div>
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle>Valuación de inventario</CardTitle>
+                  <CardDescription>
+                    Costo y valor de venta del stock disponible
+                    {filters.locationId ? " en la ubicación seleccionada" : " (todas las ubicaciones)"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="p-0">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Producto</TableHead>
+                        <TableHead>Variante</TableHead>
+                        <TableHead>SKU</TableHead>
+                        <TableHead className="text-right">Stock</TableHead>
+                        <TableHead className="text-right">Costo unit.</TableHead>
+                        <TableHead className="text-right">Venta unit.</TableHead>
+                        <TableHead className="text-right">Valor costo</TableHead>
+                        <TableHead className="text-right">Valor venta</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {inventoryValuationReport.rows.length ? (
+                        inventoryValuationReport.rows.map((r) => (
+                          <TableRow key={r.sku}>
+                            <TableCell className="font-medium">
+                              {r.product}
+                              {r.brand && (
+                                <span className="ml-1 text-xs text-muted-foreground">· {r.brand}</span>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{r.variant}</TableCell>
+                            <TableCell className="font-mono text-xs">{r.sku}</TableCell>
+                            <TableCell className="text-right">{r.quantity}</TableCell>
+                            <TableCell className="text-right">{money(r.unit_cost)}</TableCell>
+                            <TableCell className="text-right">{money(r.unit_price)}</TableCell>
+                            <TableCell className="text-right">{money(r.cost_value)}</TableCell>
+                            <TableCell className="text-right font-medium">{money(r.sale_value)}</TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={8} className="h-20 text-center text-muted-foreground">
+                            Sin stock disponible para valuar.
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+                <CardFooter className="text-sm text-muted-foreground">
+                  El costo usa el último costo del producto; la ganancia potencial asume que se vende
+                  todo el stock al precio de venta actual.
+                </CardFooter>
+              </Card>
+            </>
+          )}
         </TabsContent>
       </Tabs>
     </div>

@@ -382,6 +382,29 @@ export interface SalesRepRow {
   profit: number;
 }
 
+export interface InventoryValuationRow {
+  product: string;
+  brand: string | null;
+  variant: string;
+  sku: string;
+  quantity: number;
+  unit_cost: number;
+  unit_price: number;
+  cost_value: number;
+  sale_value: number;
+}
+
+export interface InventoryValuationReport {
+  summary: {
+    total_cost: number;
+    total_sale_value: number;
+    potential_profit: number;
+    total_units: number;
+    sku_count: number;
+  };
+  rows: InventoryValuationRow[];
+}
+
 export interface InventoryStats {
   total_products: number;
   active_products: number;

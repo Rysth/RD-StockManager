@@ -164,6 +164,63 @@ module Api
         render_success(sales_reps: rows)
       end
 
+      # GET /api/v1/reports/inventory_valuation — valuación del stock a costo y a precio de venta.
+      # Con ?location_id= usa la cantidad de esa sucursal (stock_levels); sin él, el total denormalizado.
+      def inventory_valuation
+        if location_id
+          scope = ProductVariant.joins(:product, :stock_levels)
+                                .where(stock_levels: { location_id: location_id })
+          qty_sql = "stock_levels.quantity"
+        else
+          scope = ProductVariant.joins(:product)
+          qty_sql = "product_variants.stock"
+        end
+
+        scope = scope.where(products: { active: true })
+                     .where("#{qty_sql} > 0")
+                     .joins("LEFT JOIN brands ON brands.id = products.brand_id")
+
+        rows = scope.pluck(
+          Arel.sql("products.name"),
+          Arel.sql("brands.name"),
+          Arel.sql("product_variants.size"),
+          Arel.sql("product_variants.color"),
+          Arel.sql("product_variants.sku"),
+          Arel.sql(qty_sql),
+          Arel.sql("products.cost"),
+          Arel.sql("products.base_price")
+        ).map do |name, brand, size, color, sku, qty, cost, price|
+          q = qty.to_i
+          c = cost.to_f
+          p = price.to_f
+          {
+            product: name,
+            brand: brand,
+            variant: [size, color].compact_blank.join(" / ").presence || "—",
+            sku: sku,
+            quantity: q,
+            unit_cost: c,
+            unit_price: p,
+            cost_value: (q * c).round(2),
+            sale_value: (q * p).round(2)
+          }
+        end.sort_by { |r| -r[:cost_value] }
+
+        total_cost = rows.sum { |r| r[:cost_value] }.round(2)
+        total_sale = rows.sum { |r| r[:sale_value] }.round(2)
+
+        render_success(
+          summary: {
+            total_cost: total_cost,
+            total_sale_value: total_sale,
+            potential_profit: (total_sale - total_cost).round(2),
+            total_units: rows.sum { |r| r[:quantity] },
+            sku_count: rows.size
+          },
+          rows: rows
+        )
+      end
+
       private
 
       def location_id

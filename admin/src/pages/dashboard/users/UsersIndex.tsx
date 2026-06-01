@@ -20,6 +20,7 @@ import {
 import { toast } from "react-hot-toast";
 import { useAuthStore } from "../../../stores/authStore";
 import { useUserStore, User } from "../../../stores/userStore";
+import { Permissions } from "../../../types/auth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -730,7 +731,7 @@ export default function UsersIndex() {
   const [state, dispatch] = useReducer(usersReducer, initialState);
   const [batchUsers, setBatchUsers] = useState<User[]>([]);
   const isMounted = useRef(false);
-  const canManageUsers = hasPermission("edit_users");
+  const canManageUsers = hasPermission(Permissions.EDIT_USERS);
 
   useEffect(() => {
     isMounted.current = true;

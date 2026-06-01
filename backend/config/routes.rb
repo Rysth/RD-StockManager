@@ -104,6 +104,7 @@ Rails.application.routes.draw do
         get :expenses
         get :cash_register
         get :sales_reps
+        get :inventory_valuation
       end
 
       # Public endpoints (no authentication)
