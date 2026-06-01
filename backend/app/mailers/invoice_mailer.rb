@@ -1,16 +1,22 @@
 class InvoiceMailer < ApplicationMailer
   def authorized(invoice)
-    @invoice = invoice
-    @sale = invoice.sale
+    @invoice  = invoice
+    @sale     = invoice.sale
     @customer = @sale.customer
     @business = Business.current
 
-    attachments["#{invoice.clave_acceso}.xml"] = {
+    # Logo embebido (cid:) para clientes de correo que bloquean imágenes externas
+    if @business.logo.attached?
+      attachments.inline["logo"] = @business.logo.download
+      @logo_cid = attachments["logo"].url
+    end
+
+    attachments["XML_FACTURA_#{invoice.numero_comprobante}.xml"] = {
       mime_type: "application/xml",
       content: invoice.xml_autorizado
     } if invoice.xml_autorizado.present?
 
-    attachments["#{invoice.clave_acceso}.pdf"] = {
+    attachments["RIDE_FACTURA_#{invoice.numero_comprobante}.pdf"] = {
       mime_type: "application/pdf",
       content: invoice.ride_pdf
     } if invoice.ride_pdf.present?

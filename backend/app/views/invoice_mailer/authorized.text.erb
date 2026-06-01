@@ -1,11 +1,47 @@
-Factura electronica autorizada
+================================================================
+  FACTURA ELECTRÓNICA AUTORIZADA — <%= @business.name_or_default.upcase %>
+================================================================
+<% if @business.slogan.present? %>  "<%= @business.slogan %>"
+<% end %>
 
-Gracias por tu compra en <%= @business.name_or_default %>.
+Hola, <%= @customer.name %>:
 
-Comprobante: <%= @invoice.numero_comprobante %>
-Autorizacion: <%= @invoice.numero_autorizacion %>
-Total: $<%= format('%.2f', @invoice.importe_total.to_f) %>
+Tu factura electrónica ha sido AUTORIZADA por el SRI y se
+adjuntan los documentos a este correo.
 
-Adjuntamos el XML autorizado y el RIDE en PDF.
+----------------------------------------------------------------
+  RESUMEN DE FACTURA
+----------------------------------------------------------------
 
+  Comprobante  :  <%= @invoice.numero_comprobante %>
+  Autorización :  <%= @invoice.numero_autorizacion %>
+<% if @invoice.fecha_autorizacion %>  Fecha        :  <%= @invoice.fecha_autorizacion.strftime("%d/%m/%Y %H:%M") %>
+<% end %>  TOTAL        :  $<%= format('%.2f', @invoice.importe_total.to_f) %>
+
+----------------------------------------------------------------
+  ARCHIVOS ADJUNTOS
+----------------------------------------------------------------
+
+  • RIDE_FACTURA_<%= @invoice.numero_comprobante %>.pdf
+    Representación impresa del documento electrónico
+
+  • XML_FACTURA_<%= @invoice.numero_comprobante %>.xml
+    XML autorizado por el SRI (para tu contabilidad)
+
+----------------------------------------------------------------
+<% if @business.whatsapp.present? || @business.email.present? || @business.location.present? %>  CONTACTO
+----------------------------------------------------------------
+<% if @business.whatsapp.present? %>  WhatsApp  :  <%= @business.whatsapp %>
+<% end %><% if @business.email.present? %>  Email     :  <%= @business.email %>
+<% end %><% if @business.location.present? %>  Dirección :  <%= @business.location %>
+<% end %>
+----------------------------------------------------------------
+<% end %>
+<% if @business.instagram.present? || @business.tiktok.present? || @business.facebook.present? %>  SÍGUENOS
+----------------------------------------------------------------
+<% if @business.instagram.present? %>  Instagram  :  @<%= @business.instagram %>
+<% end %><% if @business.tiktok.present? %>  TikTok     :  @<%= @business.tiktok %>
+<% end %><% if @business.facebook.present? %>  Facebook   :  <%= @business.facebook %>
+<% end %>
+<% end %>Este correo fue generado automáticamente. Por favor no respondas.
 Powered by StockManager by RysthDesign
