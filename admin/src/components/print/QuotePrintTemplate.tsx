@@ -190,9 +190,7 @@ const QuotePrintTemplate = forwardRef<HTMLDivElement, QuotePrintTemplateProps>(
             <span>Términos y Condiciones</span>
           </div>
           <div className="quote-terms">
-            <p style={{ whiteSpace: "pre-wrap", fontSize: "0.85em", lineHeight: "1.5" }}>
-              {DEFAULT_TERMS_CONDITIONS}
-            </p>
+            <p>{DEFAULT_TERMS_CONDITIONS}</p>
           </div>
         </div>
 

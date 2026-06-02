@@ -107,7 +107,7 @@
 
 /* Sections */
 .quote-section {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
 }
 
 .quote-section-header {
@@ -213,29 +213,39 @@
 
 /* Terms */
 .quote-terms {
-    padding: 12px;
+    padding: 9px 10px;
     background: #f8f9fa;
     border: 1px solid #e5e7eb;
     border-top: none;
-    font-size: 10px;
-    line-height: 1.6;
+    font-size: 9px;
+    line-height: 1.35;
+}
+
+.quote-terms p {
+    margin: 0;
+    white-space: pre-wrap;
 }
 
 /* Notes */
 .quote-notes {
-    padding: 12px;
+    padding: 8px 10px;
     background: #fffbeb;
     border: 1px solid #fcd34d;
     border-top: none;
-    font-size: 11px;
+    font-size: 9px;
+    line-height: 1.35;
     color: #92400e;
+}
+
+.quote-notes p {
+    margin: 0;
 }
 
 /* Footer */
 .quote-footer {
-    margin-top: 30px;
+    margin-top: 18px;
     text-align: center;
-    padding-top: 16px;
+    padding-top: 10px;
     border-top: 2px solid #e5e7eb;
     font-size: 11px;
     color: #6b7280;
@@ -246,7 +256,7 @@
 }
 
 .quote-footer-powered {
-    margin-top: 12px;
+    margin-top: 6px;
     font-size: 10px;
     color: #9ca3af;
 }
@@ -281,12 +291,46 @@
     }
 
     .quote-print-template {
-        padding: 15mm 20mm !important;
+        padding: 10mm 14mm !important;
         max-width: 100% !important;
         width: 100% !important;
-        min-height: 267mm !important;
+        min-height: 277mm !important;
         display: flex !important;
         flex-direction: column !important;
+    }
+
+    .quote-header {
+        margin-bottom: 16px !important;
+        padding-bottom: 10px !important;
+    }
+
+    .quote-info-row {
+        margin-bottom: 14px !important;
+    }
+
+    .quote-section {
+        margin-bottom: 12px !important;
+    }
+
+    .quote-section-header {
+        padding: 6px 10px !important;
+    }
+
+    .quote-client-info {
+        padding: 8px 10px !important;
+    }
+
+    .quote-table th,
+    .quote-table td {
+        padding: 7px 8px !important;
+    }
+
+    .quote-totals {
+        margin-top: 10px !important;
+    }
+
+    .quote-total-row {
+        padding: 4px 10px !important;
     }
 
     .quote-section-header {
@@ -309,7 +353,7 @@
 
     .quote-footer {
         margin-top: auto !important;
-        padding-top: 8px !important;
+        padding-top: 6px !important;
         page-break-inside: avoid !important;
         break-inside: avoid !important;
     }
