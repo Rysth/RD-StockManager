@@ -55,6 +55,50 @@ La emision de facturas electronicas esta restringida por permiso `manage_invoici
 
 Los empleados no ven la seccion de facturacion en el drawer de detalle de venta.
 
+## Planes y Precios
+
+### Implementacion (pago unico)
+
+Incluye instalacion en servidor, configuracion de dominios, variables de entorno, primera carga de datos y capacitacion inicial.
+
+| | Precio |
+|---|---|
+| Implementacion | **$375 – $425** |
+
+---
+
+### Suscripcion mensual
+
+> **Promo Junio 2026** — Precio especial valido hasta el **30 de junio de 2026**.
+> A partir de julio los precios suben. Suscripciones contratadas en junio mantienen el precio promocional.
+
+#### Precio promocional (hasta 30 jun 2026)
+
+| Plan | Usuarios | Mensual | Anual | Ahorro anual |
+|------|----------|---------|-------|--------------|
+| **Basico** | Hasta 5 | $29 / mes | $290 / año | $58 (2 meses gratis) |
+| **Pro** | Hasta 10 | $39 / mes | $390 / año | $78 (2 meses gratis) |
+
+#### Precio regular (desde 1 jul 2026)
+
+| Plan | Usuarios | Mensual | Anual | Ahorro anual |
+|------|----------|---------|-------|--------------|
+| **Basico** | Hasta 5 | $35 / mes | $350 / año | $70 (2 meses gratis) |
+| **Pro** | Hasta 10 | $47 / mes | $470 / año | $94 (2 meses gratis) |
+
+> El plan anual equivale a pagar 10 meses y usar 12 — **2 meses completamente gratis**.
+
+---
+
+### Que incluye la suscripcion
+
+- Todos los modulos: inventario, ventas, compras, gastos, reportes, cotizaciones y facturacion SRI.
+- Actualizaciones y mejoras incluidas en el plan.
+- Soporte tecnico por WhatsApp / email.
+- Infraestructura en servidor propio del cliente (Dokploy) — tus datos, tu servidor.
+
+---
+
 ## Inicio Rapido
 
 ### Requisitos
