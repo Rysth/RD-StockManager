@@ -1,5 +1,10 @@
 require "active_support/core_ext/integer/time"
 
+# FrontendUrls is defined in config/initializers/frontend_urls.rb, but environment
+# files are loaded *before* initializers — require it explicitly so the constant is
+# available when configuring the mailer below.
+require_relative "../initializers/frontend_urls"
+
 Rails.application.configure do
   # Settings specified here will take precedence over those in config/application.rb.
 

@@ -1,3 +1,5 @@
+require "uri"
+
 module FrontendUrls
   module_function
 
