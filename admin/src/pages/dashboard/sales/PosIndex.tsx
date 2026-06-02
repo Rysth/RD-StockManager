@@ -80,6 +80,7 @@ function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
 
 interface CartItem {
   product_variant_id: number;
+  is_service: boolean;
   label: string;
   sku: string;
   thumb?: string;
@@ -95,6 +96,7 @@ interface CartItem {
 
 interface VariantOption {
   id: number;
+  is_service: boolean;
   label: string;
   sku: string;
   thumb?: string;
@@ -170,6 +172,7 @@ export default function PosIndex() {
   const [selectedProduct, setSelectedProduct] = useState<{
     id: number;
     name: string;
+    product_type?: "good" | "service";
     brand?: string | null;
     base_price: number;
     wholesale_price: number | null;
@@ -178,6 +181,7 @@ export default function PosIndex() {
     thumb?: string;
     variants: {
       id: number;
+      is_service: boolean;
       size?: string | null;
       color?: string | null;
       stock: number;
@@ -278,7 +282,9 @@ export default function PosIndex() {
     products.forEach((p) => {
       // En compra mostramos todo; en venta solo lo que tiene stock.
       const relevant =
-        mode === "purchase" || p.variants.some((v) => stockAt(v) > 0);
+        mode === "purchase" ||
+        p.product_type === "service" ||
+        p.variants.some((v) => stockAt(v) > 0);
       if (p.category_id && relevant) ids.add(p.category_id);
     });
     return ids;
@@ -298,7 +304,11 @@ export default function PosIndex() {
         if (categoryFilter !== "all" && p.category_id !== categoryFilter)
           return false;
         // En venta requerimos stock; en compra no.
-        if (mode === "sale" && !p.variants.some((v) => stockAt(v) > 0))
+        if (
+          mode === "sale" &&
+          p.product_type !== "service" &&
+          !p.variants.some((v) => stockAt(v) > 0)
+        )
           return false;
         if (!q) return true;
         const productMatch = `${p.name} ${p.brand ?? ""}`
@@ -311,11 +321,12 @@ export default function PosIndex() {
       })
       .map((p) => {
         const variants = (
-          mode === "sale"
+          mode === "sale" && p.product_type !== "service"
             ? p.variants.filter((v) => stockAt(v) > 0)
             : p.variants
         ).map((v) => ({
           id: v.id,
+          is_service: p.product_type === "service",
           size: v.size,
           color: v.color,
           stock: stockAt(v),
@@ -325,6 +336,7 @@ export default function PosIndex() {
         return {
           id: p.id,
           name: p.name,
+          product_type: p.product_type,
           brand: p.brand,
           base_price: p.base_price,
           wholesale_price: p.wholesale_price ?? null,
@@ -363,6 +375,7 @@ export default function PosIndex() {
       }
       const base: CartItem = {
         product_variant_id: v.id,
+        is_service: v.is_service,
         label: v.label,
         sku: v.sku,
         thumb: v.thumb,
@@ -371,7 +384,7 @@ export default function PosIndex() {
         wholesale_min_quantity: v.wholesale_min_quantity,
         cost: v.cost,
         quantity: 1,
-        max: v.stock,
+        max: v.is_service ? Number.MAX_SAFE_INTEGER : v.stock,
         unit_value: mode === "sale" ? v.base_price : v.cost,
         value_edited: false,
       };
@@ -1261,7 +1274,7 @@ export default function PosIndex() {
                         <div>
                           <p className="font-medium text-sm">{sizeLabel}</p>
                           <p className="text-xs text-muted-foreground">
-                            {v.stock} en stock ·{" "}
+                            {v.is_service ? "Servicio" : `${v.stock} en stock`} ·{" "}
                             <span className="font-mono">{v.sku}</span>
                           </p>
                         </div>
@@ -1291,10 +1304,11 @@ export default function PosIndex() {
                     ) : (
                       <Button
                         size="sm"
-                        disabled={isSale && v.stock <= 0}
+                        disabled={isSale && !v.is_service && v.stock <= 0}
                         onClick={() =>
                           addToCart({
                             id: v.id,
+                            is_service: v.is_service,
                             label: `${selectedProduct.name} — ${sizeLabel}`,
                             sku: v.sku,
                             thumb: v.thumb,

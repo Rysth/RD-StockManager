@@ -122,12 +122,15 @@ export default function QuotationFormDialog({ open, onOpenChange, quotation, onS
     const meta: Record<number, VariantMeta> = {};
     products.forEach((p) => {
       p.variants.forEach((v) => {
+        const isService = p.product_type === "service";
         const label = [p.name, v.size, v.color].filter(Boolean).join(" ");
         options.push({
           value: String(v.id),
           label,
-          description: `SKU ${v.sku} · ${money(Number(p.base_price))} · stock ${v.stock}`,
-          keywords: v.sku,
+          description: `SKU ${v.sku} · ${money(Number(p.base_price))} · ${
+            isService ? "servicio sin stock" : `stock ${v.stock}`
+          }`,
+          keywords: `${v.sku} ${isService ? "servicio service" : ""}`,
         });
         meta[v.id] = { description: label, price: Number(p.base_price) };
       });
