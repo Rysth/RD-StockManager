@@ -1,164 +1,181 @@
-# RD-StockManager — Roadmap: Deploy clients/rysthdesign
+# RD-StockManager — Roadmap
 
-> Deploy de producción para **RysthDesign** (jpalacios@novicompu.com) en servidor Dokploy.
-> Estrategia: rama `clients/rysthdesign` derivada de `main`, con su propio proyecto en Dokploy.
-
----
-
-## Estado actual (rama `main`)
-
-- [x] Módulo completo de inventario, ventas, compras, gastos, reportes, facturación SRI
-- [x] Módulo de Cotizaciones (Quotation) con plantilla A4 RysthDesign, conversión a venta
-- [x] `Business.current` env-driven (`BUSINESS_*` vars, sin hardcode EDLU)
-- [x] Permiso `MANAGE_QUOTATIONS` registrado y sembrado
-- [x] Migración `20260601160000_create_quotations_and_items` aplicada en dev
+> **Estado:** en producción para el primer cliente (RysthDesign).
+> **Siguiente objetivo:** cerrar 3 nuevos clientes antes de julio 2026.
 
 ---
 
-## Fase 1 — Crear la rama `clients/rysthdesign`
+## Situación actual (junio 2026)
 
-**Objetivo:** tener la rama de producción lista para conectar a Dokploy.
+### Negocio
+| Métrica | Valor |
+|---------|-------|
+| Clientes activos | 3 (servicios varios) |
+| MRR actual | $110/mes ($60 + $25 + $25) |
+| Implementaciones cobradas | $600 c/u (validado — los clientes pagan) |
+| Primer cliente StockManager | RysthDesign — en deploy activo |
 
-- [ ] Commit de todos los cambios pendientes en `main` (quotations + env defaults)
-- [ ] `git checkout -b clients/rysthdesign`
-- [ ] `git push -u origin clients/rysthdesign`
+### Código (rama `main`)
+- [x] Módulo completo de inventario, ventas, compras, gastos, reportes
+- [x] Facturación electrónica SRI
+- [x] Cotizaciones con plantilla A4, conversión a venta
+- [x] `Business.current` env-driven (sin hardcode por cliente)
+- [x] Seeds de producción (admin-only, env-driven)
+- [x] `docker-compose.prod.yml` autocontenido (Postgres + Redis incluidos)
+- [x] Fix `FrontendUrls` en boot de producción
+- [x] `DEPLOYMENT.md` actualizado con método real Dokploy
 
----
-
-## Fase 2 — Ajustes específicos de RysthDesign en la rama
-
-**Objetivo:** personalizar la rama para el negocio sin tocar `main`.
-
-### 2.1 — Seeds de producción
-- [ ] Ajustar `backend/db/seeds.rb` o crear `backend/db/seeds/production.rb`:
-  - Solo crear el usuario admin con email real (no datos demo de EDLU Store)
-  - Permiso seed (`Permission.seed!`) incluido
-  - Sin datos demo de zapatos/gorras (base limpia para uso real)
-- [ ] Definir `ADMIN_EMAIL` y `ADMIN_PASSWORD` en env de Dokploy (no en código)
-
-### 2.2 — Título del panel admin
-- [ ] Cambiar `admin/index.html` title de `"EDLU Store | Powered By RysthDesign"` → `"RysthDesign | Panel de Gestión"`
-
-### 2.3 — Terms & Conditions de cotización
-- [ ] Revisar `admin/src/constants/terms.ts` — el texto ya dice "50% al inicio / 50% al finalizar"
-  y es correcto para RysthDesign; confirmar o ajustar si cambia el modelo de cobro
+### Infraestructura
+- [x] Rama `clients/rysthdesign` creada y desplegada en Dokploy
+- [x] Dominio `stockmanager.rysthdesign.com` + `stockmanager-api.rysthdesign.com`
+- [ ] Todos los contenedores corriendo estables (rdstock-api aún en revisión)
 
 ---
 
-## Fase 3 — Infraestructura Dokploy
+## FASE A — Estabilizar el primer deploy (esta semana)
 
-**Objetivo:** tener el proyecto levantado en el servidor.
+**Objetivo:** que RysthDesign funcione 100% en producción. Es tu demo vivo.
 
-### 3.1 — Crear proyecto en Dokploy
-- [ ] Servidor Dokploy → **New Project** → nombre: `RD-StockManager`
-- [ ] Dentro del proyecto, crear **dos aplicaciones**:
-  - `rysthdesign-api` → rama `clients/rysthdesign`, directorio `backend/`, Dockerfile existente
-  - `rysthdesign-admin` → rama `clients/rysthdesign`, directorio `admin/`, Dockerfile o build estático
-
-### 3.2 — Base de datos y servicios
-- [ ] PostgreSQL (Dokploy managed o contenedor): crear DB `rdstock_rysthdesign_production`
-- [ ] Redis: instancia compartida o dedicada
-- [ ] Configurar `DATABASE_URL` y `REDIS_URL` en el env de la app API
-
-### 3.3 — Variables de entorno para el API (Dokploy → Environment)
-
-```env
-# Rails
-RAILS_ENV=production
-SECRET_KEY_BASE=<rails secret>
-
-# Base de datos
-DATABASE_URL=postgres://user:pass@host:5432/rdstock_rysthdesign_production
-REDIS_URL=redis://host:6379/1
-
-# Orígenes
-ADMIN_FRONTEND_URL=https://admin.rysthdesign.com
-ADMIN_ALLOWED_ORIGINS=https://admin.rysthdesign.com
-
-# SMTP
-SMTP_HOST=smtp.rysthdesign.com
-SMTP_PORT=587
-SMTP_USER=support@rysthdesign.com
-SMTP_PASSWORD=<password>
-SMTP_DOMAIN=rysthdesign.com
-
-# Identidad del negocio (siembra Business.current solo en primer arranque)
-BUSINESS_NAME=RysthDesign
-BUSINESS_SLOGAN=Diseño y desarrollo de software
-BUSINESS_WHATSAPP=+593000000000
-BUSINESS_EMAIL=support@rysthdesign.com
-BUSINESS_LOCATION=Ecuador
-BUSINESS_INSTAGRAM=
-BUSINESS_FACEBOOK=
-BUSINESS_TIKTOK=
-
-# Admin inicial (seed de producción)
-ADMIN_EMAIL=jpalacios@novicompu.com
-# ADMIN_PASSWORD= (dejar vacío para auto-generar; se escribe en tmp/initial_admin.txt)
-
-# Cloudflare R2 (imágenes) — opcional
-CLOUDFLARE_ENDPOINT=
-CLOUDFLARE_ACCESS_KEY_ID=
-CLOUDFLARE_SECRET_ACCESS_KEY=
-CLOUDFLARE_BUCKET_NAME=
-```
-
-### 3.4 — Variables de entorno para el admin (Vite build-time)
-```env
-VITE_API_URL=https://api.rysthdesign.com
-```
+- [ ] Confirmar que `rdstock-api` arranca sin reinicios
+- [ ] Verificar login en `https://stockmanager.rysthdesign.com`
+- [ ] Settings → Negocio: subir logo, confirmar datos, WhatsApp
+- [ ] Settings → SRI: configurar RUC, razón social, certificado `.p12` (ambiente pruebas primero)
+- [ ] Crear una cotización real → descargar PDF → verificar que se ve profesional
+- [ ] Emitir una factura de prueba al SRI
+- [ ] **Tomar captura de pantalla del panel funcionando** — la necesitas para vender
 
 ---
 
-## Fase 4 — Deploy y post-arranque
+## FASE B — Definir y comunicar precios (esta semana)
 
-**Objetivo:** aplicación funcional en producción.
+**Objetivo:** tener una propuesta clara antes de hablar con cualquier cliente.
 
-- [ ] **Build y deploy** del API desde Dokploy (detecta `Dockerfile` en `backend/`)
-- [ ] **Verificar** que el entrypoint corre `db:prepare` (ya configurado en `docker-compose.dev.yml`; confirmar Dockerfile de producción)
-- [ ] **Post-deploy** (una sola vez, desde Dokploy Console o SSH):
-  ```bash
-  bin/rails db:migrate
-  bin/rails runner "Permission.seed!"
-  ```
-- [ ] Verificar que `Business` fue creado con datos de RysthDesign (`Business.first.name`)
-- [ ] **Build y deploy** del frontend (admin)
-- [ ] Verificar login en `https://admin.rysthdesign.com` con el admin inicial
+### Precios que debes usar
 
----
+| | Precio | Por qué |
+|---|---|---|
+| **Implementación** | **$500 – $600** | Ya validado — tus clientes pagaron $600. No lo bajes. |
+| **Mensual** | **$35 / mes** | $25 es demasiado bajo, apenas cubre infra. $35 es justo y competitivo. |
+| **Anual** | **$350 / año** | 2 meses gratis. Mejor para ti: cobras todo junto y cubre el servidor. |
+| **Promo junio** | **Implementación gratis** si contratan anual ($350) | Cierra más rápido, aseguras 12 meses. |
 
-## Fase 5 — Configuración post-login
+> **Regla de oro:** si el cliente contrata el plan anual ($350), la implementación
+> es gratis. Cobras $350 de entrada y ya cubres el servidor ($200) + tu tiempo.
+> Si quiere mensual, cobras $500-$600 de implementación porque asumes el riesgo
+> de que cancele pronto.
 
-**Objetivo:** dejar el negocio operativo desde el panel.
+### Qué decirle al cliente
 
-- [ ] Settings → Negocio: subir logo de RysthDesign, confirmar nombre/slogan/WhatsApp
-- [ ] Settings → Negocio → SRI: configurar ambiente (pruebas primero), RUC, razón social, dirección matriz
-- [ ] Subir certificado `.p12` desde el panel
-- [ ] Crear al menos una ubicación (si se gestionará inventario físico) o dejar "Principal"
-- [ ] Crear las categorías de servicios/productos de RysthDesign
-- [ ] Invitar usuarios adicionales si los hay
+> *"Es un sistema completo de inventario, ventas, cotizaciones y facturación SRI,
+> desplegado en tu propio servidor — tus datos son tuyos. La implementación
+> incluye la instalación, configuración con tus datos y capacitación.
+> El mantenimiento mensual cubre actualizaciones, soporte y la infraestructura."*
 
 ---
 
-## Fase 6 — Verificación end-to-end
+## FASE C — Subir precios a clientes actuales (próximas 2 semanas)
 
-- [ ] Crear una cotización → descargar PDF (debe mostrar logo y datos de RysthDesign)
-- [ ] Cambiar estado a Aceptada → Convertir a venta
-- [ ] Completar la venta
-- [ ] (Opcional) Emitir factura SRI en ambiente de pruebas
-- [ ] Crear un gasto y verificar que aparece en reportes
+**Objetivo:** llevar los $25/mes a $35/mes. Es un ajuste justo y necesario.
+
+Tienes 3 clientes actuales. Los que pagan $25/mes están por debajo del costo real.
+
+### Cómo comunicarlo
+
+1. **Dar aviso con 30 días de anticipación** — es profesional y no genera rechazo.
+2. **Justificarlo con valor nuevo:** si les ofreces StockManager como mejora,
+   el aumento es mucho más fácil de aceptar.
+3. **Mensaje sugerido por WhatsApp:**
+
+> *"Hola [nombre], a partir del 1 de agosto voy a ajustar el plan mensual a $35.
+> Llevo tiempo sin subir precios y necesito mantener la calidad del servicio.
+> Además, en julio te voy a presentar una mejora importante en el sistema.
+> Cualquier consulta me avisas."*
+
+Si el cliente de $60/mes ya usa algo con más valor, mantén ese precio o súbelo
+a $70 cuando le ofrezcas StockManager como upgrade.
+
+### Impacto del ajuste
+
+| Antes | Después |
+|-------|---------|
+| $110 / mes (3 clientes) | $130 / mes (si los 3 aceptan $35 + mantienes el de $60) |
+| $1,320 / año | $1,560 / año |
+
+No es dramático, pero es la base correcta para escalar.
 
 ---
 
-## Gestión de futuras actualizaciones
+## FASE D — Conseguir 3 nuevos clientes StockManager (junio–agosto)
 
-```
-# Mejora nueva en main → traer a clients/rysthdesign
-git checkout clients/rysthdesign
+**Objetivo:** llegar a 6 clientes totales en StockManager para llenar el primer servidor.
+
+### Dónde buscar los primeros clientes
+
+Los primeros 3 clientes de un producto nuevo casi siempre vienen de tu red cercana.
+No necesitas publicidad todavía.
+
+**Semana 1-2: lista de 20 contactos**
+Escribe una lista de 20 negocios que conozcas (personalmente o por referidos) que:
+- Tengan inventario físico (tiendas, distribuidoras, ferreterías, papelerías)
+- O vendan servicios y necesiten cotizaciones + factura SRI
+- Tengan 1-5 empleados
+- Estén en Ecuador
+
+**Semana 3-4: acercamiento directo**
+No mandes un mensaje genérico. Escríbeles directamente:
+
+> *"Hola [nombre], estoy lanzando un sistema de inventario y facturación SRI
+> para negocios como el tuyo. Ya lo tengo funcionando con un cliente.
+> ¿Tienes 20 minutos esta semana para que te lo muestre?"*
+
+**El demo es tu arma principal:**
+Muéstrales el panel funcionando en `stockmanager.rysthdesign.com` (o en un demo
+que montes tú mismo). Ver el sistema real cierra más que cualquier presentación.
+
+### Meta de conversión realista
+
+De 20 contactos → 5-8 demos → 2-3 cierres. Eso es normal para un producto nuevo.
+
+### Seguimiento numérico
+
+| Mes | Meta clientes StockManager | MRR objetivo |
+|-----|--------------------------|-------------|
+| Junio | 1 (RysthDesign) | $110 actual + $350 anual cobrado |
+| Julio | 3 | ~$180/mes recurrente |
+| Agosto | 5 | ~$260/mes recurrente |
+| Septiembre | 7-8 | ~$350/mes recurrente |
+
+---
+
+## FASE E — Operación estable (septiembre en adelante)
+
+Una vez que tengas 6-8 clientes, el foco cambia a **no perderlos**.
+
+### Soporte sin quemarte
+
+- Horario fijo de soporte: L-V 7pm–9pm y sábados 10am–12pm
+- Comunicar ese horario desde el contrato — los clientes lo respetan
+- Canal único: WhatsApp Business (no mezcles con tu personal)
+- Responder en máximo 24h hábiles para temas no urgentes
+
+### Mantenimiento del producto
+
+```bash
+# Cuando hagas mejoras en main → llevar a cada cliente:
+git checkout clients/<nombre>
 git merge main
-git push origin clients/rysthdesign
-# Dokploy detecta el push y redeploy automático (si está configurado webhook)
+git push origin clients/<nombre>
+# Dokploy redeploya automático si tiene Autodeploy ON
 ```
+
+Cada cliente que tienes en Dokploy con Autodeploy ON recibe las mejoras
+automáticamente con solo hacer push. Esa es la ventaja del modelo.
+
+### Renovaciones anuales
+
+- Ponerte una alerta 30 días antes del vencimiento de cada cliente anual
+- Escribirles proactivamente: *"Tu plan vence el [fecha], ¿lo renovamos?"*
+- Ofrecer pago por Transferencia o depósito — en Ecuador es lo más común
 
 ---
 
@@ -166,8 +183,25 @@ git push origin clients/rysthdesign
 
 | Decisión | Razón |
 |----------|-------|
-| Estrategia branch-per-client | Un despliegue Dokploy por cliente; `main` es el tronco compartido |
-| `Business` singleton env-driven | Cada rama configura su identidad sin editar código |
-| Cotizaciones con líneas libres + variante opcional | RysthDesign vende servicios (libres) y a veces productos de inventario |
-| PDF client-side (react-to-print) | Sin dependencia de PDF server-side; plantilla ya es RysthDesign-branded |
-| No multi-tenancy | Cada cliente es un despliegue independiente; más simple y sin riesgo de contaminación de datos |
+| Branch-per-client | Un deploy Dokploy por cliente; `main` es el tronco compartido |
+| `Business` singleton env-driven | Cada cliente configura su identidad sin tocar código |
+| Postgres + Redis dentro del compose | Stack autocontenido, no depende de servicios externos |
+| Cotizaciones con líneas libres | Clientes de servicios (sin inventario) pueden cotizar igual |
+| PDF client-side (react-to-print) | Sin dependencia de servidor PDF; plantilla ya es branded |
+| No multi-tenancy | Deploy independiente por cliente; más simple, sin riesgo de contaminación |
+| Implementación gratis con plan anual | Reduce fricción de entrada y asegura 12 meses de ingreso |
+
+---
+
+## Números clave para tener siempre presentes
+
+| Concepto | Valor |
+|----------|-------|
+| Costo servidor / año | $200 |
+| Clientes por servidor | 4 |
+| Costo infra por cliente (servidor lleno) | $55 / año |
+| Break-even de un servidor | 1 cliente anual a $350 ya lo cubre |
+| Precio implementación | $500 – $600 |
+| Precio mensual | $35 / mes |
+| Precio anual | $350 / año (2 meses gratis) |
+| Meta MRR para igualar salario | ~30 clientes × $35 = $1,050 / mes |
