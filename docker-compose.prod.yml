@@ -1,0 +1,97 @@
+services:
+  admin:
+    build:
+      context: ./admin
+      args:
+        VITE_API_URL: https://stockmanager-api.rysthdesign.com
+    container_name: rdstock-admin
+    restart: unless-stopped
+    environment:
+      - ADMIN_SERVER_NAME=stockmanager.rysthdesign.com
+      - API_UPSTREAM_SCHEME=https
+      - API_UPSTREAM_HOST=stockmanager-api.rysthdesign.com
+      - API_UPSTREAM_PORT=443
+    depends_on:
+      - api
+    networks:
+      - rdstock_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.admin.rule=Host(`stockmanager.rysthdesign.com`)"
+      - "traefik.http.routers.admin.tls=true"
+      - "traefik.http.routers.admin.tls.certresolver=letsencrypt"
+      - "traefik.http.services.admin.loadbalancer.server.port=5173"
+
+  api:
+    build: ./backend
+    container_name: rdstock-api
+    restart: unless-stopped
+    environment:
+      - RAILS_ENV=production
+      - ADMIN_FRONTEND_URL=https://stockmanager.rysthdesign.com
+      - ADMIN_ALLOWED_ORIGINS=https://stockmanager.rysthdesign.com
+      - HOSTS_WHITELIST=stockmanager-api.rysthdesign.com
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ADMIN_EMAIL=${ADMIN_EMAIL}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - BUSINESS_NAME=${BUSINESS_NAME:-RysthDesign}
+      - BUSINESS_SLOGAN=${BUSINESS_SLOGAN:-Diseño y desarrollo de software}
+      - BUSINESS_WHATSAPP=${BUSINESS_WHATSAPP}
+      - BUSINESS_EMAIL=${BUSINESS_EMAIL}
+      - BUSINESS_LOCATION=${BUSINESS_LOCATION:-Ecuador}
+      - BUSINESS_INSTAGRAM=${BUSINESS_INSTAGRAM}
+      - BUSINESS_FACEBOOK=${BUSINESS_FACEBOOK}
+      - BUSINESS_TIKTOK=${BUSINESS_TIKTOK}
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_DOMAIN=${SMTP_DOMAIN:-rysthdesign.com}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+    command: >
+      bash -c "rm -f tmp/pids/server.pid &&
+               bundle exec rails db:migrate &&
+               bundle exec rails db:seed &&
+               bundle exec rails s -p 3000 -b '0.0.0.0'"
+    networks:
+      - rdstock_network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`stockmanager-api.rysthdesign.com`)"
+      - "traefik.http.routers.api.tls=true"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=3000"
+
+  worker:
+    build: ./backend
+    container_name: rdstock-worker
+    restart: unless-stopped
+    environment:
+      - RAILS_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - REDIS_URL=${REDIS_URL}
+      - SECRET_KEY_BASE=${SECRET_KEY_BASE}
+      - ADMIN_FRONTEND_URL=https://stockmanager.rysthdesign.com
+      - ADMIN_ALLOWED_ORIGINS=https://stockmanager.rysthdesign.com
+      - HOSTS_WHITELIST=stockmanager-api.rysthdesign.com
+      - SMTP_HOST=${SMTP_HOST}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER}
+      - SMTP_PASSWORD=${SMTP_PASSWORD}
+      - SMTP_DOMAIN=${SMTP_DOMAIN:-rysthdesign.com}
+      - CLOUDFLARE_ENDPOINT=${CLOUDFLARE_ENDPOINT}
+      - CLOUDFLARE_ACCESS_KEY_ID=${CLOUDFLARE_ACCESS_KEY_ID}
+      - CLOUDFLARE_SECRET_ACCESS_KEY=${CLOUDFLARE_SECRET_ACCESS_KEY}
+      - CLOUDFLARE_BUCKET_NAME=${CLOUDFLARE_BUCKET_NAME}
+    command: bash -c "bundle exec sidekiq"
+    networks:
+      - rdstock_network
+
+networks:
+  rdstock_network:
+    driver: bridge
