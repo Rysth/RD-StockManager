@@ -44,6 +44,7 @@ class SaleItem < ApplicationRecord
   # Ensure there is enough stock at the sale's location to fulfil this line item
   def sufficient_stock
     return if product_variant.blank? || quantity.blank?
+    return if product_variant.product&.service?
 
     location = sale&.location || Location.default
     available = product_variant.stock_for(location)

@@ -36,6 +36,10 @@ class Product < ApplicationRecord
     end
   end
 
+  def service?
+    product_type == "service"
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id name product_type base_price cost wholesale_price description active category_id brand_id created_at updated_at]
   end

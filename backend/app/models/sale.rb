@@ -51,8 +51,8 @@ class Sale < ApplicationRecord
 
     transaction do
       loc = location || Location.default
-      sale_items.includes(:product_variant).each do |item|
-        next if item.product_variant.blank?
+      sale_items.includes(product_variant: :product).each do |item|
+        next if item.product_variant.blank? || item.product_variant.product&.service?
 
         StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
       end
@@ -70,8 +70,8 @@ class Sale < ApplicationRecord
     transaction do
       if completed?
         loc = location || Location.default
-        sale_items.includes(:product_variant).each do |item|
-          next if item.product_variant.blank?
+        sale_items.includes(product_variant: :product).each do |item|
+          next if item.product_variant.blank? || item.product_variant.product&.service?
 
           StockMovement.apply!(variant: item.product_variant, location: loc, delta: item.quantity)
         end
