@@ -79,7 +79,8 @@ function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
 }
 
 interface CartItem {
-  product_variant_id: number;
+  cart_key: string;
+  product_variant_id: number | null;
   is_service: boolean;
   label: string;
   sku: string;
@@ -95,7 +96,8 @@ interface CartItem {
 }
 
 interface VariantOption {
-  id: number;
+  cart_key: string;
+  id: number | null;
   is_service: boolean;
   label: string;
   sku: string;
@@ -122,6 +124,9 @@ function suggestedPrice(
   }
   return item.base_price;
 }
+
+const variantCartKey = (id: number) => `variant:${id}`;
+const serviceCartKey = (id: number) => `service:${id}`;
 
 export default function PosIndex() {
   const { products, categories, fetchProducts, fetchCategories } =
@@ -180,6 +185,7 @@ export default function PosIndex() {
     cost: number;
     thumb?: string;
     variants: {
+      cart_key: string;
       id: number;
       is_service: boolean;
       size?: string | null;
@@ -325,6 +331,7 @@ export default function PosIndex() {
             ? p.variants.filter((v) => stockAt(v) > 0)
             : p.variants
         ).map((v) => ({
+          cart_key: variantCartKey(v.id),
           id: v.id,
           is_service: p.product_type === "service",
           size: v.size,
@@ -363,7 +370,7 @@ export default function PosIndex() {
 
   const addToCart = (v: VariantOption) => {
     setCart((prev) => {
-      const existing = prev.find((i) => i.product_variant_id === v.id);
+      const existing = prev.find((i) => i.cart_key === v.cart_key);
       if (existing) {
         if (
           mode === "sale" &&
@@ -374,10 +381,11 @@ export default function PosIndex() {
           return prev;
         }
         return prev.map((i) =>
-          i.product_variant_id === v.id ? withQuantity(i, i.quantity + 1) : i,
+          i.cart_key === v.cart_key ? withQuantity(i, i.quantity + 1) : i,
         );
       }
       const base: CartItem = {
+        cart_key: v.cart_key,
         product_variant_id: v.id,
         is_service: v.is_service,
         label: v.label,
@@ -396,22 +404,44 @@ export default function PosIndex() {
     });
   };
 
-  const setQuantity = (id: number, qty: number) =>
+  const addServiceWithoutVariant = (p: {
+    id: number;
+    name: string;
+    thumb?: string;
+    base_price: number;
+    wholesale_price: number | null;
+    wholesale_min_quantity: number;
+    cost: number;
+  }) => {
+    addToCart({
+      cart_key: serviceCartKey(p.id),
+      id: null,
+      is_service: true,
+      label: p.name,
+      sku: "SERVICIO",
+      thumb: p.thumb,
+      stock: 0,
+      base_price: p.base_price,
+      wholesale_price: p.wholesale_price,
+      wholesale_min_quantity: p.wholesale_min_quantity,
+      cost: p.cost,
+    });
+  };
+
+  const setQuantity = (key: string, qty: number) =>
     setCart((prev) =>
-      prev.map((i) => (i.product_variant_id === id ? withQuantity(i, qty) : i)),
+      prev.map((i) => (i.cart_key === key ? withQuantity(i, qty) : i)),
     );
 
-  const setUnitValue = (id: number, value: number) =>
+  const setUnitValue = (key: string, value: number) =>
     setCart((prev) =>
       prev.map((i) =>
-        i.product_variant_id === id
-          ? { ...i, unit_value: value, value_edited: true }
-          : i,
+        i.cart_key === key ? { ...i, unit_value: value, value_edited: true } : i,
       ),
     );
 
-  const removeItem = (id: number) =>
-    setCart((prev) => prev.filter((i) => i.product_variant_id !== id));
+  const removeItem = (key: string) =>
+    setCart((prev) => prev.filter((i) => i.cart_key !== key));
 
   const handleLocationChange = (value: string) => {
     setLocationId(value);
@@ -572,6 +602,7 @@ export default function PosIndex() {
         shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
+          description: i.product_variant_id ? undefined : i.label,
           quantity: i.quantity,
           unit_price: i.unit_value,
         })),
@@ -599,11 +630,17 @@ export default function PosIndex() {
         due_date: dueDate || null,
         reference: reference || null,
         notes: null,
-        items: cart.map((i) => ({
-          product_variant_id: i.product_variant_id,
-          quantity: i.quantity,
-          unit_cost: i.unit_value,
-        })),
+        items: cart.flatMap((i) =>
+          i.product_variant_id === null
+            ? []
+            : [
+                {
+                  product_variant_id: i.product_variant_id,
+                  quantity: i.quantity,
+                  unit_cost: i.unit_value,
+                },
+              ],
+        ),
       });
       toast.success(
         confirmStatus === "received"
@@ -744,14 +781,22 @@ export default function PosIndex() {
               productGroups.map((p) => {
                 const inCartCount = cart
                   .filter((c) =>
-                    p.variants.some((v) => v.id === c.product_variant_id),
+                    p.variants.length
+                      ? p.variants.some((v) => v.cart_key === c.cart_key)
+                      : c.cart_key === serviceCartKey(p.id),
                   )
                   .reduce((s, c) => s + c.quantity, 0);
                 return (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => setSelectedProduct(p)}
+                    onClick={() => {
+                      if (isSale && p.product_type === "service" && !p.variants.length) {
+                        addServiceWithoutVariant(p);
+                        return;
+                      }
+                      setSelectedProduct(p);
+                    }}
                     className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
                   >
                     <div className="relative aspect-square w-full bg-muted">
@@ -770,8 +815,9 @@ export default function PosIndex() {
                         variant="secondary"
                         className="absolute left-1.5 top-1.5 bg-background/85 text-foreground backdrop-blur-sm text-[10px]"
                       >
-                        {p.variantCount}{" "}
-                        {p.variantCount === 1 ? "talla" : "tallas"}
+                        {p.product_type === "service" && p.variantCount === 0
+                          ? "Servicio"
+                          : `${p.variantCount} ${p.variantCount === 1 ? "talla" : "tallas"}`}
                       </Badge>
                       {inCartCount > 0 && (
                         <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
@@ -920,7 +966,7 @@ export default function PosIndex() {
                       i.quantity >= i.wholesale_min_quantity;
                     return (
                       <div
-                        key={i.product_variant_id}
+                        key={i.cart_key}
                         className="flex items-center gap-2 rounded-lg border p-2"
                       >
                         <Thumb url={i.thumb} size="h-10 w-10" />
@@ -954,7 +1000,7 @@ export default function PosIndex() {
                                 value={i.unit_value}
                                 onChange={(e) =>
                                   setUnitValue(
-                                    i.product_variant_id,
+                                    i.cart_key,
                                     Number(e.target.value) || 0,
                                   )
                                 }
@@ -968,7 +1014,7 @@ export default function PosIndex() {
                             type="button"
                             className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
                             onClick={() =>
-                              setQuantity(i.product_variant_id, i.quantity - 1)
+                              setQuantity(i.cart_key, i.quantity - 1)
                             }
                           >
                             <Minus className="h-3 w-3" />
@@ -980,7 +1026,7 @@ export default function PosIndex() {
                             type="button"
                             className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
                             onClick={() =>
-                              setQuantity(i.product_variant_id, i.quantity + 1)
+                              setQuantity(i.cart_key, i.quantity + 1)
                             }
                           >
                             <Plus className="h-3 w-3" />
@@ -993,7 +1039,7 @@ export default function PosIndex() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-destructive"
-                          onClick={() => removeItem(i.product_variant_id)}
+                          onClick={() => removeItem(i.cart_key)}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -1264,7 +1310,7 @@ export default function PosIndex() {
               {selectedProduct?.variants.map((v) => {
                 const sizeLabel =
                   [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
-                const inCart = cart.find((c) => c.product_variant_id === v.id);
+                const inCart = cart.find((c) => c.cart_key === v.cart_key);
                 return (
                   <div
                     key={v.id}
@@ -1289,7 +1335,7 @@ export default function PosIndex() {
                         <button
                           type="button"
                           className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() => setQuantity(v.id, inCart.quantity - 1)}
+                          onClick={() => setQuantity(v.cart_key, inCart.quantity - 1)}
                         >
                           <Minus className="h-3 w-3" />
                         </button>
@@ -1299,7 +1345,7 @@ export default function PosIndex() {
                         <button
                           type="button"
                           className="px-2 py-1.5 text-muted-foreground hover:text-foreground disabled:opacity-40"
-                          onClick={() => setQuantity(v.id, inCart.quantity + 1)}
+                          onClick={() => setQuantity(v.cart_key, inCart.quantity + 1)}
                           disabled={isSale && inCart.quantity >= inCart.max}
                         >
                           <Plus className="h-3 w-3" />
@@ -1311,6 +1357,7 @@ export default function PosIndex() {
                         disabled={isSale && !v.is_service && v.stock <= 0}
                         onClick={() =>
                           addToCart({
+                            cart_key: v.cart_key,
                             id: v.id,
                             is_service: v.is_service,
                             label: `${selectedProduct.name} — ${sizeLabel}`,
@@ -1582,7 +1629,7 @@ export default function PosIndex() {
             <div className="space-y-2">
               {cart.map((i) => (
                 <div
-                  key={i.product_variant_id}
+                  key={i.cart_key}
                   className="flex items-start justify-between gap-2"
                 >
                   <div className="min-w-0 flex-1">
