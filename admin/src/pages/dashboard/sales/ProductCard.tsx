@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
@@ -5,6 +6,7 @@ interface ProductCardProps {
   name: string;
   brand?: string | null;
   thumb?: string;
+  icon?: ReactNode;
   badge: string;
   price: string;
   priceSuffix?: string;
@@ -16,6 +18,7 @@ export default function ProductCard({
   name,
   brand,
   thumb,
+  icon,
   badge,
   price,
   priceSuffix,
@@ -36,8 +39,8 @@ export default function ProductCard({
             className="h-full w-full bg-white object-contain"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-            <ImageIcon className="h-8 w-8" />
+          <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">
+            {icon ?? <ImageIcon className="h-10 w-10" />}
           </div>
         )}
         <Badge

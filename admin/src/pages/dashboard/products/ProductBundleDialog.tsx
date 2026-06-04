@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -135,23 +136,24 @@ export default function ProductBundleDialog({ open, onClose }: ProductBundleDial
             </div>
 
             {lines.map((line, index) => (
-              <div key={index} className="grid grid-cols-[1fr_90px_36px] gap-2">
-                <select
+              <div key={index} className="grid grid-cols-[1fr_80px_36px] items-start gap-2">
+                <Combobox
+                  options={variantOptions.map((o) => ({
+                    value: String(o.id),
+                    label: o.label,
+                    description: o.sku,
+                    keywords: o.sku,
+                  }))}
                   value={line.product_variant_id}
-                  onChange={(e) =>
+                  onSelect={(val) =>
                     setLines((current) =>
-                      current.map((item, i) => (i === index ? { ...item, product_variant_id: e.target.value } : item)),
+                      current.map((item, i) => (i === index ? { ...item, product_variant_id: val } : item)),
                     )
                   }
-                  className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-                >
-                  <option value="">Selecciona producto...</option>
-                  {variantOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.label} · {option.sku}
-                    </option>
-                  ))}
-                </select>
+                  placeholder="Selecciona variante..."
+                  searchPlaceholder="Buscar por nombre o SKU..."
+                  emptyText="No se encontraron variantes"
+                />
                 <Input
                   type="number"
                   min={1}

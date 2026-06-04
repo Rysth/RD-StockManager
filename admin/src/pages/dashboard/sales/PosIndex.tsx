@@ -15,6 +15,8 @@ import {
   PackagePlus,
   CheckCircle,
   Clock,
+  Boxes,
+  Zap,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -956,6 +958,13 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
                     name={p.name}
                     brand={p.brand}
                     thumb={p.thumb}
+                    icon={
+                      p.item_type === "bundle"
+                        ? <Boxes className="h-10 w-10" />
+                        : p.product_type === "service"
+                          ? <Zap className="h-10 w-10" />
+                          : undefined
+                    }
                     badge={
                       p.item_type === "bundle"
                         ? `${p.variantCount} productos`

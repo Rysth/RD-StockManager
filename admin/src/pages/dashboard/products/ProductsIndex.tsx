@@ -2,6 +2,7 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { Plus, Pencil, ChevronRight, ChevronDown, Archive, Upload, FileDown, Boxes } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
+import { useProductBundleStore } from "../../../stores/productBundleStore";
 import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
 import {
@@ -13,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Permissions } from "../../../types/auth";
-import type { Product } from "../../../types/inventory";
+import type { Product, ProductBundle } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -118,6 +119,7 @@ export default function ProductsIndex() {
     deleteProduct,
     exportProducts,
   } = useInventoryStore();
+  const { bundles, fetchBundles, deleteBundle } = useProductBundleStore();
   const { locations, fetchLocations } = useLocationStore();
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
@@ -133,6 +135,8 @@ export default function ProductsIndex() {
   const [importOpen, setImportOpen] = useState(false);
   const [bundleOpen, setBundleOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Product | null>(null);
+  const [toDeleteBundle, setToDeleteBundle] = useState<ProductBundle | null>(null);
+  const [expandedBundles, setExpandedBundles] = useState<Set<number>>(new Set());
 
   const productFilters = () => ({
     search,
@@ -144,6 +148,7 @@ export default function ProductsIndex() {
     fetchCategories();
     fetchBrands();
     fetchLocations().catch(() => {});
+    fetchBundles().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -189,6 +194,14 @@ export default function ProductsIndex() {
       return next;
     });
 
+  const toggleExpandBundle = (id: number) =>
+    setExpandedBundles((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const openCreate = () => {
     setEditingProduct(null);
     setFormOpen(true);
@@ -207,6 +220,17 @@ export default function ProductsIndex() {
       setToDelete(null);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al archivar el producto");
+    }
+  };
+
+  const handleDeleteBundle = async () => {
+    if (!toDeleteBundle) return;
+    try {
+      await deleteBundle(toDeleteBundle.id);
+      toast.success("Combo archivado correctamente");
+      setToDeleteBundle(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al archivar el combo");
     }
   };
 
@@ -437,6 +461,109 @@ export default function ProductsIndex() {
         }
       />
 
+      {/* Bundles section */}
+      <div className="space-y-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight">
+            <Boxes className="h-5 w-5" /> Combos / Promos
+          </h2>
+          <p className="text-sm text-muted-foreground">Paquetes de productos con precio especial</p>
+        </div>
+
+        <Card className="rounded-xl p-0">
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8" />
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Productos</TableHead>
+                  <TableHead>Precio combo</TableHead>
+                  <TableHead>Costo total</TableHead>
+                  <TableHead>Stock disponible</TableHead>
+                  {canManage && <TableHead className="text-right">Acciones</TableHead>}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {bundles.length ? (
+                  bundles.map((b) => (
+                    <Fragment key={b.id}>
+                      <TableRow className="cursor-pointer" onClick={() => toggleExpandBundle(b.id)}>
+                        <TableCell>
+                          {expandedBundles.has(b.id)
+                            ? <ChevronDown className="h-4 w-4" />
+                            : <ChevronRight className="h-4 w-4" />}
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <p className="font-medium">{b.name}</p>
+                            {b.description && (
+                              <p className="text-xs text-muted-foreground">{b.description}</p>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="secondary">{b.items_count} items</Badge>
+                        </TableCell>
+                        <TableCell>{money(b.base_price)}</TableCell>
+                        <TableCell className="text-muted-foreground">{money(b.total_cost)}</TableCell>
+                        <TableCell><StockBadge stock={b.available_stock} /></TableCell>
+                        {canManage && (
+                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-destructive"
+                              onClick={() => setToDeleteBundle(b)}
+                              title="Archivar"
+                            >
+                              <Archive className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        )}
+                      </TableRow>
+                      {expandedBundles.has(b.id) && (
+                        <TableRow className="bg-muted/30 hover:bg-muted/30">
+                          <TableCell />
+                          <TableCell colSpan={canManage ? 6 : 5}>
+                            <div className="flex flex-wrap gap-3 py-2">
+                              {b.items.map((item) => (
+                                <div
+                                  key={item.id}
+                                  className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
+                                >
+                                  <div>
+                                    <span className="font-medium">{item.product_name}</span>
+                                    {item.variant_label && item.variant_label !== item.sku && (
+                                      <span className="text-muted-foreground"> — {item.variant_label}</span>
+                                    )}
+                                    <span className="ml-2 text-xs text-muted-foreground font-mono">{item.sku}</span>
+                                    <p className="text-xs text-muted-foreground">x{item.quantity}</p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </Fragment>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell
+                      colSpan={canManage ? 7 : 6}
+                      className="h-24 text-center text-muted-foreground"
+                    >
+                      No hay combos creados. Usa el botón "Nuevo Combo" para crear uno.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* Sub-components */}
       <ProductFormModal
         open={formOpen}
@@ -448,7 +575,7 @@ export default function ProductsIndex() {
 
       <ProductBundleDialog open={bundleOpen} onClose={() => setBundleOpen(false)} />
 
-      {/* Archive confirmation */}
+      {/* Archive product confirmation */}
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -461,6 +588,23 @@ export default function ProductsIndex() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete}>Archivar</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Archive bundle confirmation */}
+      <AlertDialog open={!!toDeleteBundle} onOpenChange={(o) => !o && setToDeleteBundle(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Archivar combo</AlertDialogTitle>
+            <AlertDialogDescription>
+              ¿Seguro que deseas archivar <strong>{toDeleteBundle?.name}</strong>? Quedará inactivo
+              y dejará de aparecer en el punto de venta.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteBundle}>Archivar</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

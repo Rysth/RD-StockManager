@@ -24,6 +24,7 @@ interface ProductBundleState {
   isSubmitting: boolean;
   fetchBundles: (locationId?: number | string) => Promise<void>;
   createBundle: (data: ProductBundleInput) => Promise<ProductBundle>;
+  deleteBundle: (id: number) => Promise<void>;
 }
 
 export const useProductBundleStore = create<ProductBundleState>((set, get) => ({
@@ -57,5 +58,10 @@ export const useProductBundleStore = create<ProductBundleState>((set, get) => ({
       set({ isSubmitting: false });
       throw new Error(toMessage(error, "Error al crear el combo"));
     }
+  },
+
+  deleteBundle: async (id) => {
+    await api.delete(`/api/v1/product_bundles/${id}`);
+    set((state) => ({ bundles: state.bundles.filter((b) => b.id !== id) }));
   },
 }));
