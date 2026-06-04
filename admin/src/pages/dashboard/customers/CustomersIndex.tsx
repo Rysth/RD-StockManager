@@ -340,6 +340,7 @@ export default function CustomersIndex() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12 text-center">#</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Documento</TableHead>
@@ -350,8 +351,11 @@ export default function CustomersIndex() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {customers.map((c) => (
+                {customers.map((c, idx) => (
                   <TableRow key={c.id} className={c.active === false ? "opacity-60" : undefined}>
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {c.name}
@@ -548,34 +552,6 @@ export default function CustomersIndex() {
                 placeholder="Calle principal y referencia"
               />
             </FormField>
-
-            {/* Crédito y pago */}
-            <div className="space-y-3 rounded-lg border bg-muted/30 p-3">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Crédito y pago</p>
-              <div className="grid grid-cols-2 gap-4">
-                <FormField label="Límite de crédito" htmlFor="credit_limit" hint="0 = sin crédito">
-                  <Input
-                    id="credit_limit"
-                    type="number"
-                    min={0}
-                    step="0.01"
-                    value={form.credit_limit}
-                    onChange={(e) => setForm({ ...form, credit_limit: e.target.value })}
-                    placeholder="0.00"
-                  />
-                </FormField>
-                <FormField label="Plazo de pago (días)" htmlFor="payment_term_days" hint="Vacío = contado">
-                  <Input
-                    id="payment_term_days"
-                    type="number"
-                    min={0}
-                    value={form.payment_term_days}
-                    onChange={(e) => setForm({ ...form, payment_term_days: e.target.value })}
-                    placeholder="Ej. 30"
-                  />
-                </FormField>
-              </div>
-            </div>
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>

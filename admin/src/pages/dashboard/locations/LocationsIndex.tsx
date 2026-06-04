@@ -266,6 +266,7 @@ export default function LocationsIndex() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-12 text-center">#</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Dirección</TableHead>
                   <TableHead>Teléfono</TableHead>
@@ -274,8 +275,11 @@ export default function LocationsIndex() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {locations.map((l) => (
+                {locations.map((l, idx) => (
                   <TableRow key={l.id} className={!l.active ? "opacity-60" : undefined}>
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
                         {l.name}

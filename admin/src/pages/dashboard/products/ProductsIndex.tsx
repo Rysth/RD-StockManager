@@ -194,6 +194,7 @@ export default function ProductsIndex() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [bundleOpen, setBundleOpen] = useState(false);
+  const [editingBundle, setEditingBundle] = useState<ProductBundle | null>(null);
   const [toDelete, setToDelete] = useState<Product | null>(null);
   const [toDeleteBundle, setToDeleteBundle] = useState<ProductBundle | null>(
     null,
@@ -284,6 +285,11 @@ export default function ProductsIndex() {
   const openEdit = (product: Product) => {
     setEditingProduct(product);
     setFormOpen(true);
+  };
+
+  const openEditBundle = (bundle: ProductBundle) => {
+    setEditingBundle(bundle);
+    setBundleOpen(true);
   };
 
   const handleDelete = async () => {
@@ -446,6 +452,7 @@ export default function ProductsIndex() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12 text-center">#</TableHead>
                     <TableHead className="w-8" />
                     <TableHead>Producto</TableHead>
                     <TableHead>Categoría</TableHead>
@@ -461,17 +468,20 @@ export default function ProductsIndex() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={8} className="h-24 text-center">
+                      <TableCell colSpan={9} className="h-24 text-center">
                         Cargando productos...
                       </TableCell>
                     </TableRow>
                   ) : products.length ? (
-                    products.map((p) => (
+                    products.map((p, idx) => (
                       <Fragment key={p.id}>
                         <TableRow
                           className="cursor-pointer"
                           onClick={() => toggleExpand(p.id)}
                         >
+                          <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                            {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                          </TableCell>
                           <TableCell>
                             {expanded.has(p.id) ? (
                               <ChevronDown className="h-4 w-4" />
@@ -534,6 +544,7 @@ export default function ProductsIndex() {
                         </TableRow>
                         {expanded.has(p.id) && (
                           <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell />
                             <TableCell />
                             <TableCell colSpan={canManage ? 7 : 6}>
                               {p.variants.length ? (
@@ -608,7 +619,7 @@ export default function ProductsIndex() {
                     ))
                   ) : (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={8} className="p-0">
+                      <TableCell colSpan={9} className="p-0">
                         {search.trim() || categoryFilter ? (
                           <EmptyState
                             variant="no-results"
@@ -672,7 +683,7 @@ export default function ProductsIndex() {
               </p>
             </div>
             {canManage && (
-              <Button onClick={() => setBundleOpen(true)} size="sm">
+              <Button onClick={() => { setEditingBundle(null); setBundleOpen(true); }} size="sm">
                 <Boxes className="w-4 h-4 mr-2" /> Nuevo Combo
               </Button>
             )}
@@ -683,6 +694,7 @@ export default function ProductsIndex() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-12 text-center">#</TableHead>
                     <TableHead className="w-8" />
                     <TableHead>Nombre</TableHead>
                     <TableHead>Productos</TableHead>
@@ -696,12 +708,15 @@ export default function ProductsIndex() {
                 </TableHeader>
                 <TableBody>
                   {bundles.length ? (
-                    bundles.map((b) => (
+                    bundles.map((b, idx) => (
                       <Fragment key={b.id}>
                         <TableRow
                           className="cursor-pointer"
                           onClick={() => toggleExpandBundle(b.id)}
                         >
+                          <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                            {idx + 1}
+                          </TableCell>
                           <TableCell>
                             {expandedBundles.has(b.id) ? (
                               <ChevronDown className="h-4 w-4" />
@@ -736,12 +751,14 @@ export default function ProductsIndex() {
                               className="text-right"
                               onClick={(e) => e.stopPropagation()}
                             >
+                              <EditAction onClick={() => openEditBundle(b)} />
                               <ArchiveAction onClick={() => setToDeleteBundle(b)} />
                             </TableCell>
                           )}
                         </TableRow>
                         {expandedBundles.has(b.id) && (
                           <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell />
                             <TableCell />
                             <TableCell colSpan={canManage ? 6 : 5}>
                               <div className="flex flex-wrap gap-3 py-2">
@@ -778,16 +795,16 @@ export default function ProductsIndex() {
                     ))
                   ) : (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={canManage ? 7 : 6} className="p-0">
+                      <TableCell colSpan={canManage ? 8 : 7} className="p-0">
                         <EmptyState
                           icon={Boxes}
                           title="Aún no hay combos"
                           description="Agrupa varios productos en un paquete con precio especial para venderlos juntos."
-                          action={
-                            canManage
-                              ? { label: "Nuevo Combo", onClick: () => setBundleOpen(true), icon: Boxes }
-                              : undefined
-                          }
+                            action={
+                              canManage
+                                ? { label: "Nuevo Combo", onClick: () => { setEditingBundle(null); setBundleOpen(true); }, icon: Boxes }
+                                : undefined
+                            }
                         />
                       </TableCell>
                     </TableRow>
@@ -816,7 +833,11 @@ export default function ProductsIndex() {
 
       <ProductBundleDialog
         open={bundleOpen}
-        onClose={() => setBundleOpen(false)}
+        onClose={() => {
+          setBundleOpen(false);
+          setEditingBundle(null);
+        }}
+        bundle={editingBundle}
       />
 
       {/* Archive product confirmation */}

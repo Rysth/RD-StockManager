@@ -3,7 +3,7 @@ import { Plus, Trash2 } from "lucide-react";
 import toast from "react-hot-toast";
 import api from "../../../utils/api";
 import { useProductBundleStore } from "../../../stores/productBundleStore";
-import type { Product } from "../../../types/inventory";
+import type { Product, ProductBundle } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 
 interface BundleLine {
+  id?: number;
   product_variant_id: string;
   quantity: string;
 }
@@ -26,17 +27,19 @@ interface BundleLine {
 interface ProductBundleDialogProps {
   open: boolean;
   onClose: () => void;
+  bundle?: ProductBundle | null;
 }
 
 const emptyLine = (): BundleLine => ({ product_variant_id: "", quantity: "1" });
 
-export default function ProductBundleDialog({ open, onClose }: ProductBundleDialogProps) {
-  const { createBundle, isSubmitting } = useProductBundleStore();
+export default function ProductBundleDialog({ open, onClose, bundle }: ProductBundleDialogProps) {
+  const { createBundle, updateBundle, isSubmitting } = useProductBundleStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [basePrice, setBasePrice] = useState("");
   const [lines, setLines] = useState<BundleLine[]>([emptyLine(), emptyLine()]);
+  const isEditing = !!bundle;
 
   useEffect(() => {
     if (!open) return;
@@ -45,6 +48,25 @@ export default function ProductBundleDialog({ open, onClose }: ProductBundleDial
       .then((response) => setProducts(response.data.products ?? []))
       .catch(() => toast.error("Error al cargar productos para el combo"));
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (!bundle) {
+      reset();
+      return;
+    }
+
+    setName(bundle.name);
+    setDescription(bundle.description ?? "");
+    setBasePrice(String(bundle.base_price));
+    setLines(
+      bundle.items.map((item) => ({
+        id: item.id,
+        product_variant_id: String(item.product_variant_id),
+        quantity: String(item.quantity),
+      })),
+    );
+  }, [open, bundle]);
 
   const variantOptions = useMemo(() => {
     return products.filter((product) => product.product_type !== "service").flatMap((product) =>
@@ -83,20 +105,40 @@ export default function ProductBundleDialog({ open, onClose }: ProductBundleDial
     if (uniqueVariantIds.size !== validLines.length) return toast.error("No repitas el mismo producto en el combo");
 
     try {
-      await createBundle({
+      const removedLines =
+        bundle?.items
+          .filter((item) => !validLines.some((line) => line.id === item.id))
+          .map((item) => ({
+            id: item.id,
+            product_variant_id: item.product_variant_id,
+            quantity: item.quantity,
+            _destroy: true,
+          })) ?? [];
+
+      const payload = {
         name,
         description,
         base_price: Number(basePrice),
-        active: true,
-        product_bundle_items_attributes: validLines.map((line) => ({
+        active: bundle?.active ?? true,
+        product_bundle_items_attributes: [
+          ...validLines.map((line) => ({
+          id: line.id,
           product_variant_id: Number(line.product_variant_id),
           quantity: Number(line.quantity),
         })),
-      });
-      toast.success("Combo creado correctamente");
+          ...removedLines,
+        ],
+      };
+
+      if (bundle) {
+        await updateBundle(bundle.id, payload);
+      } else {
+        await createBundle(payload);
+      }
+      toast.success(bundle ? "Combo actualizado correctamente" : "Combo creado correctamente");
       handleClose();
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Error al crear el combo");
+      toast.error(error instanceof Error ? error.message : bundle ? "Error al actualizar el combo" : "Error al crear el combo");
     }
   };
 
@@ -104,9 +146,11 @@ export default function ProductBundleDialog({ open, onClose }: ProductBundleDial
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && handleClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Nuevo Combo / Promo</DialogTitle>
+          <DialogTitle>{isEditing ? "Editar Combo / Promo" : "Nuevo Combo / Promo"}</DialogTitle>
           <DialogDescription>
-            Vende varios productos juntos con un precio promocional. El stock se descontará de cada producto del combo.
+            {isEditing
+              ? "Actualiza los productos, cantidades o precio promocional del combo."
+              : "Vende varios productos juntos con un precio promocional. El stock se descontará de cada producto del combo."}
           </DialogDescription>
         </DialogHeader>
 
@@ -186,7 +230,7 @@ export default function ProductBundleDialog({ open, onClose }: ProductBundleDial
         <DialogFooter>
           <Button variant="outline" onClick={handleClose}>Cancelar</Button>
           <Button onClick={handleSubmit} disabled={isSubmitting}>
-            {isSubmitting ? "Guardando..." : "Crear combo"}
+            {isSubmitting ? "Guardando..." : isEditing ? "Guardar cambios" : "Crear combo"}
           </Button>
         </DialogFooter>
       </DialogContent>
