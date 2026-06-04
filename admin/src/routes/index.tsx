@@ -17,6 +17,7 @@ import QuotationsIndex from "../pages/dashboard/quotations/QuotationsIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
 import PurchasesIndex from "../pages/dashboard/purchases/PurchasesIndex";
+import TransfersIndex from "../pages/dashboard/transfers/TransfersIndex";
 import ExpensesIndex from "../pages/dashboard/expenses/ExpensesIndex";
 import InvoicesIndex from "../pages/dashboard/invoices/InvoicesIndex";
 import AdvancedReportsIndex from "../pages/dashboard/reports/AdvancedReportsIndex";
@@ -170,6 +171,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
             <PurchasesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "transfers",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <TransfersIndex />
           </ProtectedRoute>
         ),
       },

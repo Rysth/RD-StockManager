@@ -230,6 +230,43 @@ export interface ProductBundleInput {
   }[];
 }
 
+export type TransferStatus = "pending" | "received" | "cancelled";
+
+export interface StockTransferItem {
+  id: number;
+  product_variant_id: number;
+  product_name: string;
+  variant_label: string;
+  sku: string;
+  quantity: number;
+}
+
+export interface StockTransfer {
+  id: number;
+  code: string;
+  status: TransferStatus;
+  from_location_id: number;
+  from_location_name: string;
+  to_location_id: number;
+  to_location_name: string;
+  requested_by_id: number;
+  requested_by_name: string;
+  received_by_id: number | null;
+  received_by_name: string | null;
+  received_at: string | null;
+  notes: string | null;
+  items_count: number;
+  items?: StockTransferItem[];
+  created_at: string;
+}
+
+export interface CreateTransferData {
+  from_location_id: number;
+  to_location_id: number;
+  notes?: string | null;
+  items: { product_variant_id: number; quantity: number }[];
+}
+
 export interface CreateSaleData {
   customer_id?: number | null;
   location_id?: number | null;

@@ -20,6 +20,7 @@ import {
   BarChart3,
   FileText,
   FileSignature,
+  ArrowRightLeft,
   type LucideIcon,
 } from "lucide-react";
 import {
@@ -224,6 +225,13 @@ export default function AppSidebar({
           icon: Truck,
           active: isActiveRoute("/dashboard/purchases"),
           visible: canViewPurchases && !isBusinessEmployee,
+        },
+        {
+          label: "Transferencias",
+          to: "/dashboard/transfers",
+          icon: ArrowRightLeft,
+          active: isActiveRoute("/dashboard/transfers"),
+          visible: canViewPurchases,
         },
         {
           label: "Punto de Venta",

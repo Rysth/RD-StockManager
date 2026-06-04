@@ -98,6 +98,12 @@ Rails.application.routes.draw do
         end
         resources :payments, controller: "purchase_payments", only: [:index, :create]
       end
+      resources :stock_transfers, except: [:new, :edit] do
+        member do
+          put :receive
+          put :cancel
+        end
+      end
       resources :expense_categories
       resources :expenses do
         collection do

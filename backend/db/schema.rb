@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_04_100001) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -255,6 +255,28 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
     t.index ["key"], name: "index_permissions_on_key", unique: true
   end
 
+  create_table "product_bundle_items", force: :cascade do |t|
+    t.bigint "product_bundle_id", null: false
+    t.bigint "product_variant_id", null: false
+    t.integer "quantity", default: 1, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_bundle_id", "product_variant_id"], name: "idx_bundle_items_on_bundle_and_variant", unique: true
+    t.index ["product_bundle_id"], name: "index_product_bundle_items_on_product_bundle_id"
+    t.index ["product_variant_id"], name: "index_product_bundle_items_on_product_variant_id"
+  end
+
+  create_table "product_bundles", force: :cascade do |t|
+    t.string "name", null: false
+    t.text "description"
+    t.decimal "base_price", precision: 10, scale: 2, default: "0.0", null: false
+    t.boolean "active", default: true, null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["active"], name: "index_product_bundles_on_active"
+    t.index ["name"], name: "index_product_bundles_on_name"
+  end
+
   create_table "product_variants", force: :cascade do |t|
     t.bigint "product_id", null: false
     t.string "size"
@@ -396,6 +418,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
     t.datetime "updated_at", null: false
     t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.string "description"
+    t.bigint "product_bundle_id"
+    t.index ["product_bundle_id"], name: "index_sale_items_on_product_bundle_id"
     t.index ["product_variant_id"], name: "index_sale_items_on_product_variant_id"
     t.index ["sale_id"], name: "index_sale_items_on_sale_id"
   end
@@ -434,6 +458,33 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
     t.index ["product_variant_id"], name: "index_stock_levels_on_product_variant_id"
   end
 
+  create_table "stock_transfer_items", force: :cascade do |t|
+    t.bigint "stock_transfer_id", null: false
+    t.bigint "product_variant_id", null: false
+    t.integer "quantity", null: false
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_variant_id"], name: "index_stock_transfer_items_on_product_variant_id"
+    t.index ["stock_transfer_id"], name: "index_stock_transfer_items_on_stock_transfer_id"
+  end
+
+  create_table "stock_transfers", force: :cascade do |t|
+    t.bigint "from_location_id", null: false
+    t.bigint "to_location_id", null: false
+    t.bigint "requested_by_id", null: false
+    t.bigint "received_by_id"
+    t.integer "status", default: 0, null: false
+    t.text "notes"
+    t.datetime "received_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["from_location_id"], name: "index_stock_transfers_on_from_location_id"
+    t.index ["received_by_id"], name: "index_stock_transfers_on_received_by_id"
+    t.index ["requested_by_id"], name: "index_stock_transfers_on_requested_by_id"
+    t.index ["status"], name: "index_stock_transfers_on_status"
+    t.index ["to_location_id"], name: "index_stock_transfers_on_to_location_id"
+  end
+
   create_table "users", force: :cascade do |t|
     t.bigint "account_id", null: false
     t.string "fullname"
@@ -468,6 +519,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
   add_foreign_key "expenses", "users", column: "employee_id"
   add_foreign_key "invoices", "sales"
   add_foreign_key "otp_codes", "accounts"
+  add_foreign_key "product_bundle_items", "product_bundles"
+  add_foreign_key "product_bundle_items", "product_variants"
   add_foreign_key "product_variants", "products"
   add_foreign_key "products", "brands"
   add_foreign_key "products", "categories"
@@ -485,6 +538,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
   add_foreign_key "quotations", "users"
   add_foreign_key "role_permissions", "permissions"
   add_foreign_key "role_permissions", "roles"
+  add_foreign_key "sale_items", "product_bundles"
   add_foreign_key "sale_items", "product_variants"
   add_foreign_key "sale_items", "sales"
   add_foreign_key "sales", "customers"
@@ -492,6 +546,12 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_01_170000) do
   add_foreign_key "sales", "users"
   add_foreign_key "stock_levels", "locations"
   add_foreign_key "stock_levels", "product_variants"
+  add_foreign_key "stock_transfer_items", "product_variants"
+  add_foreign_key "stock_transfer_items", "stock_transfers"
+  add_foreign_key "stock_transfers", "locations", column: "from_location_id"
+  add_foreign_key "stock_transfers", "locations", column: "to_location_id"
+  add_foreign_key "stock_transfers", "users", column: "received_by_id"
+  add_foreign_key "stock_transfers", "users", column: "requested_by_id"
   add_foreign_key "users", "accounts"
   add_foreign_key "users", "locations"
 end
