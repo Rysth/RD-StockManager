@@ -1,0 +1,223 @@
+import { useState } from "react";
+import toast from "react-hot-toast";
+import type { ProductVariant } from "../types/inventory";
+
+export interface CartItem {
+  cart_key: string;
+  product_variant_id: number | null;
+  product_bundle_id?: number | null;
+  is_service: boolean;
+  label: string;
+  sku: string;
+  thumb?: string;
+  base_price: number;
+  wholesale_price: number | null;
+  wholesale_min_quantity: number;
+  cost: number;
+  quantity: number;
+  max: number;
+  unit_value: number;
+  value_edited: boolean;
+}
+
+export interface VariantOption {
+  cart_key: string;
+  id: number | null;
+  is_service: boolean;
+  label: string;
+  sku: string;
+  thumb?: string;
+  stock: number;
+  base_price: number;
+  wholesale_price: number | null;
+  wholesale_min_quantity: number;
+  cost: number;
+}
+
+export interface CatalogBundle {
+  id: number;
+  name: string;
+  base_price: number;
+  cost: number;
+  available_stock: number;
+  thumb?: string;
+}
+
+export const variantCartKey = (id: number) => `variant:${id}`;
+export const serviceCartKey = (id: number) => `service:${id}`;
+export const bundleCartKey = (id: number) => `bundle:${id}`;
+
+function suggestedPrice(
+  item: Pick<
+    CartItem,
+    "base_price" | "wholesale_price" | "wholesale_min_quantity" | "quantity"
+  >,
+) {
+  if (
+    item.wholesale_price &&
+    item.wholesale_price > 0 &&
+    item.quantity >= item.wholesale_min_quantity
+  ) {
+    return item.wholesale_price;
+  }
+  return item.base_price;
+}
+
+export function stockAt(variant: ProductVariant, locationId: string): number {
+  if (locationId && variant.stock_by_location?.length) {
+    const found = variant.stock_by_location.find(
+      (sl) => String(sl.location_id) === locationId,
+    );
+    return found ? found.quantity : 0;
+  }
+  return variant.stock;
+}
+
+export function usePosCart(mode: "sale" | "purchase") {
+  const [cart, setCart] = useState<CartItem[]>([]);
+
+  function withQuantity(item: CartItem, quantity: number): CartItem {
+    const cap = mode === "sale" ? item.max : Number.MAX_SAFE_INTEGER;
+    const q = Math.max(1, Math.min(quantity, cap));
+    const next = { ...item, quantity: q };
+    if (mode === "sale" && !item.value_edited)
+      next.unit_value = suggestedPrice(next);
+    return next;
+  }
+
+  const addToCart = (v: VariantOption) => {
+    setCart((prev) => {
+      const existing = prev.find((i) => i.cart_key === v.cart_key);
+      if (existing) {
+        if (
+          mode === "sale" &&
+          !existing.is_service &&
+          existing.quantity >= existing.max
+        ) {
+          toast.error("No hay más stock disponible");
+          return prev;
+        }
+        return prev.map((i) =>
+          i.cart_key === v.cart_key ? withQuantity(i, i.quantity + 1) : i,
+        );
+      }
+      const base: CartItem = {
+        cart_key: v.cart_key,
+        product_variant_id: v.id,
+        product_bundle_id: null,
+        is_service: v.is_service,
+        label: v.label,
+        sku: v.sku,
+        thumb: v.thumb,
+        base_price: v.base_price,
+        wholesale_price: v.wholesale_price,
+        wholesale_min_quantity: v.wholesale_min_quantity,
+        cost: v.cost,
+        quantity: 1,
+        max: v.is_service ? Number.MAX_SAFE_INTEGER : v.stock,
+        unit_value: mode === "sale" ? v.base_price : v.cost,
+        value_edited: false,
+      };
+      return [...prev, withQuantity(base, 1)];
+    });
+  };
+
+  const addBundleToCart = (bundle: CatalogBundle) => {
+    setCart((prev) => {
+      const key = bundleCartKey(bundle.id);
+      const existing = prev.find((i) => i.cart_key === key);
+      if (existing) {
+        if (existing.quantity >= existing.max) {
+          toast.error("No hay más stock disponible para este combo");
+          return prev;
+        }
+        return prev.map((i) =>
+          i.cart_key === key ? withQuantity(i, i.quantity + 1) : i,
+        );
+      }
+      return [
+        ...prev,
+        {
+          cart_key: key,
+          product_variant_id: null,
+          product_bundle_id: bundle.id,
+          is_service: false,
+          label: bundle.name,
+          sku: "COMBO",
+          thumb: bundle.thumb,
+          base_price: bundle.base_price,
+          wholesale_price: null,
+          wholesale_min_quantity: 1,
+          cost: bundle.cost,
+          quantity: 1,
+          max: bundle.available_stock ?? 0,
+          unit_value: bundle.base_price,
+          value_edited: false,
+        },
+      ];
+    });
+  };
+
+  const addServiceWithoutVariant = (p: {
+    id: number;
+    name: string;
+    thumb?: string;
+    base_price: number;
+    wholesale_price: number | null;
+    wholesale_min_quantity: number;
+    cost: number;
+  }) => {
+    addToCart({
+      cart_key: serviceCartKey(p.id),
+      id: null,
+      is_service: true,
+      label: p.name,
+      sku: "SERVICIO",
+      thumb: p.thumb,
+      stock: 0,
+      base_price: p.base_price,
+      wholesale_price: p.wholesale_price,
+      wholesale_min_quantity: p.wholesale_min_quantity,
+      cost: p.cost,
+    });
+  };
+
+  const setQuantity = (key: string, qty: number) =>
+    setCart((prev) =>
+      prev.map((i) => (i.cart_key === key ? withQuantity(i, qty) : i)),
+    );
+
+  const setUnitValue = (key: string, value: number) =>
+    setCart((prev) =>
+      prev.map((i) =>
+        i.cart_key === key
+          ? { ...i, unit_value: value, value_edited: true }
+          : i,
+      ),
+    );
+
+  const removeItem = (key: string) =>
+    setCart((prev) => prev.filter((i) => i.cart_key !== key));
+
+  const clearCart = () => setCart([]);
+
+  const itemsTotal = cart.reduce(
+    (sum, i) => sum + i.unit_value * i.quantity,
+    0,
+  );
+  const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
+
+  return {
+    cart,
+    setCart,
+    addToCart,
+    addBundleToCart,
+    addServiceWithoutVariant,
+    setQuantity,
+    setUnitValue,
+    removeItem,
+    clearCart,
+    itemsTotal,
+    itemCount,
+  };
+}

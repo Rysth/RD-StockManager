@@ -31,9 +31,6 @@ interface CreateTransferModalProps {
 
 const emptyLine = (): TransferLine => ({ product_variant_id: "", quantity: "1" });
 
-const money = (n: number) =>
-  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
-
 export default function CreateTransferModal({ open, onClose }: CreateTransferModalProps) {
   const { createTransfer, isSubmitting } = useTransferStore();
   const { locations } = useLocationStore();

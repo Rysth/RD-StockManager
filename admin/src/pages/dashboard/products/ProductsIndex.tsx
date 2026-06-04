@@ -1,5 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, ChevronRight, ChevronDown, Archive, Upload, FileDown, Boxes } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  ChevronRight,
+  ChevronDown,
+  Archive,
+  Upload,
+  FileDown,
+  Boxes,
+} from "lucide-react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useProductBundleStore } from "../../../stores/productBundleStore";
@@ -45,14 +55,37 @@ import ImportProductsDialog from "./ImportProductsDialog";
 import ProductBundleDialog from "./ProductBundleDialog";
 
 const money = (n: number) =>
-  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
+  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(
+    n,
+  );
 
 function StockBadge({ stock }: { stock: number }) {
   if (stock === 0)
-    return <Badge variant="secondary" className="bg-red-100 text-red-800 hover:bg-red-100">Sin Stock</Badge>;
+    return (
+      <Badge
+        variant="secondary"
+        className="bg-red-100 text-red-800 hover:bg-red-100"
+      >
+        Sin Stock
+      </Badge>
+    );
   if (stock <= 5)
-    return <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100">Stock Bajo ({stock})</Badge>;
-  return <Badge variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-100">{stock}</Badge>;
+    return (
+      <Badge
+        variant="secondary"
+        className="bg-amber-100 text-amber-800 hover:bg-amber-100"
+      >
+        Stock Bajo ({stock})
+      </Badge>
+    );
+  return (
+    <Badge
+      variant="secondary"
+      className="bg-green-100 text-green-800 hover:bg-green-100"
+    >
+      {stock}
+    </Badge>
+  );
 }
 
 function Thumb({ url, size = "h-10 w-10" }: { url?: string; size?: string }) {
@@ -70,7 +103,9 @@ function Thumb({ url, size = "h-10 w-10" }: { url?: string; size?: string }) {
       onError={() => setFailed(true)}
     />
   ) : (
-    <div className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}>
+    <div
+      className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}
+    >
       <ImageIcon className="h-4 w-4" />
     </div>
   );
@@ -79,7 +114,8 @@ function Thumb({ url, size = "h-10 w-10" }: { url?: string; size?: string }) {
 function productThumb(product: Product) {
   return (
     product.images?.[0]?.url ??
-    product.variants.find((variant) => variant.images?.[0]?.url)?.images?.[0]?.url
+    product.variants.find((variant) => variant.images?.[0]?.url)?.images?.[0]
+      ?.url
   );
 }
 
@@ -153,8 +189,12 @@ export default function ProductsIndex() {
   const [importOpen, setImportOpen] = useState(false);
   const [bundleOpen, setBundleOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Product | null>(null);
-  const [toDeleteBundle, setToDeleteBundle] = useState<ProductBundle | null>(null);
-  const [expandedBundles, setExpandedBundles] = useState<Set<number>>(new Set());
+  const [toDeleteBundle, setToDeleteBundle] = useState<ProductBundle | null>(
+    null,
+  );
+  const [expandedBundles, setExpandedBundles] = useState<Set<number>>(
+    new Set(),
+  );
 
   const productFilters = () => ({
     search,
@@ -172,7 +212,11 @@ export default function ProductsIndex() {
 
   useEffect(() => {
     fetchProducts(1, pagination.per_page, productFilters())
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Error al cargar productos"))
+      .catch((e) =>
+        toast.error(
+          e instanceof Error ? e.message : "Error al cargar productos",
+        ),
+      )
       .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, categoryFilter, showArchived]);
@@ -198,10 +242,16 @@ export default function ProductsIndex() {
     const totals = new Map<string, number>();
     product.variants.forEach((v) => {
       v.stock_by_location?.forEach((level) => {
-        totals.set(level.location_name, (totals.get(level.location_name) ?? 0) + level.quantity);
+        totals.set(
+          level.location_name,
+          (totals.get(level.location_name) ?? 0) + level.quantity,
+        );
       });
     });
-    return Array.from(totals.entries()).map(([name, quantity]) => ({ name, quantity }));
+    return Array.from(totals.entries()).map(([name, quantity]) => ({
+      name,
+      quantity,
+    }));
   };
 
   const toggleExpand = (id: number) =>
@@ -237,7 +287,9 @@ export default function ProductsIndex() {
       toast.success("Producto archivado correctamente");
       setToDelete(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al archivar el producto");
+      toast.error(
+        e instanceof Error ? e.message : "Error al archivar el producto",
+      );
     }
   };
 
@@ -248,7 +300,9 @@ export default function ProductsIndex() {
       toast.success("Combo archivado correctamente");
       setToDeleteBundle(null);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al archivar el combo");
+      toast.error(
+        e instanceof Error ? e.message : "Error al archivar el combo",
+      );
     }
   };
 
@@ -268,7 +322,9 @@ export default function ProductsIndex() {
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Inventario</h1>
-          <p className="text-sm text-muted-foreground">Productos, precios, costos e imágenes</p>
+          <p className="text-sm text-muted-foreground">
+            Productos, precios, costos e imágenes
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
@@ -280,10 +336,15 @@ export default function ProductsIndex() {
             <DropdownMenuContent align="end" className="min-w-48">
               <DropdownMenuLabel>Exportar inventario</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => handleExport()}>Inventario general</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport()}>
+                Inventario general
+              </DropdownMenuItem>
               {locations.length > 1 &&
                 locations.map((l) => (
-                  <DropdownMenuItem key={l.id} onClick={() => handleExport(l.id)}>
+                  <DropdownMenuItem
+                    key={l.id}
+                    onClick={() => handleExport(l.id)}
+                  >
                     {l.name}
                   </DropdownMenuItem>
                 ))}
@@ -291,11 +352,12 @@ export default function ProductsIndex() {
           </DropdownMenu>
           {canManage && (
             <>
-              <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
+              <Button
+                onClick={() => setImportOpen(true)}
+                size="sm"
+                variant="outline"
+              >
                 <Upload className="w-4 h-4 mr-2" /> Importar Excel
-              </Button>
-              <Button onClick={() => setBundleOpen(true)} size="sm" variant="outline">
-                <Boxes className="w-4 h-4 mr-2" /> Nuevo Combo
               </Button>
               <Button onClick={openCreate} size="sm">
                 <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
@@ -305,324 +367,461 @@ export default function ProductsIndex() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchBar
-          placeholder="Buscar por nombre o marca..."
-          value={search}
-          onSearch={setSearch}
-          className="max-w-sm"
-        />
-        <select
-          value={categoryFilter}
-          onChange={(e) => setCategoryFilter(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Todas las categorías</option>
-          {categoryOptions.map((c) => (
-            <option key={c.id} value={c.id}>{c.name}</option>
-          ))}
-        </select>
-        <label className="flex items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            checked={showArchived}
-            onChange={(e) => setShowArchived(e.target.checked)}
-          />
-          Ver archivados
-        </label>
-      </div>
+      <Tabs defaultValue="products" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="products">Productos</TabsTrigger>
+          <TabsTrigger value="combos" className="gap-2">
+            Combos / Promos
+            {bundles.length > 0 && (
+              <Badge
+                variant="secondary"
+                className="rounded-full px-1.5 py-0 text-[11px]"
+              >
+                {bundles.length}
+              </Badge>
+            )}
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Table */}
-      <Card className="p-0 rounded-xl">
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-8" />
-                <TableHead>Producto</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Precio</TableHead>
-                <TableHead>Costo</TableHead>
-                <TableHead>Mayoreo</TableHead>
-                <TableHead>Stock</TableHead>
-                {canManage && <TableHead className="text-right">Acciones</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">Cargando productos...</TableCell>
-                </TableRow>
-              ) : products.length ? (
-                products.map((p) => (
-                  <Fragment key={p.id}>
-                    <TableRow className="cursor-pointer" onClick={() => toggleExpand(p.id)}>
-                      <TableCell>
-                        {expanded.has(p.id)
-                          ? <ChevronDown className="h-4 w-4" />
-                          : <ChevronRight className="h-4 w-4" />}
+        {/* ── Tab Productos ── */}
+        <TabsContent value="products" className="space-y-4">
+          {/* Filters */}
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchBar
+              placeholder="Buscar por nombre o marca..."
+              value={search}
+              onSearch={setSearch}
+              className="max-w-sm"
+            />
+            <select
+              value={categoryFilter}
+              onChange={(e) => setCategoryFilter(e.target.value)}
+              className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="">Todas las categorías</option>
+              {categoryOptions.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={showArchived}
+                onChange={(e) => setShowArchived(e.target.checked)}
+              />
+              Ver archivados
+            </label>
+          </div>
+
+          {/* Table */}
+          <Card className="p-0 rounded-xl">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    <TableHead>Producto</TableHead>
+                    <TableHead>Categoría</TableHead>
+                    <TableHead>Precio</TableHead>
+                    <TableHead>Costo</TableHead>
+                    <TableHead>Mayoreo</TableHead>
+                    <TableHead>Stock</TableHead>
+                    {canManage && (
+                      <TableHead className="text-right">Acciones</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell colSpan={8} className="h-24 text-center">
+                        Cargando productos...
                       </TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-3">
-                          <Thumb url={productThumb(p)} />
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="font-medium">{p.name}</p>
-                              <Badge variant="outline" className="text-[11px]">
-                                {p.product_type === "service" ? "Servicio" : "Bien"}
-                              </Badge>
-                            </div>
-                            <p className="text-xs text-muted-foreground">{p.brand || "—"}</p>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>{p.category || "—"}</TableCell>
-                      <TableCell>{money(p.base_price)}</TableCell>
-                      <TableCell className="text-muted-foreground">{money(p.cost)}</TableCell>
-                      <TableCell>{p.wholesale_price ? money(p.wholesale_price) : "—"}</TableCell>
-                      <TableCell>
-                        <StockBadge stock={p.total_stock} />
-                        {productLocationStock(p).length > 0 && (
-                          <span className="mt-1 block text-xs text-muted-foreground">Clic para ver bodegas</span>
-                        )}
-                      </TableCell>
-                      {canManage && (
-                        <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(p)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-destructive"
-                            onClick={() => setToDelete(p)}
-                            title="Archivar"
-                          >
-                            <Archive className="h-4 w-4" />
-                          </Button>
-                        </TableCell>
-                      )}
                     </TableRow>
-                    {expanded.has(p.id) && (
-                      <TableRow className="bg-muted/30 hover:bg-muted/30">
-                        <TableCell />
-                        <TableCell colSpan={canManage ? 7 : 6}>
-                          {p.variants.length ? (
-                            <div className="space-y-3 py-2">
-                              {productLocationStock(p).length > 0 && (
-                                <div>
-                                  <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
-                                    Stock por bodega
-                                  </p>
-                                  <div className="flex flex-wrap gap-2">
-                                    {productLocationStock(p).map((level) => (
-                                      <div key={level.name} className="rounded-md border bg-background px-3 py-2 text-sm">
-                                        <span className="text-muted-foreground">{level.name}</span>
-                                        <span className="ml-2 font-semibold">{level.quantity}</span>
+                  ) : products.length ? (
+                    products.map((p) => (
+                      <Fragment key={p.id}>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => toggleExpand(p.id)}
+                        >
+                          <TableCell>
+                            {expanded.has(p.id) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <Thumb url={productThumb(p)} />
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">{p.name}</p>
+                                  <Badge
+                                    variant="outline"
+                                    className="text-[11px]"
+                                  >
+                                    {p.product_type === "service"
+                                      ? "Servicio"
+                                      : "Bien"}
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {p.brand || "—"}
+                                </p>
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>{p.category || "—"}</TableCell>
+                          <TableCell>{money(p.base_price)}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {money(p.cost)}
+                          </TableCell>
+                          <TableCell>
+                            {p.wholesale_price ? money(p.wholesale_price) : "—"}
+                          </TableCell>
+                          <TableCell>
+                            <StockBadge stock={p.total_stock} />
+                            {productLocationStock(p).length > 0 && (
+                              <span className="mt-1 block text-xs text-muted-foreground">
+                                Clic para ver bodegas
+                              </span>
+                            )}
+                          </TableCell>
+                          {canManage && (
+                            <TableCell
+                              className="text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => openEdit(p)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => setToDelete(p)}
+                                title="Archivar"
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                        {expanded.has(p.id) && (
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell />
+                            <TableCell colSpan={canManage ? 7 : 6}>
+                              {p.variants.length ? (
+                                <div className="space-y-3 py-2">
+                                  {productLocationStock(p).length > 0 && (
+                                    <div>
+                                      <p className="mb-2 text-xs font-medium uppercase text-muted-foreground">
+                                        Stock por bodega
+                                      </p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {productLocationStock(p).map(
+                                          (level) => (
+                                            <div
+                                              key={level.name}
+                                              className="rounded-md border bg-background px-3 py-2 text-sm"
+                                            >
+                                              <span className="text-muted-foreground">
+                                                {level.name}
+                                              </span>
+                                              <span className="ml-2 font-semibold">
+                                                {level.quantity}
+                                              </span>
+                                            </div>
+                                          ),
+                                        )}
+                                      </div>
+                                    </div>
+                                  )}
+                                  <div className="flex flex-wrap gap-3">
+                                    {p.variants.map((v) => (
+                                      <div
+                                        key={v.id}
+                                        className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm"
+                                      >
+                                        <Thumb
+                                          url={v.images?.[0]?.url}
+                                          size="h-9 w-9"
+                                        />
+                                        <div>
+                                          <span className="font-medium">
+                                            {v.size || "—"} / {v.color || "—"}
+                                          </span>
+                                          <span className="ml-2 text-xs text-muted-foreground">
+                                            {v.sku}
+                                          </span>
+                                          {(v.stock_by_location?.length ?? 0) >
+                                            0 && (
+                                            <div className="mt-0.5 text-xs text-muted-foreground">
+                                              {v
+                                                .stock_by_location!.map(
+                                                  (sl) =>
+                                                    `${sl.location_name}: ${sl.quantity}`,
+                                                )
+                                                .join(" · ")}
+                                            </div>
+                                          )}
+                                        </div>
+                                        <StockBadge stock={v.stock} />
                                       </div>
                                     ))}
                                   </div>
                                 </div>
+                              ) : (
+                                <span className="text-sm text-muted-foreground">
+                                  Sin variantes
+                                </span>
                               )}
-                              <div className="flex flex-wrap gap-3">
-                                {p.variants.map((v) => (
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={8}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        No se encontraron productos.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Pagination */}
+          <Pagination
+            currentPage={pagination.current_page - 1}
+            pageCount={pagination.total_pages}
+            totalCount={pagination.total_count}
+            perPage={pagination.per_page}
+            onPageChange={({ selected }) =>
+              fetchProducts(selected + 1, pagination.per_page, {
+                search,
+                category_id: categoryFilter,
+              })
+            }
+          />
+        </TabsContent>
+
+        {/* ── Tab Combos ── */}
+        <TabsContent value="combos" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Combos / Promos</h2>
+              <p className="text-sm text-muted-foreground">
+                Paquetes de productos con precio especial
+              </p>
+            </div>
+            {canManage && (
+              <Button onClick={() => setBundleOpen(true)} size="sm">
+                <Boxes className="w-4 h-4 mr-2" /> Nuevo Combo
+              </Button>
+            )}
+          </div>
+
+          <Card className="rounded-xl p-0">
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-8" />
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Productos</TableHead>
+                    <TableHead>Precio combo</TableHead>
+                    <TableHead>Costo total</TableHead>
+                    <TableHead>Stock disponible</TableHead>
+                    {canManage && (
+                      <TableHead className="text-right">Acciones</TableHead>
+                    )}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bundles.length ? (
+                    bundles.map((b) => (
+                      <Fragment key={b.id}>
+                        <TableRow
+                          className="cursor-pointer"
+                          onClick={() => toggleExpandBundle(b.id)}
+                        >
+                          <TableCell>
+                            {expandedBundles.has(b.id) ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4" />
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium">{b.name}</p>
+                              {b.description && (
+                                <p className="text-xs text-muted-foreground">
+                                  {b.description}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Badge variant="secondary">
+                              {b.items_count} items
+                            </Badge>
+                          </TableCell>
+                          <TableCell>{money(b.base_price)}</TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {money(b.total_cost)}
+                          </TableCell>
+                          <TableCell>
+                            <StockBadge stock={b.available_stock} />
+                          </TableCell>
+                          {canManage && (
+                            <TableCell
+                              className="text-right"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-destructive"
+                                onClick={() => setToDeleteBundle(b)}
+                                title="Archivar"
+                              >
+                                <Archive className="h-4 w-4" />
+                              </Button>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                        {expandedBundles.has(b.id) && (
+                          <TableRow className="bg-muted/30 hover:bg-muted/30">
+                            <TableCell />
+                            <TableCell colSpan={canManage ? 6 : 5}>
+                              <div className="flex flex-wrap gap-3 py-2">
+                                {b.items.map((item) => (
                                   <div
-                                    key={v.id}
-                                    className="flex items-center gap-3 rounded-lg border bg-background px-3 py-2 text-sm"
+                                    key={item.id}
+                                    className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
                                   >
-                                    <Thumb url={v.images?.[0]?.url} size="h-9 w-9" />
                                     <div>
-                                      <span className="font-medium">{v.size || "—"} / {v.color || "—"}</span>
-                                      <span className="ml-2 text-xs text-muted-foreground">{v.sku}</span>
-                                      {(v.stock_by_location?.length ?? 0) > 0 && (
-                                        <div className="mt-0.5 text-xs text-muted-foreground">
-                                          {v.stock_by_location!
-                                            .map((sl) => `${sl.location_name}: ${sl.quantity}`)
-                                            .join(" · ")}
-                                        </div>
-                                      )}
+                                      <span className="font-medium">
+                                        {item.product_name}
+                                      </span>
+                                      {item.variant_label &&
+                                        item.variant_label !== item.sku && (
+                                          <span className="text-muted-foreground">
+                                            {" "}
+                                            — {item.variant_label}
+                                          </span>
+                                        )}
+                                      <span className="ml-2 text-xs text-muted-foreground font-mono">
+                                        {item.sku}
+                                      </span>
+                                      <p className="text-xs text-muted-foreground">
+                                        x{item.quantity}
+                                      </p>
                                     </div>
-                                    <StockBadge stock={v.stock} />
                                   </div>
                                 ))}
                               </div>
-                            </div>
-                          ) : (
-                            <span className="text-sm text-muted-foreground">Sin variantes</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                    No se encontraron productos.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Pagination */}
-      <Pagination
-        currentPage={pagination.current_page - 1}
-        pageCount={pagination.total_pages}
-        totalCount={pagination.total_count}
-        perPage={pagination.per_page}
-        onPageChange={({ selected }) =>
-          fetchProducts(selected + 1, pagination.per_page, { search, category_id: categoryFilter })
-        }
-      />
-
-      {/* Bundles section */}
-      <div className="space-y-4">
-        <div>
-          <h2 className="flex items-center gap-2 text-xl font-bold tracking-tight">
-            <Boxes className="h-5 w-5" /> Combos / Promos
-          </h2>
-          <p className="text-sm text-muted-foreground">Paquetes de productos con precio especial</p>
-        </div>
-
-        <Card className="rounded-xl p-0">
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-8" />
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Productos</TableHead>
-                  <TableHead>Precio combo</TableHead>
-                  <TableHead>Costo total</TableHead>
-                  <TableHead>Stock disponible</TableHead>
-                  {canManage && <TableHead className="text-right">Acciones</TableHead>}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {bundles.length ? (
-                  bundles.map((b) => (
-                    <Fragment key={b.id}>
-                      <TableRow className="cursor-pointer" onClick={() => toggleExpandBundle(b.id)}>
-                        <TableCell>
-                          {expandedBundles.has(b.id)
-                            ? <ChevronDown className="h-4 w-4" />
-                            : <ChevronRight className="h-4 w-4" />}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{b.name}</p>
-                            {b.description && (
-                              <p className="text-xs text-muted-foreground">{b.description}</p>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{b.items_count} items</Badge>
-                        </TableCell>
-                        <TableCell>{money(b.base_price)}</TableCell>
-                        <TableCell className="text-muted-foreground">{money(b.total_cost)}</TableCell>
-                        <TableCell><StockBadge stock={b.available_stock} /></TableCell>
-                        {canManage && (
-                          <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              onClick={() => setToDeleteBundle(b)}
-                              title="Archivar"
-                            >
-                              <Archive className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
+                            </TableCell>
+                          </TableRow>
                         )}
-                      </TableRow>
-                      {expandedBundles.has(b.id) && (
-                        <TableRow className="bg-muted/30 hover:bg-muted/30">
-                          <TableCell />
-                          <TableCell colSpan={canManage ? 6 : 5}>
-                            <div className="flex flex-wrap gap-3 py-2">
-                              {b.items.map((item) => (
-                                <div
-                                  key={item.id}
-                                  className="flex items-center gap-2 rounded-lg border bg-background px-3 py-2 text-sm"
-                                >
-                                  <div>
-                                    <span className="font-medium">{item.product_name}</span>
-                                    {item.variant_label && item.variant_label !== item.sku && (
-                                      <span className="text-muted-foreground"> — {item.variant_label}</span>
-                                    )}
-                                    <span className="ml-2 text-xs text-muted-foreground font-mono">{item.sku}</span>
-                                    <p className="text-xs text-muted-foreground">x{item.quantity}</p>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell
-                      colSpan={canManage ? 7 : 6}
-                      className="h-24 text-center text-muted-foreground"
-                    >
-                      No hay combos creados. Usa el botón "Nuevo Combo" para crear uno.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
+                      </Fragment>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell
+                        colSpan={canManage ? 7 : 6}
+                        className="h-24 text-center text-muted-foreground"
+                      >
+                        No hay combos creados. Usa el botón "Nuevo Combo" para
+                        crear uno.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
       {/* Sub-components */}
       <ProductFormModal
         open={formOpen}
-        onClose={() => { setFormOpen(false); setEditingProduct(null); }}
+        onClose={() => {
+          setFormOpen(false);
+          setEditingProduct(null);
+        }}
         product={editingProduct}
       />
 
-      <ImportProductsDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <ImportProductsDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+      />
 
-      <ProductBundleDialog open={bundleOpen} onClose={() => setBundleOpen(false)} />
+      <ProductBundleDialog
+        open={bundleOpen}
+        onClose={() => setBundleOpen(false)}
+      />
 
       {/* Archive product confirmation */}
-      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+      <AlertDialog
+        open={!!toDelete}
+        onOpenChange={(o) => !o && setToDelete(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Archivar producto</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas archivar {toDelete?.name}? No se eliminará: quedará inactivo
-              y podrás consultarlo con el filtro "Ver archivados".
+              ¿Seguro que deseas archivar {toDelete?.name}? No se eliminará:
+              quedará inactivo y podrás consultarlo con el filtro "Ver
+              archivados".
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete}>Archivar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete}>
+              Archivar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* Archive bundle confirmation */}
-      <AlertDialog open={!!toDeleteBundle} onOpenChange={(o) => !o && setToDeleteBundle(null)}>
+      <AlertDialog
+        open={!!toDeleteBundle}
+        onOpenChange={(o) => !o && setToDeleteBundle(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Archivar combo</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas archivar <strong>{toDeleteBundle?.name}</strong>? Quedará inactivo
-              y dejará de aparecer en el punto de venta.
+              ¿Seguro que deseas archivar{" "}
+              <strong>{toDeleteBundle?.name}</strong>? Quedará inactivo y dejará
+              de aparecer en el punto de venta.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteBundle}>Archivar</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteBundle}>
+              Archivar
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

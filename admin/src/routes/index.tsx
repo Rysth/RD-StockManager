@@ -5,6 +5,7 @@ import {
 } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
 import DashboardLayout from "../layouts/DashboardLayout";
+import PosLayout from "../layouts/PosLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import UsersIndex from "../pages/dashboard/users/UsersIndex";
 import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
@@ -77,6 +78,29 @@ export const router = createBrowserRouter([
   },
   {
     path: "dashboard",
+    element: <PosLayout />,
+    errorElement: <ErrorBoundary />,
+    children: [
+      {
+        path: "pos",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <SalesPosIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "purchase-entry",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <PurchaseEntryIndex />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: "dashboard",
     element: <DashboardLayout />,
     errorElement: <ErrorBoundary />,
     children: [
@@ -115,22 +139,6 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.MANAGE_CUSTOMERS}>
             <CustomersIndex />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "pos",
-        element: (
-          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
-            <SalesPosIndex />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "purchase-entry",
-        element: (
-          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
-            <PurchaseEntryIndex />
           </ProtectedRoute>
         ),
       },

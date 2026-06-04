@@ -41,7 +41,9 @@ const STATUS_LABEL: Record<TransferStatus, string> = {
   cancelled: "Cancelada",
 };
 
-const statusVariant = (s: TransferStatus): "secondary" | "default" | "destructive" => {
+const statusVariant = (
+  s: TransferStatus,
+): "secondary" | "default" | "destructive" => {
   if (s === "received") return "default";
   if (s === "cancelled") return "destructive";
   return "secondary";
@@ -81,10 +83,20 @@ function TransfersSkeleton() {
 }
 
 export default function TransfersIndex() {
-  const { transfers, selectedTransfer, pagination, isLoading, isSubmitting, fetchTransfers, fetchTransfer, clearSelectedTransfer, receiveTransfer, cancelTransfer } = useTransferStore();
+  const {
+    transfers,
+    selectedTransfer,
+    pagination,
+    isLoading,
+    isSubmitting,
+    fetchTransfers,
+    fetchTransfer,
+    receiveTransfer,
+    cancelTransfer,
+  } = useTransferStore();
   const { locations, fetchLocations } = useLocationStore();
   const { fetchProducts } = useInventoryStore();
-  const { hasPermission, user } = useAuthStore();
+  const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PURCHASES);
 
   const [firstLoad, setFirstLoad] = useState(true);
@@ -93,7 +105,9 @@ export default function TransfersIndex() {
   const [toFilter, setToFilter] = useState<string>("");
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [detailTransfer, setDetailTransfer] = useState<StockTransfer | null>(null);
+  const [detailTransfer, setDetailTransfer] = useState<StockTransfer | null>(
+    null,
+  );
   const [toReceive, setToReceive] = useState<StockTransfer | null>(null);
   const [toCancel, setToCancel] = useState<StockTransfer | null>(null);
 
@@ -111,7 +125,11 @@ export default function TransfersIndex() {
       from_location_id: fromFilter ? Number(fromFilter) : "",
       to_location_id: toFilter ? Number(toFilter) : "",
     })
-      .catch((e) => toast.error(e instanceof Error ? e.message : "Error al cargar transferencias"))
+      .catch((e) =>
+        toast.error(
+          e instanceof Error ? e.message : "Error al cargar transferencias",
+        ),
+      )
       .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [statusFilter, fromFilter, toFilter]);
@@ -131,7 +149,9 @@ export default function TransfersIndex() {
       await receiveTransfer(toReceive.id);
       toast.success("Transferencia confirmada — stock actualizado");
       if (detailTransfer?.id === toReceive.id) {
-        setDetailTransfer((prev) => prev ? { ...prev, status: "received" } : prev);
+        setDetailTransfer((prev) =>
+          prev ? { ...prev, status: "received" } : prev,
+        );
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Error al confirmar");
@@ -156,7 +176,10 @@ export default function TransfersIndex() {
   const syncedDetailTransfer = detailTransfer
     ? (() => {
         const live = transfers.find((t) => t.id === detailTransfer.id);
-        const base = selectedTransfer?.id === detailTransfer.id ? selectedTransfer : detailTransfer;
+        const base =
+          selectedTransfer?.id === detailTransfer.id
+            ? selectedTransfer
+            : detailTransfer;
         return live ? { ...base, status: live.status } : base;
       })()
     : null;
@@ -184,7 +207,9 @@ export default function TransfersIndex() {
       <div className="flex flex-wrap items-center gap-2">
         <select
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as TransferStatus | "")}
+          onChange={(e) =>
+            setStatusFilter(e.target.value as TransferStatus | "")
+          }
           className="h-9 rounded-md border border-input bg-background px-3 text-sm"
         >
           <option value="">Todos los estados</option>
@@ -200,7 +225,11 @@ export default function TransfersIndex() {
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="">Desde (todas)</option>
-              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
             </select>
             <select
               value={toFilter}
@@ -208,7 +237,11 @@ export default function TransfersIndex() {
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="">Hacia (todas)</option>
-              {locations.map((l) => <option key={l.id} value={l.id}>{l.name}</option>)}
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
             </select>
           </>
         )}
@@ -239,7 +272,9 @@ export default function TransfersIndex() {
               ) : transfers.length ? (
                 transfers.map((t) => (
                   <TableRow key={t.id}>
-                    <TableCell className="font-mono text-sm font-medium">{t.code}</TableCell>
+                    <TableCell className="font-mono text-sm font-medium">
+                      {t.code}
+                    </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1.5 text-sm">
                         <span>{t.from_location_name}</span>
@@ -251,7 +286,9 @@ export default function TransfersIndex() {
                       <Badge variant="secondary">{t.items_count}</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge variant={statusVariant(t.status as TransferStatus)}>
+                      <Badge
+                        variant={statusVariant(t.status as TransferStatus)}
+                      >
                         {STATUS_LABEL[t.status as TransferStatus]}
                       </Badge>
                     </TableCell>
@@ -300,7 +337,10 @@ export default function TransfersIndex() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell
+                    colSpan={7}
+                    className="h-24 text-center text-muted-foreground"
+                  >
                     No se encontraron transferencias.
                   </TableCell>
                 </TableRow>
@@ -326,7 +366,10 @@ export default function TransfersIndex() {
       />
 
       {/* Modals */}
-      <CreateTransferModal open={createOpen} onClose={() => setCreateOpen(false)} />
+      <CreateTransferModal
+        open={createOpen}
+        onClose={() => setCreateOpen(false)}
+      />
 
       <TransferDetailSheet
         transfer={syncedDetailTransfer}
@@ -335,13 +378,18 @@ export default function TransfersIndex() {
       />
 
       {/* Confirm receive */}
-      <AlertDialog open={!!toReceive} onOpenChange={(o) => !o && setToReceive(null)}>
+      <AlertDialog
+        open={!!toReceive}
+        onOpenChange={(o) => !o && setToReceive(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar recepción</AlertDialogTitle>
             <AlertDialogDescription>
-              El stock se moverá de <strong>{toReceive?.from_location_name}</strong> a{" "}
-              <strong>{toReceive?.to_location_name}</strong>. Esta acción no se puede deshacer.
+              El stock se moverá de{" "}
+              <strong>{toReceive?.from_location_name}</strong> a{" "}
+              <strong>{toReceive?.to_location_name}</strong>. Esta acción no se
+              puede deshacer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -358,12 +406,16 @@ export default function TransfersIndex() {
       </AlertDialog>
 
       {/* Confirm cancel */}
-      <AlertDialog open={!!toCancel} onOpenChange={(o) => !o && setToCancel(null)}>
+      <AlertDialog
+        open={!!toCancel}
+        onOpenChange={(o) => !o && setToCancel(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar transferencia</AlertDialogTitle>
             <AlertDialogDescription>
-              La transferencia <strong>{toCancel?.code}</strong> quedará cancelada. No se moverá ningún stock.
+              La transferencia <strong>{toCancel?.code}</strong> quedará
+              cancelada. No se moverá ningún stock.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -3,7 +3,6 @@ import { useEffect } from "react";
 import {
   Home,
   Users,
-  Settings,
   SlidersHorizontal,
   LogOut,
   ChevronsUpDown,
@@ -323,7 +322,9 @@ export default function AppSidebar({
                 ].some((g) => g.length > 0);
                 return (
                   <div key={index}>
-                    {prevGroupsHaveItems && <SidebarSeparator className="my-1" />}
+                    {prevGroupsHaveItems && (
+                      <SidebarSeparator className="my-1" />
+                    )}
                     {renderItems(group)}
                   </div>
                 );
