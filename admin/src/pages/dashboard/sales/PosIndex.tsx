@@ -280,11 +280,11 @@ export default function PosIndex() {
   const activeCategoryIds = useMemo(() => {
     const ids = new Set<number>();
     products.forEach((p) => {
-      // En compra mostramos todo; en venta solo lo que tiene stock.
+      // En compra ocultamos servicios; en venta mostramos servicios o bienes con stock.
       const relevant =
-        mode === "purchase" ||
-        p.product_type === "service" ||
-        p.variants.some((v) => stockAt(v) > 0);
+        mode === "purchase"
+          ? p.product_type !== "service"
+          : p.product_type === "service" || p.variants.some((v) => stockAt(v) > 0);
       if (p.category_id && relevant) ids.add(p.category_id);
     });
     return ids;
@@ -303,7 +303,8 @@ export default function PosIndex() {
       .filter((p) => {
         if (categoryFilter !== "all" && p.category_id !== categoryFilter)
           return false;
-        // En venta requerimos stock; en compra no.
+        // En compra ocultamos servicios; en venta requerimos stock para bienes.
+        if (mode === "purchase" && p.product_type === "service") return false;
         if (
           mode === "sale" &&
           p.product_type !== "service" &&
