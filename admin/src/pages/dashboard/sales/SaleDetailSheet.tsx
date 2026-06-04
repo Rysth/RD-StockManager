@@ -313,9 +313,11 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                         <TableCell>
                           <p className="font-medium">{it.product_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {it.product_variant_id
-                              ? `${it.size || "-"}/${it.color || "-"} · ${it.sku}`
-                              : "Servicio"}
+                            {it.product_bundle_id
+                              ? "Combo"
+                              : it.product_variant_id
+                                ? `${it.size || "-"}/${it.color || "-"} · ${it.sku}`
+                                : "Servicio"}
                           </p>
                         </TableCell>
                         <TableCell className="text-center">{it.quantity}</TableCell>

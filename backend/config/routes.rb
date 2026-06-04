@@ -60,6 +60,7 @@ Rails.application.routes.draw do
           delete "images/:image_id", action: :remove_image, as: :image
         end
       end
+      resources :product_bundles
       resources :product_variants, only: [] do
         member do
           post :images

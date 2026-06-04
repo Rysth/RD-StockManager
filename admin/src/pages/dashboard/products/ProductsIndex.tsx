@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Plus, Pencil, ChevronRight, ChevronDown, Archive, Upload, FileDown } from "lucide-react";
+import { Plus, Pencil, ChevronRight, ChevronDown, Archive, Upload, FileDown, Boxes } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -41,6 +41,7 @@ import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
 import ProductFormModal from "./ProductFormModal";
 import ImportProductsDialog from "./ImportProductsDialog";
+import ProductBundleDialog from "./ProductBundleDialog";
 
 const money = (n: number) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n);
@@ -130,6 +131,7 @@ export default function ProductsIndex() {
   const [formOpen, setFormOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [bundleOpen, setBundleOpen] = useState(false);
   const [toDelete, setToDelete] = useState<Product | null>(null);
 
   const productFilters = () => ({
@@ -249,6 +251,9 @@ export default function ProductsIndex() {
             <>
               <Button onClick={() => setImportOpen(true)} size="sm" variant="outline">
                 <Upload className="w-4 h-4 mr-2" /> Importar Excel
+              </Button>
+              <Button onClick={() => setBundleOpen(true)} size="sm" variant="outline">
+                <Boxes className="w-4 h-4 mr-2" /> Nuevo Combo
               </Button>
               <Button onClick={openCreate} size="sm">
                 <Plus className="w-4 h-4 mr-2" /> Nuevo Producto
@@ -440,6 +445,8 @@ export default function ProductsIndex() {
       />
 
       <ImportProductsDialog open={importOpen} onClose={() => setImportOpen(false)} />
+
+      <ProductBundleDialog open={bundleOpen} onClose={() => setBundleOpen(false)} />
 
       {/* Archive confirmation */}
       <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>

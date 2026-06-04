@@ -51,10 +51,8 @@ class Sale < ApplicationRecord
 
     transaction do
       loc = location || Location.default
-      sale_items.includes(product_variant: :product).each do |item|
-        next if item.product_variant.blank? || item.product_variant.product&.service?
-
-        StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
+      sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+        move_stock_for_item(item, loc, -item.quantity)
       end
       # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
       self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
@@ -70,10 +68,8 @@ class Sale < ApplicationRecord
     transaction do
       if completed?
         loc = location || Location.default
-        sale_items.includes(product_variant: :product).each do |item|
-          next if item.product_variant.blank? || item.product_variant.product&.service?
-
-          StockMovement.apply!(variant: item.product_variant, location: loc, delta: item.quantity)
+        sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+          move_stock_for_item(item, loc, item.quantity)
         end
       end
       update!(status: :cancelled)
@@ -102,6 +98,19 @@ class Sale < ApplicationRecord
   end
 
   private
+
+  def move_stock_for_item(item, loc, delta)
+    if item.product_bundle.present?
+      item.product_bundle.product_bundle_items.includes(:product_variant).each do |bundle_item|
+        StockMovement.apply!(variant: bundle_item.product_variant, location: loc, delta: delta * bundle_item.quantity)
+      end
+      return
+    end
+
+    return if item.product_variant.blank? || item.product_variant.product&.service?
+
+    StockMovement.apply!(variant: item.product_variant, location: loc, delta: delta)
+  end
 
   def set_sold_at
     self.sold_at ||= Time.current

@@ -149,6 +149,7 @@ export interface Invoice {
 export interface SaleItem {
   id: number;
   product_variant_id: number | null;
+  product_bundle_id?: number | null;
   sku?: string | null;
   product_name: string;
   size?: string | null;
@@ -186,9 +187,47 @@ export interface Sale {
 // Payload para crear una venta
 export interface SaleItemInput {
   product_variant_id: number | null;
+  product_bundle_id?: number | null;
   description?: string;
   quantity: number;
   unit_price: number;
+}
+
+export interface ProductBundleItem {
+  id: number;
+  product_variant_id: number;
+  product_name: string;
+  variant_label: string;
+  sku: string;
+  quantity: number;
+  unit_cost: number;
+}
+
+export interface ProductBundle {
+  id: number;
+  name: string;
+  description?: string | null;
+  base_price: number;
+  total_cost: number;
+  available_stock: number;
+  active: boolean;
+  items_count: number;
+  items: ProductBundleItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductBundleInput {
+  name: string;
+  description?: string;
+  base_price: number;
+  active?: boolean;
+  product_bundle_items_attributes: {
+    id?: number;
+    product_variant_id: number;
+    quantity: number;
+    _destroy?: boolean;
+  }[];
 }
 
 export interface CreateSaleData {

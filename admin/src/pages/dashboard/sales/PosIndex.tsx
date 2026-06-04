@@ -20,6 +20,7 @@ import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
 import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useInventoryStore } from "../../../stores/inventoryStore";
+import { useProductBundleStore } from "../../../stores/productBundleStore";
 import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -83,6 +84,7 @@ function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
 interface CartItem {
   cart_key: string;
   product_variant_id: number | null;
+  product_bundle_id?: number | null;
   is_service: boolean;
   label: string;
   sku: string;
@@ -111,6 +113,31 @@ interface VariantOption {
   cost: number;
 }
 
+interface CatalogItem {
+  item_type: "product" | "bundle";
+  id: number;
+  name: string;
+  product_type?: "good" | "service";
+  brand?: string | null;
+  base_price: number;
+  wholesale_price: number | null;
+  wholesale_min_quantity: number;
+  cost: number;
+  thumb?: string;
+  variantCount: number;
+  available_stock?: number;
+  variants: {
+    cart_key: string;
+    id: number;
+    is_service: boolean;
+    size?: string | null;
+    color?: string | null;
+    stock: number;
+    sku: string;
+    thumb?: string;
+  }[];
+}
+
 function suggestedPrice(
   item: Pick<
     CartItem,
@@ -129,6 +156,7 @@ function suggestedPrice(
 
 const variantCartKey = (id: number) => `variant:${id}`;
 const serviceCartKey = (id: number) => `service:${id}`;
+const bundleCartKey = (id: number) => `bundle:${id}`;
 
 const validateSupplierId = (idType: string, idNumber: string) => {
   const value = idNumber.trim();
@@ -150,6 +178,7 @@ interface PosIndexProps {
 export default function PosIndex({ forcedMode }: PosIndexProps) {
   const { products, categories, fetchProducts, fetchCategories } =
     useInventoryStore();
+  const { bundles, fetchBundles } = useProductBundleStore();
   const { customers, fetchCustomers, createCustomer, updateCustomer } =
     useCustomerStore();
   const { createSale, isSubmitting: isSubmittingSale } = useSaleStore();
@@ -204,27 +233,7 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
   });
 
   // ── Dialog state ─────────────────────────────────────────────
-  const [selectedProduct, setSelectedProduct] = useState<{
-    id: number;
-    name: string;
-    product_type?: "good" | "service";
-    brand?: string | null;
-    base_price: number;
-    wholesale_price: number | null;
-    wholesale_min_quantity: number;
-    cost: number;
-    thumb?: string;
-    variants: {
-      cart_key: string;
-      id: number;
-      is_service: boolean;
-      size?: string | null;
-      color?: string | null;
-      stock: number;
-      sku: string;
-      thumb?: string;
-    }[];
-  } | null>(null);
+  const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(null);
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<"draft" | "received">(
@@ -268,6 +277,10 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
     fetchPublicBusiness().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    if (mode === "sale") fetchBundles(locationId).catch(() => {});
+  }, [fetchBundles, locationId, mode]);
 
   useEffect(() => {
     if (restrictedToBranch && user?.location_id) {
@@ -336,9 +349,9 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
   );
 
   // ── Grid de productos ────────────────────────────────────────
-  const productGroups = useMemo(() => {
+  const productGroups = useMemo<CatalogItem[]>(() => {
     const q = variantQuery.trim().toLowerCase();
-    return products
+    const productItems = products
       .filter((p) => {
         if (categoryFilter !== "all" && p.category_id !== categoryFilter)
           return false;
@@ -358,7 +371,7 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
         );
         return productMatch || variantMatch;
       })
-      .map((p) => {
+      .map<CatalogItem>((p) => {
         const variants = (
           mode === "sale" && p.product_type !== "service"
             ? p.variants.filter((v) => stockAt(v) > 0)
@@ -374,6 +387,7 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
           thumb: v.images?.[0]?.url || p.images?.[0]?.url,
         }));
         return {
+          item_type: "product",
           id: p.id,
           name: p.name,
           product_type: p.product_type,
@@ -387,8 +401,36 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
           variants,
         };
       });
+
+    const bundleItems =
+      mode === "sale" && categoryFilter === "all"
+        ? bundles
+            .filter((bundle) => {
+              if (bundle.available_stock <= 0) return false;
+              if (!q) return true;
+              return `${bundle.name} ${bundle.description ?? ""}`
+                .toLowerCase()
+                .includes(q);
+            })
+            .map<CatalogItem>((bundle) => ({
+              item_type: "bundle",
+              id: bundle.id,
+              name: bundle.name,
+              product_type: "good",
+              brand: "Combo",
+              base_price: bundle.base_price,
+              wholesale_price: null,
+              wholesale_min_quantity: 1,
+              cost: bundle.total_cost,
+              variantCount: bundle.items_count,
+              available_stock: bundle.available_stock,
+              variants: [],
+            }))
+        : [];
+
+    return [...productItems, ...bundleItems];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [products, variantQuery, categoryFilter, locationId, mode]);
+  }, [products, bundles, variantQuery, categoryFilter, locationId, mode]);
 
   // ── Operaciones de carrito ───────────────────────────────────
   function withQuantity(item: CartItem, quantity: number): CartItem {
@@ -420,6 +462,7 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
       const base: CartItem = {
         cart_key: v.cart_key,
         product_variant_id: v.id,
+        product_bundle_id: null,
         is_service: v.is_service,
         label: v.label,
         sku: v.sku,
@@ -434,6 +477,42 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
         value_edited: false,
       };
       return [...prev, withQuantity(base, 1)];
+    });
+  };
+
+  const addBundleToCart = (bundle: CatalogItem) => {
+    setCart((prev) => {
+      const key = bundleCartKey(bundle.id);
+      const existing = prev.find((i) => i.cart_key === key);
+      if (existing) {
+        if (existing.quantity >= existing.max) {
+          toast.error("No hay más stock disponible para este combo");
+          return prev;
+        }
+        return prev.map((i) =>
+          i.cart_key === key ? withQuantity(i, i.quantity + 1) : i,
+        );
+      }
+      return [
+        ...prev,
+        {
+          cart_key: key,
+          product_variant_id: null,
+          product_bundle_id: bundle.id,
+          is_service: false,
+          label: bundle.name,
+          sku: "COMBO",
+          thumb: bundle.thumb,
+          base_price: bundle.base_price,
+          wholesale_price: null,
+          wholesale_min_quantity: 1,
+          cost: bundle.cost,
+          quantity: 1,
+          max: bundle.available_stock ?? 0,
+          unit_value: bundle.base_price,
+          value_edited: false,
+        },
+      ];
     });
   };
 
@@ -683,6 +762,7 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
         shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
+          product_bundle_id: i.product_bundle_id ?? null,
           description: i.product_variant_id ? undefined : i.label,
           quantity: i.quantity,
           unit_price: i.unit_value,
@@ -861,11 +941,11 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
             {productGroups.length ? (
               productGroups.map((p) => {
                 const inCartCount = cart
-                  .filter((c) =>
-                    p.variants.length
-                      ? p.variants.some((v) => v.cart_key === c.cart_key)
-                      : c.cart_key === serviceCartKey(p.id),
-                  )
+                  .filter((c) => {
+                    if (p.item_type === "bundle") return c.cart_key === bundleCartKey(p.id);
+                    if (p.variants.length) return p.variants.some((v) => v.cart_key === c.cart_key);
+                    return c.cart_key === serviceCartKey(p.id);
+                  })
                   .reduce((s, c) => s + c.quantity, 0);
                 const hasNamedVariants = p.variants.some(
                   (v) => !!v.size || !!v.color,
@@ -877,7 +957,9 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
                     brand={p.brand}
                     thumb={p.thumb}
                     badge={
-                      p.product_type === "service" && p.variantCount === 0
+                      p.item_type === "bundle"
+                        ? `${p.variantCount} productos`
+                        : p.product_type === "service" && p.variantCount === 0
                         ? "Servicio"
                         : p.variantCount === 1 && !hasNamedVariants
                           ? "Prod. base"
@@ -887,6 +969,10 @@ export default function PosIndex({ forcedMode }: PosIndexProps) {
                     priceSuffix={isSale ? undefined : "costo"}
                     inCartCount={inCartCount}
                     onClick={() => {
+                      if (p.item_type === "bundle") {
+                        addBundleToCart(p);
+                        return;
+                      }
                       if (isSale && p.product_type === "service" && !p.variants.length) {
                         addServiceWithoutVariant(p);
                         return;

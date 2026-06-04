@@ -157,8 +157,8 @@ class InvoiceService
       base_unit = base_unit_price(item.unit_price)
       line_base = (BigDecimal(item.quantity.to_s) * base_unit).round(2)
       SriFacturacion::Detalle.new(
-        descripcion: item.product_variant&.product&.name || item.description,
-        codigo_principal: item.product_variant&.sku || "SERV-#{item.id}",
+        descripcion: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
+        codigo_principal: item.product_bundle.present? ? "COMBO-#{item.product_bundle_id}" : item.product_variant&.sku || "SERV-#{item.id}",
         cantidad: item.quantity,
         precio_unitario: base_unit,
         descuento: 0,

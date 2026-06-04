@@ -66,6 +66,7 @@ module Api
           items.each do |item|
             sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
               unit_price: item[:unit_price]
@@ -128,6 +129,7 @@ module Api
           items.each do |item|
             @sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
               unit_price: item[:unit_price]
@@ -224,13 +226,13 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
 
       def set_sale_for_invoice
-        @sale = Sale.includes(:customer, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
@@ -296,8 +298,9 @@ module Api
             {
               id: item.id,
               product_variant_id: item.product_variant_id,
-              sku: item.product_variant&.sku,
-              product_name: item.product_variant&.product&.name || item.description,
+              product_bundle_id: item.product_bundle_id,
+              sku: item.product_bundle.present? ? "COMBO" : item.product_variant&.sku,
+              product_name: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
               size: item.product_variant&.size,
               color: item.product_variant&.color,
               quantity: item.quantity,
