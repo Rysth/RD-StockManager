@@ -62,6 +62,9 @@ const money = (n: number) =>
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
 
+const isServiceProduct = (product: { product_type?: string | null }) =>
+  ["service", "servicio"].includes(String(product.product_type ?? "").toLowerCase());
+
 function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
   return url ? (
     <img
@@ -226,13 +229,17 @@ export default function PosIndex() {
   );
 
   useEffect(() => {
-    fetchProducts(1, 200, {});
     fetchCustomers(1, 200, "");
     fetchCategories();
     fetchLocations().catch(() => {});
     fetchPublicBusiness().catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(() => {
+    fetchProducts(1, 200, mode === "purchase" ? { product_type: "good" } : {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
 
   useEffect(() => {
     if (restrictedToBranch && user?.location_id) {
@@ -283,8 +290,8 @@ export default function PosIndex() {
       // En compra ocultamos servicios; en venta mostramos servicios o bienes con stock.
       const relevant =
         mode === "purchase"
-          ? p.product_type !== "service"
-          : p.product_type === "service" || p.variants.some((v) => stockAt(v) > 0);
+          ? !isServiceProduct(p)
+          : isServiceProduct(p) || p.variants.some((v) => stockAt(v) > 0);
       if (p.category_id && relevant) ids.add(p.category_id);
     });
     return ids;
@@ -304,10 +311,10 @@ export default function PosIndex() {
         if (categoryFilter !== "all" && p.category_id !== categoryFilter)
           return false;
         // En compra ocultamos servicios; en venta requerimos stock para bienes.
-        if (mode === "purchase" && p.product_type === "service") return false;
+        if (mode === "purchase" && isServiceProduct(p)) return false;
         if (
           mode === "sale" &&
-          p.product_type !== "service" &&
+          !isServiceProduct(p) &&
           !p.variants.some((v) => stockAt(v) > 0)
         )
           return false;
@@ -322,18 +329,21 @@ export default function PosIndex() {
       })
       .map((p) => {
         const variants = (
-          mode === "sale" && p.product_type !== "service"
+          mode === "sale" && !isServiceProduct(p)
             ? p.variants.filter((v) => stockAt(v) > 0)
             : p.variants
         ).map((v) => ({
           id: v.id,
-          is_service: p.product_type === "service",
+          is_service: isServiceProduct(p),
           size: v.size,
           color: v.color,
           stock: stockAt(v),
           sku: v.sku,
           thumb: v.images?.[0]?.url || p.images?.[0]?.url,
         }));
+        const thumb =
+          p.images?.[0]?.url ||
+          p.variants.find((v) => v.images?.[0]?.url)?.images?.[0]?.url;
         return {
           id: p.id,
           name: p.name,
@@ -343,7 +353,7 @@ export default function PosIndex() {
           wholesale_price: p.wholesale_price ?? null,
           wholesale_min_quantity: p.wholesale_min_quantity ?? 3,
           cost: p.cost,
-          thumb: p.images?.[0]?.url,
+          thumb,
           variantCount: variants.length,
           variants,
         };

@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 
 const MAX_IMAGES = 3;
+const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
 
 // ── Local types ──────────────────────────────────────────────
 
@@ -157,7 +158,14 @@ function ImageGallery({
         multiple
         className="hidden"
         onChange={(e) => {
-          const files = Array.from(e.target.files ?? []);
+          const selected = Array.from(e.target.files ?? []);
+          const oversized = selected.find((file) => file.size > MAX_IMAGE_SIZE);
+          if (oversized) {
+            toast.error("Cada imagen debe ser menor a 5MB");
+            e.target.value = "";
+            return;
+          }
+          const files = selected;
           if (files.length) onAddFiles(files.slice(0, MAX_IMAGES - total));
           e.target.value = "";
         }}

@@ -13,6 +13,7 @@ interface ProductFilters {
   search?: string;
   category_id?: number | string;
   active?: boolean | string;
+  product_type?: "good" | "service";
 }
 
 interface ProductInput {
@@ -140,6 +141,7 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       const params: Record<string, string | number | boolean> = { page, per_page: perPage };
       if (filters.search) params.search = filters.search;
       if (filters.category_id) params.category_id = filters.category_id;
+      if (filters.product_type) params.product_type = filters.product_type;
       if (filters.active !== undefined && filters.active !== "")
         params.active = filters.active;
 

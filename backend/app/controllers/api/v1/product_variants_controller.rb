@@ -10,6 +10,8 @@ module Api
       def images
         ProductImageStorageService.attach(@variant, params[:images], folder: "variants")
         render_success({ variant: serialize(@variant.reload) }, "Imágenes actualizadas")
+      rescue ProductImageStorageService::InvalidImage => e
+        render_error(e.message, :unprocessable_entity)
       end
 
       # DELETE /api/v1/product_variants/:id/images/:image_id
