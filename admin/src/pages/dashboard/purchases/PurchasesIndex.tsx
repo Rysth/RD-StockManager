@@ -37,7 +37,7 @@ const money = (n: number) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n || 0);
 
 const STATUS_LABEL: Record<PurchaseStatus, string> = {
-  draft: "Borrador",
+  draft: "Por recibir",
   received: "Recibida",
   cancelled: "Cancelada",
 };

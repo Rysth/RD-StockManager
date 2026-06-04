@@ -57,7 +57,7 @@ export default function PaymentDialog({ open, onClose, purchase }: PaymentDialog
   const handleSubmit = async () => {
     if (!purchase) return;
     const balance = purchase.balance_due;
-    const numAmount = Math.min(Number(amount || 0), balance);
+    const numAmount = Number(amount || 0);
     if (numAmount <= 0) return toast.error("Ingresa un monto mayor a cero");
     if (numAmount > balance)
       return toast.error(`El monto no puede exceder el saldo pendiente de ${money(balance)}`);

@@ -268,6 +268,7 @@ export interface Purchase {
 }
 
 export interface PurchaseItemInput {
+  id?: number;
   product_variant_id: number;
   quantity: number;
   unit_cost: number;
@@ -284,6 +285,17 @@ export interface CreatePurchaseData {
   reference?: string | null;
   notes?: string | null;
   items: PurchaseItemInput[];
+}
+
+export interface UpdatePurchaseData {
+  customer_id?: number | null;
+  location_id?: number | null;
+  discount?: number;
+  tax?: number;
+  paid_amount?: number;
+  reference?: string | null;
+  notes?: string | null;
+  items?: PurchaseItemInput[];
 }
 
 // ---- Gastos ----

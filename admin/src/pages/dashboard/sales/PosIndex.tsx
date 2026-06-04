@@ -15,6 +15,7 @@ import {
   User,
   PackagePlus,
   CheckCircle,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -192,7 +193,6 @@ export default function PosIndex() {
   const [discount, setDiscount] = useState("0");
   const [tax, setTax] = useState("0");
   const [paid, setPaid] = useState("0");
-  const [dueDate, setDueDate] = useState("");
   const [supplierQuickOpen, setSupplierQuickOpen] = useState(false);
   const [supplierQuickSaving, setSupplierQuickSaving] = useState(false);
   const [supplierQuickForm, setSupplierQuickForm] = useState({
@@ -229,7 +229,7 @@ export default function PosIndex() {
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<"draft" | "received">(
-    "received",
+    "draft",
   );
 
   // Customer flows (sale only)
@@ -303,7 +303,6 @@ export default function PosIndex() {
     setDiscount("0");
     setTax("0");
     setPaid("0");
-    setDueDate("");
   };
 
   useEffect(() => {
@@ -657,6 +656,15 @@ export default function PosIndex() {
     setConfirmOpen(true);
   };
 
+  const setPaidAmount = (value: string) => {
+    const parsed = Number(value || 0);
+    if (!value) {
+      setPaid("");
+      return;
+    }
+    setPaid(String(Math.min(Math.max(parsed, 0), Math.max(total, 0))));
+  };
+
   const resetAfterSubmit = () => {
     setConfirmOpen(false);
     setCart([]);
@@ -673,7 +681,6 @@ export default function PosIndex() {
       setDiscount("0");
       setTax("0");
       setPaid("0");
-      setDueDate("");
     }
   };
 
@@ -712,8 +719,8 @@ export default function PosIndex() {
         status: confirmStatus,
         discount: discountNum,
         tax: taxNum,
-        paid_amount: Number(paid || 0),
-        due_date: dueDate || null,
+        paid_amount: Math.min(Number(paid || 0), Math.max(total, 0)),
+        due_date: null,
         reference: reference || null,
         notes: null,
         items: cart.flatMap((i) =>
@@ -731,7 +738,7 @@ export default function PosIndex() {
       toast.success(
         confirmStatus === "received"
           ? "Mercancía recibida — stock actualizado"
-          : "Compra guardada como borrador",
+          : "Compra guardada por recibir",
       );
       resetAfterSubmit();
     } catch (e) {
@@ -862,7 +869,7 @@ export default function PosIndex() {
             ))}
           </div>
 
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className={`grid gap-3 ${isSale ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5"}`}>
             {productGroups.length ? (
               productGroups.map((p) => {
                 const inCartCount = cart
@@ -888,7 +895,7 @@ export default function PosIndex() {
                     }}
                     className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
                   >
-                    <div className="relative aspect-square w-full bg-muted">
+                    <div className={`relative w-full bg-muted ${isSale ? "aspect-square" : "aspect-[4/3]"}`}>
                       {p.thumb ? (
                         <img
                           src={p.thumb}
@@ -916,8 +923,8 @@ export default function PosIndex() {
                         </div>
                       )}
                     </div>
-                    <div className="flex flex-1 flex-col gap-0.5 p-2.5">
-                      <p className="line-clamp-2 text-sm font-medium leading-tight">
+                    <div className={`flex flex-1 flex-col gap-0.5 ${isSale ? "p-2.5" : "p-2"}`}>
+                      <p className={`${isSale ? "text-sm" : "text-xs"} line-clamp-2 font-medium leading-tight`}>
                         {p.name}
                       </p>
                       {p.brand && (
@@ -925,7 +932,7 @@ export default function PosIndex() {
                           {p.brand}
                         </p>
                       )}
-                      <p className="mt-auto pt-1 font-semibold text-primary">
+                      <p className={`${isSale ? "text-base" : "text-sm"} mt-auto pt-1 font-semibold text-primary`}>
                         {money(isSale ? p.base_price : p.cost)}
                         {!isSale && (
                           <span className="ml-1 text-[10px] font-normal text-muted-foreground">
@@ -1120,9 +1127,19 @@ export default function PosIndex() {
                           >
                             <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-7 text-center text-sm">
-                            {i.quantity}
-                          </span>
+                          <Input
+                            type="number"
+                            min={1}
+                            max={isSale && !i.is_service ? i.max : undefined}
+                            value={i.quantity}
+                            onChange={(e) =>
+                              setQuantity(
+                                i.cart_key,
+                                Number(e.target.value) || 1,
+                              )
+                            }
+                            className="h-7 w-12 rounded-none border-0 px-1 text-center text-sm focus-visible:ring-0"
+                          />
                           <button
                             type="button"
                             className="px-1.5 py-1 text-muted-foreground hover:text-foreground"
@@ -1276,23 +1293,13 @@ export default function PosIndex() {
                       <Input
                         type="number"
                         min={0}
+                        max={Math.max(total, 0)}
                         step="0.01"
                         value={paid}
-                        onChange={(e) => setPaid(e.target.value)}
+                        onChange={(e) => setPaidAmount(e.target.value)}
                         className="h-8 text-sm"
                       />
                     </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[11px] text-muted-foreground">
-                      Fecha de vencimiento (crédito)
-                    </Label>
-                    <Input
-                      type="date"
-                      value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
-                      className="h-9"
-                    />
                   </div>
                 </div>
               )}
@@ -1350,11 +1357,11 @@ export default function PosIndex() {
                   <div className="grid grid-cols-2 gap-2">
                     <Button
                       variant="outline"
-                      className="w-full"
+                      className="w-full gap-1.5"
                       disabled={cart.length === 0}
                       onClick={() => openConfirm("draft")}
                     >
-                      Guardar borrador
+                      <Clock className="h-4 w-4" /> Guardar por recibir
                     </Button>
                     <Button
                       className="w-full gap-1.5 bg-emerald-600 hover:bg-emerald-700"
@@ -1814,7 +1821,7 @@ export default function PosIndex() {
                 ? "Confirmar venta"
                 : confirmStatus === "received"
                   ? "Recibir mercancía"
-                  : "Guardar borrador"}
+                  : "Guardar por recibir"}
             </DialogTitle>
             <DialogDescription>
               Revisa el resumen antes de registrar.
@@ -1955,7 +1962,7 @@ export default function PosIndex() {
                   >
                     {confirmStatus === "received"
                       ? "Recibida (stock actualizado)"
-                      : "Borrador"}
+                      : "Por recibir"}
                   </span>
                 </div>
               )}

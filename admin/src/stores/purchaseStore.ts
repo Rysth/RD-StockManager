@@ -5,6 +5,7 @@ import type {
   PurchaseStatus,
   PaymentStatus,
   CreatePurchaseData,
+  UpdatePurchaseData,
   Pagination,
 } from "../types/inventory";
 
@@ -56,6 +57,7 @@ interface PurchaseState {
   fetchPurchase: (id: number) => Promise<void>;
   clearSelectedPurchase: () => void;
   createPurchase: (data: CreatePurchaseData) => Promise<Purchase>;
+  updatePurchase: (id: number, data: UpdatePurchaseData) => Promise<Purchase>;
   updatePurchaseStatus: (id: number, status: PurchaseStatus) => Promise<void>;
   updatePurchasePayment: (id: number, paidAmount: number) => Promise<Purchase>;
   deletePurchase: (id: number) => Promise<void>;
@@ -113,7 +115,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
         purchase: {
           customer_id: data.customer_id ?? null,
           location_id: data.location_id ?? null,
-          status: data.status ?? "received",
+          status: data.status ?? "draft",
           discount: data.discount ?? 0,
           tax: data.tax ?? 0,
           paid_amount: data.paid_amount ?? 0,
@@ -128,6 +130,33 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       return response.data.purchase as Purchase;
     } catch (error) {
       const msg = toMessage(error, "Error al registrar la compra");
+      set({ error: msg, isSubmitting: false });
+      throw new Error(msg);
+    }
+  },
+
+  updatePurchase: async (id, data) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const response = await api.put(`/api/v1/purchases/${id}`, {
+        purchase: {
+          customer_id: data.customer_id ?? null,
+          location_id: data.location_id ?? null,
+          discount: data.discount ?? 0,
+          tax: data.tax ?? 0,
+          paid_amount: data.paid_amount ?? 0,
+          reference: data.reference ?? null,
+          notes: data.notes ?? null,
+        },
+        items: data.items ?? [],
+      });
+      const purchase = response.data.purchase as Purchase;
+      const { pagination, currentFilters } = get();
+      await get().fetchPurchases(pagination.current_page, pagination.per_page, currentFilters);
+      set({ isSubmitting: false, selectedPurchase: purchase });
+      return purchase;
+    } catch (error) {
+      const msg = toMessage(error, "Error al actualizar la compra");
       set({ error: msg, isSubmitting: false });
       throw new Error(msg);
     }
