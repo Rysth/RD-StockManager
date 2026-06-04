@@ -1,7 +1,17 @@
 import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import { ArrowRight, Eye, PackageCheck, Plus, X } from "lucide-react";
+import {
+  ArrowRight,
+  ArrowRightLeft,
+  Eye,
+  PackageCheck,
+  Plus,
+  X,
+  Clock,
+  CheckCircle2,
+  SearchX,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { useTransferStore } from "../../../stores/transferStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -31,7 +41,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatsCard } from "@/components/ui/stats-card";
 import Pagination from "../../../components/common/Pagination";
+import EmptyState from "../../../components/common/EmptyState";
+import { ActionIconButton } from "../../../components/common/RowActions";
 import CreateTransferModal from "./CreateTransferModal";
 import TransferDetailSheet from "./TransferDetailSheet";
 
@@ -110,6 +123,10 @@ export default function TransfersIndex() {
   );
   const [toReceive, setToReceive] = useState<StockTransfer | null>(null);
   const [toCancel, setToCancel] = useState<StockTransfer | null>(null);
+
+  const hasFilters = !!(statusFilter || fromFilter || toFilter);
+  const pendingCount = transfers.filter((t) => t.status === "pending").length;
+  const receivedCount = transfers.filter((t) => t.status === "received").length;
 
   useEffect(() => {
     Promise.all([
@@ -203,6 +220,13 @@ export default function TransfersIndex() {
         )}
       </div>
 
+      {/* Resumen */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatsCard variant="minimal" title="Total transferencias" value={pagination.total_count} icon={ArrowRightLeft} />
+        <StatsCard variant="minimal" title="Pendientes" value={pendingCount} description="en esta vista" icon={Clock} />
+        <StatsCard variant="minimal" title="Recibidas" value={receivedCount} description="en esta vista" icon={CheckCircle2} />
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         <select
@@ -247,12 +271,19 @@ export default function TransfersIndex() {
         )}
       </div>
 
+      {!isLoading && transfers.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {pagination.total_count} {pagination.total_count === 1 ? "transferencia" : "transferencias"}
+        </p>
+      )}
+
       {/* Table */}
       <Card className="rounded-xl p-0">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12 text-center">#</TableHead>
                 <TableHead>Código</TableHead>
                 <TableHead>Origen → Destino</TableHead>
                 <TableHead>Items</TableHead>
@@ -265,13 +296,16 @@ export default function TransfersIndex() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     Cargando transferencias...
                   </TableCell>
                 </TableRow>
               ) : transfers.length ? (
-                transfers.map((t) => (
+                transfers.map((t, idx) => (
                   <TableRow key={t.id}>
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    </TableCell>
                     <TableCell className="font-mono text-sm font-medium">
                       {t.code}
                     </TableCell>
@@ -300,35 +334,11 @@ export default function TransfersIndex() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          title="Ver detalle"
-                          onClick={() => openDetail(t)}
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <ActionIconButton icon={Eye} label="Ver detalle" onClick={() => openDetail(t)} />
                         {canManage && t.status === "pending" && (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-emerald-600 hover:text-emerald-700"
-                              title="Confirmar recibo"
-                              onClick={() => setToReceive(t)}
-                            >
-                              <PackageCheck className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-destructive"
-                              title="Cancelar"
-                              onClick={() => setToCancel(t)}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
+                            <ActionIconButton icon={PackageCheck} label="Confirmar recibo" onClick={() => setToReceive(t)} />
+                            <ActionIconButton icon={X} label="Cancelar" onClick={() => setToCancel(t)} destructive />
                           </>
                         )}
                       </div>
@@ -336,12 +346,35 @@ export default function TransfersIndex() {
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell
-                    colSpan={7}
-                    className="h-24 text-center text-muted-foreground"
-                  >
-                    No se encontraron transferencias.
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={8} className="p-0">
+                    {hasFilters ? (
+                      <EmptyState
+                        variant="no-results"
+                        icon={SearchX}
+                        title="Sin resultados"
+                        description="No hay transferencias que coincidan con los filtros."
+                        action={{
+                          label: "Limpiar filtros",
+                          onClick: () => {
+                            setStatusFilter("");
+                            setFromFilter("");
+                            setToFilter("");
+                          },
+                        }}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={ArrowRightLeft}
+                        title="Aún no hay transferencias"
+                        description="Mueve stock entre tus bodegas creando una transferencia."
+                        action={
+                          canManage
+                            ? { label: "Nueva transferencia", onClick: () => setCreateOpen(true), icon: Plus }
+                            : undefined
+                        }
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               )}

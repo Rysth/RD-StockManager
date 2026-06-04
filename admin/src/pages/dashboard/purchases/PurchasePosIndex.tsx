@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Plus,
   Minus,
@@ -19,6 +19,8 @@ import { useAuthStore } from "../../../stores/authStore";
 import {
   usePosCart,
   stockAt,
+  stockTone,
+  findVariantBySku,
   variantCartKey,
   type VariantOption,
 } from "../../../hooks/usePosCart";
@@ -146,6 +148,11 @@ export default function PurchasePosIndex() {
   const [confirmStatus, setConfirmStatus] = useState<"draft" | "received">(
     "draft",
   );
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusSearch = () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  };
 
   const [supplierQuickOpen, setSupplierQuickOpen] = useState(false);
   const [supplierQuickSaving, setSupplierQuickSaving] = useState(false);
@@ -191,6 +198,82 @@ export default function PurchasePosIndex() {
     if (cart.length) {
       clearCart();
       toast("Orden vaciada: cambiaste de destino", { icon: "🏬" });
+    }
+  };
+
+  // Autofocus en la búsqueda al montar (flujo de ingreso / escáner).
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  // Atajos: F2 enfoca búsqueda · F4 abre "Recibir".
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        focusSearch();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        if (cart.length) {
+          setConfirmStatus("received");
+          setConfirmOpen(true);
+        }
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cart.length]);
+
+  // Agrega por SKU exacto (escáner) o, si hay un único resultado, lo resuelve.
+  const quickAddFromQuery = () => {
+    const q = variantQuery.trim();
+    if (!q) return;
+
+    const match = findVariantBySku(products, q);
+    if (match) {
+      const { product, variant } = match;
+      if (isServiceProduct(product)) return;
+      const variantLabel = [variant.size, variant.color].filter(Boolean).join(" / ");
+      addToCart({
+        cart_key: variantCartKey(variant.id),
+        id: variant.id,
+        is_service: false,
+        label: variantLabel ? `${product.name} — ${variantLabel}` : product.name,
+        sku: variant.sku,
+        thumb: variant.images?.[0]?.url || product.images?.[0]?.url,
+        stock: stockAt(variant, locationId),
+        base_price: product.base_price,
+        wholesale_price: product.wholesale_price ?? null,
+        wholesale_min_quantity: product.wholesale_min_quantity ?? 3,
+        cost: product.cost,
+      });
+      setVariantQuery("");
+      focusSearch();
+      return;
+    }
+
+    if (productGroups.length === 1) {
+      const only = productGroups[0];
+      if (only.variants.length === 1) {
+        const v = only.variants[0];
+        addToCart({
+          cart_key: v.cart_key,
+          id: v.id,
+          is_service: false,
+          label: `${only.name} — ${[v.size, v.color].filter(Boolean).join(" / ") || "Producto base"}`,
+          sku: v.sku,
+          thumb: v.thumb,
+          stock: v.stock,
+          base_price: only.base_price,
+          wholesale_price: only.wholesale_price,
+          wholesale_min_quantity: only.wholesale_min_quantity,
+          cost: only.cost,
+        });
+        setVariantQuery("");
+        focusSearch();
+      } else {
+        setSelectedProduct(only);
+      }
     }
   };
 
@@ -367,12 +450,23 @@ export default function PurchasePosIndex() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               className="pl-9"
-              placeholder="Buscar por nombre, marca o SKU..."
+              placeholder="Buscar o escanear SKU…  (Enter agrega)"
               value={variantQuery}
               onChange={(e) => setVariantQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  quickAddFromQuery();
+                }
+              }}
             />
           </div>
+          <p className="hidden shrink-0 text-[11px] text-muted-foreground lg:block">
+            <kbd className="rounded border px-1">F2</kbd> buscar ·{" "}
+            <kbd className="rounded border px-1">F4</kbd> recibir
+          </p>
           {!restrictedToBranch && locations.length > 1 && (
             <div className="flex shrink-0 items-center gap-2">
               <Label className="text-sm text-muted-foreground whitespace-nowrap">
@@ -447,7 +541,26 @@ export default function PurchasePosIndex() {
                     price={money(p.cost)}
                     priceSuffix="costo"
                     inCartCount={inCartCount}
-                    onClick={() => setSelectedProduct(p)}
+                    onClick={() => {
+                      if (p.variants.length === 1 && !hasNamedVariants) {
+                        const v = p.variants[0];
+                        addToCart({
+                          cart_key: v.cart_key,
+                          id: v.id,
+                          is_service: false,
+                          label: p.name,
+                          sku: v.sku,
+                          thumb: v.thumb,
+                          stock: v.stock,
+                          base_price: p.base_price,
+                          wholesale_price: p.wholesale_price,
+                          wholesale_min_quantity: p.wholesale_min_quantity,
+                          cost: p.cost,
+                        });
+                        return;
+                      }
+                      setSelectedProduct(p);
+                    }}
                   />
                 );
               })}
@@ -651,9 +764,9 @@ export default function PurchasePosIndex() {
               )}
             </div>
           )}
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span>Total</span>
-            <span>{money(total)}</span>
+          <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2">
+            <span className="text-sm font-medium text-muted-foreground">Total</span>
+            <span className="text-2xl font-bold tabular-nums">{money(total)}</span>
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -679,7 +792,12 @@ export default function PurchasePosIndex() {
       {/* ── Selector de variante ── */}
       <Dialog
         open={!!selectedProduct}
-        onOpenChange={(open) => !open && setSelectedProduct(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProduct(null);
+            focusSearch();
+          }
+        }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -732,8 +850,14 @@ export default function PurchasePosIndex() {
                   >
                     <div className="min-w-0 flex-1">
                       <p className="font-medium text-sm">{sizeLabel}</p>
-                      <p className="text-xs text-muted-foreground font-mono">
-                        {v.sku}
+                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <Badge
+                          variant="secondary"
+                          className={`px-1.5 py-0 text-[10px] ${stockTone(v.stock)}`}
+                        >
+                          {v.stock} en stock
+                        </Badge>
+                        · <span className="font-mono">{v.sku}</span>
                       </p>
                     </div>
                     {inCart ? (

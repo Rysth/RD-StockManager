@@ -1,6 +1,32 @@
 import { useState } from "react";
 import toast from "react-hot-toast";
-import type { ProductVariant } from "../types/inventory";
+import type { Product, ProductVariant } from "../types/inventory";
+
+/**
+ * Busca una variante por SKU exacto (trim, case-insensitive) entre los
+ * productos. Útil para lectores de código de barras / tecleo rápido en el POS.
+ */
+export function findVariantBySku(
+  products: Product[],
+  sku: string,
+): { product: Product; variant: ProductVariant } | null {
+  const q = sku.trim().toLowerCase();
+  if (!q) return null;
+  for (const product of products) {
+    const variant = product.variants.find(
+      (v) => (v.sku ?? "").toLowerCase() === q,
+    );
+    if (variant) return { product, variant };
+  }
+  return null;
+}
+
+/** Clases de color para un badge de stock (verde / ámbar / rojo). */
+export function stockTone(stock: number): string {
+  if (stock <= 0) return "bg-red-100 text-red-800";
+  if (stock <= 5) return "bg-amber-100 text-amber-800";
+  return "bg-green-100 text-green-800";
+}
 
 export interface CartItem {
   cart_key: string;

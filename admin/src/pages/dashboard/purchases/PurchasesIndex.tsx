@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { Eye, PackageCheck, Ban, DollarSign, PackagePlus } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import {
+  Eye,
+  PackageCheck,
+  Ban,
+  DollarSign,
+  PackagePlus,
+  Truck,
+  SearchX,
+  Clock,
+  CircleDollarSign,
+} from "lucide-react";
 import toast from "react-hot-toast";
 import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -28,8 +38,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { StatsCard } from "@/components/ui/stats-card";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
+import EmptyState from "../../../components/common/EmptyState";
+import { ActionIconButton } from "../../../components/common/RowActions";
 import PurchaseDetailSheet from "./PurchaseDetailSheet";
 import PaymentDialog from "./PaymentDialog";
 
@@ -74,6 +87,13 @@ export default function PurchasesIndex() {
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [toReceive, setToReceive] = useState<Purchase | null>(null);
   const [toCancel, setToCancel] = useState<Purchase | null>(null);
+  const navigate = useNavigate();
+
+  const hasFilters = !!(search || statusFilter || paymentFilter || locationFilter);
+  const receivableCount = purchases.filter((p) => p.status === "draft").length;
+  const payableCount = purchases.filter(
+    (p) => p.status !== "cancelled" && p.payment_status !== "paid",
+  ).length;
 
   useEffect(() => {
     fetchPurchases(1, pagination.per_page, {
@@ -136,6 +156,13 @@ export default function PurchasesIndex() {
         </Button>
       </div>
 
+      {/* Resumen */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatsCard variant="minimal" title="Total compras" value={pagination.total_count} icon={Truck} />
+        <StatsCard variant="minimal" title="Por recibir" value={receivableCount} description="en esta vista" icon={Clock} />
+        <StatsCard variant="minimal" title="Por pagar" value={payableCount} description="en esta vista" icon={CircleDollarSign} />
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <SearchBar
@@ -176,12 +203,19 @@ export default function PurchasesIndex() {
         </select>
       </div>
 
+      {!isLoading && purchases.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {pagination.total_count} {pagination.total_count === 1 ? "compra" : "compras"}
+        </p>
+      )}
+
       {/* Table */}
       <Card className="p-0 rounded-xl">
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12 text-center">#</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Proveedor</TableHead>
                 <TableHead>Ubicación</TableHead>
@@ -194,11 +228,14 @@ export default function PurchasesIndex() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">Cargando compras...</TableCell>
+                  <TableCell colSpan={8} className="h-24 text-center">Cargando compras...</TableCell>
                 </TableRow>
               ) : purchases.length ? (
-                purchases.map((p) => (
+                purchases.map((p, idx) => (
                   <TableRow key={p.id}>
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    </TableCell>
                     <TableCell>
                       {p.purchase_date ? new Date(p.purchase_date).toLocaleDateString("es-EC") : "—"}
                     </TableCell>
@@ -212,49 +249,50 @@ export default function PurchasesIndex() {
                       <Badge variant={paymentVariant(p.payment_status)}>{PAYMENT_LABEL[p.payment_status]}</Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openDetail(p)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <ActionIconButton icon={Eye} label="Ver detalle" onClick={() => openDetail(p)} />
                       {p.status === "draft" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-green-600"
-                          title="Recibir"
-                          onClick={() => setToReceive(p)}
-                        >
-                          <PackageCheck className="h-4 w-4" />
-                        </Button>
+                        <ActionIconButton icon={PackageCheck} label="Recibir" onClick={() => setToReceive(p)} />
                       )}
                       {p.status !== "cancelled" && p.payment_status !== "paid" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-emerald-600"
-                          title="Registrar pago"
-                          onClick={() => setPaymentPurchase(p)}
-                        >
-                          <DollarSign className="h-4 w-4" />
-                        </Button>
+                        <ActionIconButton icon={DollarSign} label="Registrar pago" onClick={() => setPaymentPurchase(p)} />
                       )}
                       {p.status !== "cancelled" && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-destructive"
-                          title="Cancelar"
-                          onClick={() => setToCancel(p)}
-                        >
-                          <Ban className="h-4 w-4" />
-                        </Button>
+                        <ActionIconButton icon={Ban} label="Cancelar" onClick={() => setToCancel(p)} destructive />
                       )}
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    No se encontraron compras.
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={8} className="p-0">
+                    {hasFilters ? (
+                      <EmptyState
+                        variant="no-results"
+                        icon={SearchX}
+                        title="Sin resultados"
+                        description="No hay compras que coincidan con los filtros aplicados."
+                        action={{
+                          label: "Limpiar filtros",
+                          onClick: () => {
+                            setSearch("");
+                            setStatusFilter("");
+                            setPaymentFilter("");
+                            setLocationFilter("");
+                          },
+                        }}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={Truck}
+                        title="Aún no hay compras"
+                        description="Registra tu primera compra a proveedor para ingresar mercancía al inventario."
+                        action={{
+                          label: "Ingresar mercancía",
+                          onClick: () => navigate("/dashboard/purchase-entry"),
+                          icon: PackagePlus,
+                        }}
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               )}

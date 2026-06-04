@@ -28,6 +28,8 @@ import { printTicket } from "../../../lib/ticket";
 import {
   usePosCart,
   stockAt,
+  stockTone,
+  findVariantBySku,
   variantCartKey,
   serviceCartKey,
   bundleCartKey,
@@ -151,6 +153,11 @@ export default function SalesPosIndex() {
   const [customerByOpen, setCustomerByOpen] = useState(false);
   const [customerByQuery, setCustomerByQuery] = useState("");
   const customerSearchRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const focusSearch = () => {
+    searchInputRef.current?.focus();
+    searchInputRef.current?.select();
+  };
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editForm, setEditForm] = useState({
@@ -203,11 +210,100 @@ export default function SalesPosIndex() {
     }
   }, [locations, restrictedToBranch, user, locationId]);
 
+  // Autofocus en la búsqueda al montar (flujo de cajero / escáner).
+  useEffect(() => {
+    searchInputRef.current?.focus();
+  }, []);
+
+  // Atajos: F2 enfoca búsqueda · F4 abre cobro.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "F2") {
+        e.preventDefault();
+        focusSearch();
+      } else if (e.key === "F4") {
+        e.preventDefault();
+        if (cart.length) setConfirmOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [cart.length]);
+
   const handleLocationChange = (value: string) => {
     setLocationId(value);
     if (cart.length) {
       clearCart();
       toast("Carrito vaciado: cambiaste de ubicación", { icon: "🏬" });
+    }
+  };
+
+  // Agrega por SKU exacto (escáner) o, si hay un único resultado, lo resuelve.
+  const quickAddFromQuery = () => {
+    const q = variantQuery.trim();
+    if (!q) return;
+
+    const match = findVariantBySku(products, q);
+    if (match) {
+      const { product, variant } = match;
+      const service = isServiceProduct(product);
+      const stock = stockAt(variant, locationId);
+      if (!service && stock <= 0) {
+        toast.error("Sin stock disponible");
+        return;
+      }
+      const variantLabel = [variant.size, variant.color].filter(Boolean).join(" / ");
+      addToCart({
+        cart_key: variantCartKey(variant.id),
+        id: variant.id,
+        is_service: service,
+        label: variantLabel ? `${product.name} — ${variantLabel}` : product.name,
+        sku: variant.sku,
+        thumb: variant.images?.[0]?.url || product.images?.[0]?.url,
+        stock,
+        base_price: product.base_price,
+        wholesale_price: product.wholesale_price ?? null,
+        wholesale_min_quantity: product.wholesale_min_quantity ?? 3,
+        cost: product.cost,
+      });
+      setVariantQuery("");
+      focusSearch();
+      return;
+    }
+
+    if (productGroups.length === 1) {
+      const only = productGroups[0];
+      if (only.item_type === "bundle") {
+        addBundleToCart({
+          id: only.id,
+          name: only.name,
+          base_price: only.base_price,
+          cost: only.cost,
+          available_stock: only.available_stock ?? 0,
+        });
+      } else if (only.product_type === "service" && !only.variants.length) {
+        addServiceWithoutVariant(only);
+      } else if (only.variants.length === 1) {
+        const v = only.variants[0];
+        addToCart({
+          cart_key: v.cart_key,
+          id: v.id,
+          is_service: v.is_service,
+          label: `${only.name} — ${[v.size, v.color].filter(Boolean).join(" / ") || "Producto base"}`,
+          sku: v.sku,
+          thumb: v.thumb,
+          stock: v.stock,
+          base_price: only.base_price,
+          wholesale_price: only.wholesale_price,
+          wholesale_min_quantity: only.wholesale_min_quantity,
+          cost: only.cost,
+        });
+      } else {
+        setSelectedProduct(only);
+        return;
+      }
+      setVariantQuery("");
+      focusSearch();
     }
   };
 
@@ -454,12 +550,23 @@ export default function SalesPosIndex() {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
+              ref={searchInputRef}
               className="pl-9"
-              placeholder="Buscar por nombre, marca o SKU..."
+              placeholder="Buscar o escanear SKU…  (Enter agrega)"
               value={variantQuery}
               onChange={(e) => setVariantQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  quickAddFromQuery();
+                }
+              }}
             />
           </div>
+          <p className="hidden shrink-0 text-[11px] text-muted-foreground lg:block">
+            <kbd className="rounded border px-1">F2</kbd> buscar ·{" "}
+            <kbd className="rounded border px-1">F4</kbd> cobrar
+          </p>
           {!restrictedToBranch && locations.length > 1 && (
             <div className="flex shrink-0 items-center gap-2">
               <Label className="text-sm text-muted-foreground whitespace-nowrap">
@@ -561,6 +668,24 @@ export default function SalesPosIndex() {
                       }
                       if (p.product_type === "service" && !p.variants.length) {
                         addServiceWithoutVariant(p);
+                        return;
+                      }
+                      // Variante única sin talla/color → agregar directo (sin diálogo).
+                      if (p.variants.length === 1 && !hasNamedVariants) {
+                        const v = p.variants[0];
+                        addToCart({
+                          cart_key: v.cart_key,
+                          id: v.id,
+                          is_service: v.is_service,
+                          label: p.name,
+                          sku: v.sku,
+                          thumb: v.thumb,
+                          stock: v.stock,
+                          base_price: p.base_price,
+                          wholesale_price: p.wholesale_price,
+                          wholesale_min_quantity: p.wholesale_min_quantity,
+                          cost: p.cost,
+                        });
                         return;
                       }
                       setSelectedProduct(p);
@@ -804,9 +929,9 @@ export default function SalesPosIndex() {
               </div>
             </div>
           )}
-          <div className="flex items-center justify-between text-lg font-bold">
-            <span>Total</span>
-            <span>{money(total)}</span>
+          <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2">
+            <span className="text-sm font-medium text-muted-foreground">Total</span>
+            <span className="text-2xl font-bold tabular-nums">{money(total)}</span>
           </div>
 
           <Button
@@ -816,6 +941,9 @@ export default function SalesPosIndex() {
           >
             <CheckCircle className="mr-2 h-5 w-5" />
             {cashOnDelivery ? "Registrar Pedido" : "Completar Venta"}
+            <kbd className="ml-2 hidden rounded border border-primary-foreground/30 px-1 text-[10px] font-normal opacity-80 sm:inline">
+              F4
+            </kbd>
           </Button>
         </div>
       </div>
@@ -823,7 +951,12 @@ export default function SalesPosIndex() {
       {/* ── Selector de variante ── */}
       <Dialog
         open={!!selectedProduct}
-        onOpenChange={(open) => !open && setSelectedProduct(null)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedProduct(null);
+            focusSearch();
+          }
+        }}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -868,8 +1001,17 @@ export default function SalesPosIndex() {
                         <Thumb url={v.thumb} size="h-8 w-8" />
                         <div>
                           <p className="font-medium text-sm">{sizeLabel}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {v.is_service ? "Servicio" : `${v.stock} en stock`}{" "}
+                          <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                            {v.is_service ? (
+                              "Servicio"
+                            ) : (
+                              <Badge
+                                variant="secondary"
+                                className={`px-1.5 py-0 text-[10px] ${stockTone(v.stock)}`}
+                              >
+                                {v.stock} en stock
+                              </Badge>
+                            )}
                             · <span className="font-mono">{v.sku}</span>
                           </p>
                         </div>
