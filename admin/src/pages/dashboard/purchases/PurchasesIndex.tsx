@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Eye, PackageCheck, Ban, DollarSign, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Eye, PackageCheck, Ban, DollarSign, PackagePlus } from "lucide-react";
 import toast from "react-hot-toast";
 import { usePurchaseStore } from "../../../stores/purchaseStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -29,7 +30,6 @@ import {
 } from "@/components/ui/table";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
-import CreatePurchaseModal from "./CreatePurchaseModal";
 import PurchaseDetailSheet from "./PurchaseDetailSheet";
 import PaymentDialog from "./PaymentDialog";
 
@@ -70,7 +70,6 @@ export default function PurchasesIndex() {
   const [paymentFilter, setPaymentFilter] = useState<PaymentStatus | "">("");
   const [locationFilter, setLocationFilter] = useState("");
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
   const [paymentPurchase, setPaymentPurchase] = useState<Purchase | null>(null);
   const [toReceive, setToReceive] = useState<Purchase | null>(null);
@@ -130,8 +129,10 @@ export default function PurchasesIndex() {
             Registra compras a proveedores e ingresa mercancía al inventario
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} size="sm">
-          <Plus className="w-4 h-4 mr-2" /> Nueva Compra
+        <Button asChild size="sm">
+          <Link to="/dashboard/pos?mode=purchase">
+            <PackagePlus className="w-4 h-4 mr-2" /> Ingresar mercancía
+          </Link>
         </Button>
       </div>
 
@@ -279,8 +280,6 @@ export default function PurchasesIndex() {
       />
 
       {/* Sub-components */}
-      <CreatePurchaseModal open={createOpen} onClose={() => setCreateOpen(false)} />
-
       <PurchaseDetailSheet
         open={detailOpen}
         onClose={() => setDetailOpen(false)}

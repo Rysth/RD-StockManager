@@ -55,7 +55,7 @@ function StockBadge({ stock }: { stock: number }) {
 
 function Thumb({ url, size = "h-10 w-10" }: { url?: string; size?: string }) {
   return url ? (
-    <img src={url} alt="" className={`${size} rounded-md object-cover border`} />
+    <img src={url} alt="" className={`${size} aspect-square rounded-md border bg-white object-contain`} />
   ) : (
     <div className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}>
       <ImageIcon className="h-4 w-4" />

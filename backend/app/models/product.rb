@@ -11,6 +11,8 @@ class Product < ApplicationRecord
 
   accepts_nested_attributes_for :product_variants, allow_destroy: true
 
+  before_validation :ensure_base_variant
+
   validates :name, presence: { message: "El nombre es requerido" }
   validates :base_price, numericality: { greater_than_or_equal_to: 0, message: "El precio debe ser mayor o igual a 0" }
   validates :cost, numericality: { greater_than_or_equal_to: 0, message: "El costo debe ser mayor o igual a 0" }
@@ -62,5 +64,12 @@ class Product < ApplicationRecord
       errors.add(:images, "debe ser JPG, PNG o WEBP") unless acceptable.include?(img.blob.content_type)
       errors.add(:images, "cada imagen debe ser menor a 2MB") if img.blob.byte_size > 2.megabytes
     end
+  end
+
+  def ensure_base_variant
+    return unless product_type == "good"
+    return if product_variants.reject(&:marked_for_destruction?).any?
+
+    product_variants.build(stock: 0)
   end
 end

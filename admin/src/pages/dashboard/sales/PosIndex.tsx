@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Minus,
@@ -67,7 +68,7 @@ function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
     <img
       src={url}
       alt=""
-      className={`${size} rounded-md border object-cover`}
+      className={`${size} aspect-square rounded-md border bg-white object-contain`}
     />
   ) : (
     <div
@@ -128,7 +129,21 @@ function suggestedPrice(
 const variantCartKey = (id: number) => `variant:${id}`;
 const serviceCartKey = (id: number) => `service:${id}`;
 
+const validateSupplierId = (idType: string, idNumber: string) => {
+  const value = idNumber.trim();
+  if (!idType) return "El tipo de documento es requerido";
+  if (!value) return "El número de documento es requerido";
+  if (idType === "cedula" && !/^\d{10}$/.test(value))
+    return "La cédula debe tener 10 dígitos";
+  if (idType === "ruc" && !/^\d{13}$/.test(value))
+    return "El RUC debe tener 13 dígitos";
+  if (idType === "pasaporte" && (value.length < 5 || value.length > 20))
+    return "El pasaporte debe tener entre 5 y 20 caracteres";
+  return null;
+};
+
 export default function PosIndex() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const { products, categories, fetchProducts, fetchCategories } =
     useInventoryStore();
   const { customers, fetchCustomers, createCustomer, updateCustomer } =
@@ -148,7 +163,13 @@ export default function PosIndex() {
     hasPermission(Permissions.VIEW_PURCHASES) && !isBusinessEmployee;
 
   // ── Mode (venta / compra) ────────────────────────────────────
-  const [mode, setMode] = useState<Mode>(() => (canSell ? "sale" : "purchase"));
+  const [mode, setMode] = useState<Mode>(() =>
+    searchParams.get("mode") === "purchase" && canPurchase
+      ? "purchase"
+      : canSell
+        ? "sale"
+        : "purchase",
+  );
   const isSubmitting =
     mode === "sale" ? isSubmittingSale : isSubmittingPurchase;
 
@@ -172,6 +193,16 @@ export default function PosIndex() {
   const [tax, setTax] = useState("0");
   const [paid, setPaid] = useState("0");
   const [dueDate, setDueDate] = useState("");
+  const [supplierQuickOpen, setSupplierQuickOpen] = useState(false);
+  const [supplierQuickSaving, setSupplierQuickSaving] = useState(false);
+  const [supplierQuickForm, setSupplierQuickForm] = useState({
+    name: "",
+    id_type: "ruc",
+    id_number: "",
+    phone: "",
+    email: "",
+    city: "",
+  });
 
   // ── Dialog state ─────────────────────────────────────────────
   const [selectedProduct, setSelectedProduct] = useState<{
@@ -204,7 +235,6 @@ export default function PosIndex() {
   // Customer flows (sale only)
   const [customerByOpen, setCustomerByOpen] = useState(false);
   const [customerByQuery, setCustomerByQuery] = useState("");
-  const [_customerByNotFound, setCustomerByNotFound] = useState(false);
   const customerSearchRef = useRef<HTMLInputElement>(null);
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
@@ -254,6 +284,11 @@ export default function PosIndex() {
 
   // Cambiar de modo limpia el carrito y los datos específicos (operación distinta).
   const switchMode = (next: Mode) => {
+    const nextParams = new URLSearchParams(searchParams);
+    if (next === "purchase") nextParams.set("mode", "purchase");
+    else nextParams.delete("mode");
+    setSearchParams(nextParams, { replace: true });
+
     if (next === mode) return;
     setMode(next);
     setCart([]);
@@ -270,6 +305,17 @@ export default function PosIndex() {
     setPaid("0");
     setDueDate("");
   };
+
+  useEffect(() => {
+    if (
+      searchParams.get("mode") === "purchase" &&
+      canPurchase &&
+      mode !== "purchase"
+    ) {
+      switchMode("purchase");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, canPurchase, mode]);
 
   // Stock de una variante en la ubicación seleccionada (cae al total si no hay desglose).
   const stockAt = (v: ProductVariant): number => {
@@ -465,6 +511,46 @@ export default function PosIndex() {
   const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
   const selectedSupplier = suppliers.find((s) => String(s.id) === supplierId);
+
+  const saveQuickSupplier = async () => {
+    if (!supplierQuickForm.name.trim())
+      return toast.error("El nombre del proveedor es requerido");
+    const idError = validateSupplierId(
+      supplierQuickForm.id_type,
+      supplierQuickForm.id_number,
+    );
+    if (idError) return toast.error(idError);
+
+    setSupplierQuickSaving(true);
+    try {
+      const created = await createCustomer({
+        name: supplierQuickForm.name,
+        id_type: supplierQuickForm.id_type,
+        id_number: supplierQuickForm.id_number,
+        phone: supplierQuickForm.phone,
+        email: supplierQuickForm.email || undefined,
+        city: supplierQuickForm.city,
+        is_customer: false,
+        is_supplier: true,
+      });
+      setSupplierId(String(created.id));
+      await fetchCustomers(1, 200, "");
+      toast.success(`Proveedor ${created.name} creado y seleccionado`);
+      setSupplierQuickOpen(false);
+      setSupplierQuickForm({
+        name: "",
+        id_type: "ruc",
+        id_number: "",
+        phone: "",
+        email: "",
+        city: "",
+      });
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al crear el proveedor"));
+    } finally {
+      setSupplierQuickSaving(false);
+    }
+  };
 
   // ── Cliente rápido (venta) ───────────────────────────────────
   const saveQuickCustomer = async () => {
@@ -786,6 +872,9 @@ export default function PosIndex() {
                       : c.cart_key === serviceCartKey(p.id),
                   )
                   .reduce((s, c) => s + c.quantity, 0);
+                const hasNamedVariants = p.variants.some(
+                  (v) => !!v.size || !!v.color,
+                );
                 return (
                   <button
                     key={p.id}
@@ -804,7 +893,7 @@ export default function PosIndex() {
                         <img
                           src={p.thumb}
                           alt=""
-                          className="h-full w-full object-cover"
+                          className="h-full w-full bg-white object-contain"
                         />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-muted-foreground">
@@ -817,6 +906,8 @@ export default function PosIndex() {
                       >
                         {p.product_type === "service" && p.variantCount === 0
                           ? "Servicio"
+                          : p.variantCount === 1 && !hasNamedVariants
+                            ? "Prod. base"
                           : `${p.variantCount} ${p.variantCount === 1 ? "talla" : "tallas"}`}
                       </Badge>
                       {inCartCount > 0 && (
@@ -900,11 +991,10 @@ export default function PosIndex() {
                               `${found.name}${found.id_number ? ` (${found.id_number})` : ""}`,
                             );
                             toast.success(`Cliente: ${found.name}`);
-                          } else {
-                            setCustomerByQuery(num);
-                            setCustomerByNotFound(true);
-                            setCustomerByOpen(true);
-                          }
+                            } else {
+                              setCustomerByQuery(num);
+                              setCustomerByOpen(true);
+                            }
                         }
                       }}
                       placeholder="Cédula / Enter para buscar..."
@@ -934,18 +1024,29 @@ export default function PosIndex() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <select
-                    value={supplierId}
-                    onChange={(e) => setSupplierId(e.target.value)}
-                    className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  >
-                    <option value="">Sin proveedor</option>
-                    {suppliers.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex gap-2">
+                    <select
+                      value={supplierId}
+                      onChange={(e) => setSupplierId(e.target.value)}
+                      className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Sin proveedor</option>
+                      {suppliers.map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                    </select>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-9 w-9 shrink-0"
+                      title="Nuevo proveedor"
+                      onClick={() => setSupplierQuickOpen(true)}
+                    >
+                      <UserPlus className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Input
                     value={reference}
                     onChange={(e) => setReference(e.target.value)}
@@ -1293,7 +1394,7 @@ export default function PosIndex() {
                   <img
                     src={selectedProduct.thumb}
                     alt={selectedProduct.name}
-                    className="h-28 w-28 rounded-lg border object-cover"
+                    className="h-28 w-28 rounded-lg border bg-white object-contain"
                   />
                 ) : (
                   <div className="flex h-28 w-28 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
@@ -1309,7 +1410,8 @@ export default function PosIndex() {
             <div className="flex-1 space-y-2">
               {selectedProduct?.variants.map((v) => {
                 const sizeLabel =
-                  [v.size, v.color].filter(Boolean).join(" / ") || v.sku;
+                  [v.size, v.color].filter(Boolean).join(" / ") ||
+                  (v.is_service ? "Servicio" : "Producto base");
                 const inCart = cart.find((c) => c.cart_key === v.cart_key);
                 return (
                   <div
@@ -1393,6 +1495,120 @@ export default function PosIndex() {
         </DialogContent>
       </Dialog>
 
+      {/* ── Nuevo proveedor rápido (compra) ── */}
+      <Dialog open={supplierQuickOpen} onOpenChange={setSupplierQuickOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Nuevo proveedor</DialogTitle>
+            <DialogDescription>
+              Registra un proveedor y selecciónalo para esta compra.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="qs-name">Nombre *</Label>
+              <Input
+                id="qs-name"
+                placeholder="Razón social o nombre comercial"
+                value={supplierQuickForm.name}
+                onChange={(e) =>
+                  setSupplierQuickForm((f) => ({ ...f, name: e.target.value }))
+                }
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="qs-id-type">Documento *</Label>
+                <select
+                  id="qs-id-type"
+                  value={supplierQuickForm.id_type}
+                  onChange={(e) =>
+                    setSupplierQuickForm((f) => ({
+                      ...f,
+                      id_type: e.target.value,
+                    }))
+                  }
+                  className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                >
+                  <option value="ruc">RUC</option>
+                  <option value="cedula">Cédula</option>
+                  <option value="pasaporte">Pasaporte</option>
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="qs-id-number">Número *</Label>
+                <Input
+                  id="qs-id-number"
+                  placeholder="Identificación"
+                  value={supplierQuickForm.id_number}
+                  inputMode={
+                    supplierQuickForm.id_type === "pasaporte" ? "text" : "numeric"
+                  }
+                  maxLength={
+                    supplierQuickForm.id_type === "ruc"
+                      ? 13
+                      : supplierQuickForm.id_type === "cedula"
+                        ? 10
+                        : 20
+                  }
+                  onChange={(e) =>
+                    setSupplierQuickForm((f) => ({
+                      ...f,
+                      id_number: e.target.value,
+                    }))
+                  }
+                />
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qs-phone">Teléfono</Label>
+              <Input
+                id="qs-phone"
+                placeholder="09XXXXXXXX"
+                value={supplierQuickForm.phone}
+                onChange={(e) =>
+                  setSupplierQuickForm((f) => ({ ...f, phone: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qs-email">Correo electrónico</Label>
+              <Input
+                id="qs-email"
+                type="email"
+                placeholder="proveedor@ejemplo.com"
+                value={supplierQuickForm.email}
+                onChange={(e) =>
+                  setSupplierQuickForm((f) => ({ ...f, email: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="qs-city">Ciudad</Label>
+              <Input
+                id="qs-city"
+                placeholder="Guayaquil"
+                value={supplierQuickForm.city}
+                onChange={(e) =>
+                  setSupplierQuickForm((f) => ({ ...f, city: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSupplierQuickOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button onClick={saveQuickSupplier} disabled={supplierQuickSaving}>
+              {supplierQuickSaving ? "Guardando..." : "Guardar y seleccionar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Cliente no encontrado (venta) ── */}
       <AlertDialog
         open={customerByOpen}
@@ -1412,7 +1628,6 @@ export default function PosIndex() {
             <AlertDialogCancel
               onClick={() => {
                 setCustomerByOpen(false);
-                setCustomerByNotFound(false);
               }}
             >
               Cancelar

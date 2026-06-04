@@ -81,7 +81,7 @@ function Thumb({ url, size = "h-16 w-16" }: { url?: string; size?: string }) {
     <img
       src={url}
       alt=""
-      className={`${size} rounded-md object-cover border`}
+      className={`${size} aspect-square rounded-md border bg-white object-contain`}
     />
   ) : (
     <div
@@ -303,7 +303,15 @@ export default function ProductFormModal({
     if (!form.category_id) return toast.error("Selecciona una categoría");
 
     const variantAttributes = form.variants
-      .filter((v) => v.id || (!v._destroy && (v.size || v.color)))
+      .filter(
+        (v) =>
+          v.id ||
+          (!v._destroy &&
+            (v.size.trim() ||
+              v.color.trim() ||
+              Number(v.stock) > 0 ||
+              v.pendingFiles.length > 0)),
+      )
       .map((v) => ({
         id: v.id,
         size: v.size,
@@ -311,6 +319,16 @@ export default function ProductFormModal({
         stock: Number(v.stock) || 0,
         _destroy: v._destroy,
       }));
+
+    if (form.product_type === "good" && variantAttributes.length === 0) {
+      variantAttributes.push({
+        id: undefined,
+        size: "",
+        color: "",
+        stock: 0,
+        _destroy: undefined,
+      });
+    }
 
     if (
       !product &&
@@ -683,7 +701,7 @@ export default function ProductFormModal({
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">
-                              Stock
+                              Stock inicial
                             </Label>
                             <Input
                               type="number"

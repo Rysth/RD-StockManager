@@ -9,6 +9,7 @@ import {
   ChevronsUpDown,
   ChevronRight,
   Package2,
+  PackagePlus,
   ShoppingBag,
   ShoppingCart,
   Users2,
@@ -152,6 +153,11 @@ export default function AppSidebar({
       location.pathname.startsWith("/dashboard/users"),
     [location.pathname],
   );
+  const isPurchaseEntryActive =
+    location.pathname.startsWith("/dashboard/pos") &&
+    location.search.includes("mode=purchase");
+  const isPosActive =
+    location.pathname.startsWith("/dashboard/pos") && !isPurchaseEntryActive;
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -318,9 +324,9 @@ export default function AppSidebar({
                 {/*
                   Orden = flujo de trabajo paso a paso:
                   1) Contactos → 2) Marcas/Categorías → 3) Inventario →
-                  4) Ubicaciones → 5) Compras → 6) Punto de Venta →
-                  7) Ventas → 8) Cotizaciones → 9) Facturas →
-                  10) Gastos → 11) Informes.
+                  4) Ubicaciones → 5) Ingreso de mercancía → 6) Compras →
+                  7) Punto de Venta → 8) Ventas → 9) Cotizaciones →
+                  10) Facturas → 11) Gastos → 12) Informes.
                   Para business_employee: solo POS, Ventas e Inventario.
                 */}
                 {/* 1. Contactos (clientes y proveedores) */}
@@ -387,12 +393,28 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {/* 5. Compras (ingreso de mercancía / stock) */}
+                {/* 5. Ingreso de mercancía (compra / stock) */}
                 {canViewPurchases && !isBusinessEmployee && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
-                      tooltip="Compras"
+                      tooltip="Ingreso de mercancía"
+                      isActive={isPurchaseEntryActive}
+                      className={activeMenuClasses}
+                    >
+                      <NavLink to="/dashboard/pos?mode=purchase">
+                        <PackagePlus />
+                        <span>Ingreso de Mercadería</span>
+                      </NavLink>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {/* 6. Compras (historial) */}
+                {canViewPurchases && !isBusinessEmployee && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      tooltip="Historial de compras"
                       isActive={isActiveRoute("/dashboard/purchases")}
                       className={activeMenuClasses}
                     >
@@ -403,14 +425,13 @@ export default function AppSidebar({
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
-                {/* 6. Punto de Venta */}
-                {(canManageSales ||
-                  (canViewPurchases && !isBusinessEmployee)) && (
+                {/* 7. Punto de Venta */}
+                {canManageSales && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
                       tooltip="Punto de Venta"
-                      isActive={isActiveRoute("/dashboard/pos")}
+                      isActive={isPosActive}
                       className={activeMenuClasses}
                     >
                       <NavLink to="/dashboard/pos">

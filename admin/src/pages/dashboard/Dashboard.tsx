@@ -106,7 +106,7 @@ const QUICK_LINKS = [
     perm: Permissions.MANAGE_SALES,
   },
   {
-    to: "/dashboard/pos",
+    to: "/dashboard/pos?mode=purchase",
     icon: PackagePlus,
     label: "Ingreso rápido",
     color: "text-blue-600",
@@ -198,9 +198,9 @@ export default function Dashboard() {
   const canManageSales = hasPermission(Permissions.MANAGE_SALES);
   const canViewPurchases = hasPermission(Permissions.VIEW_PURCHASES);
 
-  if (!canViewReports) return <Navigate to="/dashboard/sales" replace />;
-
   useEffect(() => {
+    if (!canViewReports) return;
+
     fetchReport().catch((e) =>
       toast.error(e?.message || "Error al cargar reportes"),
     );
@@ -216,6 +216,8 @@ export default function Dashboard() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  if (!canViewReports) return <Navigate to="/dashboard/sales" replace />;
 
   if (salesLoading && !report) return <DashboardSkeleton />;
   if (!report) return null;
