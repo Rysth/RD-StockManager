@@ -68,15 +68,15 @@ export default function PosLayout() {
   if (!hasAccess) return <Navigate to={defaultRoute} replace />;
 
   return (
-    <div className="dashboard-theme">
-      <SidebarProvider>
+    <div className="dashboard-theme h-svh overflow-hidden">
+      <SidebarProvider className="h-full">
         <AppSidebar
           user={user}
           canManageUsers={canManageUsers}
           storePermissions={storePermissions}
           setLogoutModalOpen={setLogoutModalOpen}
         />
-        <SidebarInset className="flex h-svh flex-col overflow-hidden">
+        <SidebarInset className="flex min-h-0 flex-1 flex-col overflow-hidden">
           <header className="sticky top-0 z-30 flex h-14 shrink-0 items-center gap-3 border-b border-border/50 bg-card/85 px-4 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-card/70 md:h-16 md:px-6">
             <SidebarTrigger className="-ml-1 size-9 md:size-8" />
             <Separator

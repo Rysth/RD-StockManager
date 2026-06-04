@@ -25,6 +25,7 @@ interface ProductBundleState {
   fetchBundles: (locationId?: number | string) => Promise<void>;
   createBundle: (data: ProductBundleInput) => Promise<ProductBundle>;
   deleteBundle: (id: number) => Promise<void>;
+  restoreBundle: (id: number) => Promise<void>;
 }
 
 export const useProductBundleStore = create<ProductBundleState>((set, get) => ({
@@ -63,5 +64,12 @@ export const useProductBundleStore = create<ProductBundleState>((set, get) => ({
   deleteBundle: async (id) => {
     await api.delete(`/api/v1/product_bundles/${id}`);
     set((state) => ({ bundles: state.bundles.filter((b) => b.id !== id) }));
+  },
+
+  restoreBundle: async (id) => {
+    await api.put(`/api/v1/product_bundles/${id}`, {
+      product_bundle: { active: true },
+    });
+    await get().fetchBundles();
   },
 }));

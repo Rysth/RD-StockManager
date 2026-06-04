@@ -56,11 +56,13 @@ interface CustomerState {
   error: string | null;
   currentSearch: string;
   currentRole: ContactRole;
+  currentArchived: boolean;
 
-  fetchCustomers: (page?: number, perPage?: number, search?: string, role?: ContactRole) => Promise<void>;
+  fetchCustomers: (page?: number, perPage?: number, search?: string, role?: ContactRole, archived?: boolean) => Promise<void>;
   createCustomer: (data: CustomerInput) => Promise<Customer>;
   updateCustomer: (id: number, data: CustomerInput) => Promise<void>;
   deleteCustomer: (id: number) => Promise<void>;
+  restoreCustomer: (id: number) => Promise<void>;
 }
 
 export const useCustomerStore = create<CustomerState>((set, get) => ({
@@ -70,13 +72,15 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
   error: null,
   currentSearch: "",
   currentRole: "",
+  currentArchived: false,
 
-  fetchCustomers: async (page = 1, perPage = 12, search = "", role = "") => {
-    set({ isLoading: true, error: null, currentSearch: search, currentRole: role });
+  fetchCustomers: async (page = 1, perPage = 12, search = "", role = "", archived = false) => {
+    set({ isLoading: true, error: null, currentSearch: search, currentRole: role, currentArchived: archived });
     try {
       const params: Record<string, string | number> = { page, per_page: perPage };
       if (search) params.search = search;
       if (role) params.role = role;
+      if (archived) params.archived = "true";
       const response = await api.get("/api/v1/customers", { params });
       set({
         customers: response.data.customers,
@@ -93,8 +97,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post("/api/v1/customers", { customer: data });
-      const { pagination, currentSearch, currentRole } = get();
-      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole);
+      const { pagination, currentSearch, currentRole, currentArchived } = get();
+      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole, currentArchived);
       return response.data.customer as Customer;
     } catch (error) {
       const msg = toMessage(error, "Error al crear el cliente");
@@ -107,8 +111,8 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.put(`/api/v1/customers/${id}`, { customer: data });
-      const { pagination, currentSearch, currentRole } = get();
-      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole);
+      const { pagination, currentSearch, currentRole, currentArchived } = get();
+      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole, currentArchived);
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar el cliente");
       set({ error: msg, isLoading: false });
@@ -120,14 +124,27 @@ export const useCustomerStore = create<CustomerState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.delete(`/api/v1/customers/${id}`);
-      const { pagination, currentSearch, currentRole, customers } = get();
+      const { pagination, currentSearch, currentRole, currentArchived, customers } = get();
       const page =
         customers.length === 1 && pagination.current_page > 1
           ? pagination.current_page - 1
           : pagination.current_page;
-      await get().fetchCustomers(page, pagination.per_page, currentSearch, currentRole);
+      await get().fetchCustomers(page, pagination.per_page, currentSearch, currentRole, currentArchived);
     } catch (error) {
       const msg = toMessage(error, "Error al archivar el cliente");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  restoreCustomer: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/customers/${id}`, { customer: { active: true } });
+      const { pagination, currentSearch, currentRole, currentArchived } = get();
+      await get().fetchCustomers(pagination.current_page, pagination.per_page, currentSearch, currentRole, currentArchived);
+    } catch (error) {
+      const msg = toMessage(error, "Error al restaurar el cliente");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
     }

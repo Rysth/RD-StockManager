@@ -102,6 +102,7 @@ interface InventoryState {
   createProduct: (data: ProductInput) => Promise<Product>;
   updateProduct: (id: number, data: ProductInput) => Promise<Product>;
   deleteProduct: (id: number) => Promise<void>;
+  restoreProduct: (id: number) => Promise<void>;
   fetchLowStock: () => Promise<void>;
   uploadProductImages: (id: number, files: File[]) => Promise<void>;
   deleteProductImage: (id: number, imageId: number) => Promise<void>;
@@ -115,11 +116,13 @@ interface InventoryState {
   createCategory: (data: CategoryInput) => Promise<void>;
   updateCategory: (id: number, data: CategoryInput) => Promise<void>;
   deleteCategory: (id: number) => Promise<void>;
+  restoreCategory: (id: number) => Promise<void>;
 
   fetchBrands: () => Promise<void>;
   createBrand: (data: BrandInput) => Promise<void>;
   updateBrand: (id: number, data: BrandInput) => Promise<void>;
   deleteBrand: (id: number) => Promise<void>;
+  restoreBrand: (id: number) => Promise<void>;
 
   fetchStats: () => Promise<void>;
 }
@@ -296,6 +299,19 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     }
   },
 
+  restoreProduct: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/products/${id}`, { product: { active: true } });
+      const { pagination, currentFilters } = get();
+      await get().fetchProducts(pagination.current_page, pagination.per_page, currentFilters);
+    } catch (error) {
+      const msg = toMessage(error, "Error al restaurar el producto");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
   fetchLowStock: async () => {
     set({ error: null });
     try {
@@ -355,6 +371,19 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
     }
   },
 
+  restoreCategory: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/categories/${id}`, { category: { active: true } });
+      await get().fetchCategories();
+      set({ isLoading: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al restaurar la categoría");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
   fetchBrands: async () => {
     set({ error: null });
     try {
@@ -399,6 +428,19 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       set({ isLoading: false });
     } catch (error) {
       const msg = toMessage(error, "Error al archivar la marca");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  restoreBrand: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/brands/${id}`, { brand: { active: true } });
+      await get().fetchBrands();
+      set({ isLoading: false });
+    } catch (error) {
+      const msg = toMessage(error, "Error al restaurar la marca");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
     }

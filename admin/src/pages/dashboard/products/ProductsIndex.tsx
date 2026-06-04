@@ -1,13 +1,14 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import {
   Plus,
-  Pencil,
   ChevronRight,
   ChevronDown,
-  Archive,
   Upload,
   FileDown,
   Boxes,
+  Package2,
+  PackageX,
+  SearchX,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import toast from "react-hot-toast";
@@ -50,6 +51,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ImageIcon } from "lucide-react";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
+import EmptyState from "../../../components/common/EmptyState";
+import ArchivedToggle from "../../../components/common/ArchivedToggle";
+import { EditAction, ArchiveAction, RestoreAction } from "../../../components/common/RowActions";
+import { toastUndo } from "../../../lib/toastUndo";
 import ProductFormModal from "./ProductFormModal";
 import ImportProductsDialog from "./ImportProductsDialog";
 import ProductBundleDialog from "./ProductBundleDialog";
@@ -171,9 +176,10 @@ export default function ProductsIndex() {
     fetchCategories,
     fetchBrands,
     deleteProduct,
+    restoreProduct,
     exportProducts,
   } = useInventoryStore();
-  const { bundles, fetchBundles, deleteBundle } = useProductBundleStore();
+  const { bundles, fetchBundles, deleteBundle, restoreBundle } = useProductBundleStore();
   const { locations, fetchLocations } = useLocationStore();
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
@@ -282,10 +288,14 @@ export default function ProductsIndex() {
 
   const handleDelete = async () => {
     if (!toDelete) return;
+    const target = toDelete;
+    setToDelete(null);
     try {
-      await deleteProduct(toDelete.id);
-      toast.success("Producto archivado correctamente");
-      setToDelete(null);
+      await deleteProduct(target.id);
+      toastUndo(`${target.name} archivado`, async () => {
+        await restoreProduct(target.id);
+        toast.success("Producto restaurado");
+      });
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Error al archivar el producto",
@@ -293,12 +303,27 @@ export default function ProductsIndex() {
     }
   };
 
+  const handleRestore = async (product: Product) => {
+    try {
+      await restoreProduct(product.id);
+      toast.success("Producto restaurado");
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : "Error al restaurar el producto",
+      );
+    }
+  };
+
   const handleDeleteBundle = async () => {
     if (!toDeleteBundle) return;
+    const target = toDeleteBundle;
+    setToDeleteBundle(null);
     try {
-      await deleteBundle(toDeleteBundle.id);
-      toast.success("Combo archivado correctamente");
-      setToDeleteBundle(null);
+      await deleteBundle(target.id);
+      toastUndo(`Combo "${target.name}" archivado`, async () => {
+        await restoreBundle(target.id);
+        toast.success("Combo restaurado");
+      });
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Error al archivar el combo",
@@ -405,15 +430,15 @@ export default function ProductsIndex() {
                 </option>
               ))}
             </select>
-            <label className="flex items-center gap-2 text-sm text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={showArchived}
-                onChange={(e) => setShowArchived(e.target.checked)}
-              />
-              Ver archivados
-            </label>
+            <ArchivedToggle checked={showArchived} onChange={setShowArchived} />
           </div>
+
+          {!isLoading && products.length > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {pagination.total_count} {pagination.total_count === 1 ? "producto" : "productos"}
+              {showArchived && " archivados"}
+            </p>
+          )}
 
           {/* Table */}
           <Card className="p-0 rounded-xl">
@@ -496,23 +521,14 @@ export default function ProductsIndex() {
                               className="text-right"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => openEdit(p)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => setToDelete(p)}
-                                title="Archivar"
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
+                              {showArchived ? (
+                                <RestoreAction onClick={() => handleRestore(p)} />
+                              ) : (
+                                <>
+                                  <EditAction onClick={() => openEdit(p)} />
+                                  <ArchiveAction onClick={() => setToDelete(p)} />
+                                </>
+                              )}
                             </TableCell>
                           )}
                         </TableRow>
@@ -591,12 +607,38 @@ export default function ProductsIndex() {
                       </Fragment>
                     ))
                   ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={8}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        No se encontraron productos.
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={8} className="p-0">
+                        {search.trim() || categoryFilter ? (
+                          <EmptyState
+                            variant="no-results"
+                            icon={SearchX}
+                            title="Sin resultados"
+                            description="No hay productos que coincidan con los filtros aplicados."
+                            action={{
+                              label: "Limpiar filtros",
+                              onClick: () => { setSearch(""); setCategoryFilter(""); },
+                            }}
+                          />
+                        ) : showArchived ? (
+                          <EmptyState
+                            variant="no-results"
+                            icon={PackageX}
+                            title="No hay productos archivados"
+                            description="Los productos que archives aparecerán aquí."
+                          />
+                        ) : (
+                          <EmptyState
+                            icon={Package2}
+                            title="Aún no tienes productos"
+                            description="Crea tu primer producto o impórtalos masivamente desde un Excel."
+                            action={
+                              canManage
+                                ? { label: "Nuevo producto", onClick: openCreate, icon: Plus }
+                                : undefined
+                            }
+                          />
+                        )}
                       </TableCell>
                     </TableRow>
                   )}
@@ -694,15 +736,7 @@ export default function ProductsIndex() {
                               className="text-right"
                               onClick={(e) => e.stopPropagation()}
                             >
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive"
-                                onClick={() => setToDeleteBundle(b)}
-                                title="Archivar"
-                              >
-                                <Archive className="h-4 w-4" />
-                              </Button>
+                              <ArchiveAction onClick={() => setToDeleteBundle(b)} />
                             </TableCell>
                           )}
                         </TableRow>
@@ -743,13 +777,18 @@ export default function ProductsIndex() {
                       </Fragment>
                     ))
                   ) : (
-                    <TableRow>
-                      <TableCell
-                        colSpan={canManage ? 7 : 6}
-                        className="h-24 text-center text-muted-foreground"
-                      >
-                        No hay combos creados. Usa el botón "Nuevo Combo" para
-                        crear uno.
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={canManage ? 7 : 6} className="p-0">
+                        <EmptyState
+                          icon={Boxes}
+                          title="Aún no hay combos"
+                          description="Agrupa varios productos en un paquete con precio especial para venderlos juntos."
+                          action={
+                            canManage
+                              ? { label: "Nuevo Combo", onClick: () => setBundleOpen(true), icon: Boxes }
+                              : undefined
+                          }
+                        />
                       </TableCell>
                     </TableRow>
                   )}

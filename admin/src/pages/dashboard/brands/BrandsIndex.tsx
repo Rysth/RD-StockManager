@@ -1,12 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Archive } from "lucide-react";
+import { Plus, Loader2, Tag, FolderTree, type LucideIcon } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Brand, Category } from "../../../types/inventory";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +36,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import EmptyState from "../../../components/common/EmptyState";
+import FormField from "../../../components/common/FormField";
+import { EditAction, ArchiveAction, RestoreAction } from "../../../components/common/RowActions";
+import { useFormErrors } from "../../../hooks/useFormErrors";
+import { toastUndo } from "../../../lib/toastUndo";
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
@@ -54,28 +58,31 @@ interface CatalogItem {
 interface FormState {
   name: string;
   description: string;
-  active: boolean;
   parent_id?: string;
 }
 
-const EMPTY_FORM: FormState = { name: "", description: "", active: true, parent_id: "" };
+const EMPTY_FORM: FormState = { name: "", description: "", parent_id: "" };
 
 // Sección genérica de catálogo (sirve para Marcas y Categorías)
 function CatalogSection({
   label,
   labelPlural,
+  emptyIcon,
   items,
   onCreate,
   onUpdate,
   onArchive,
+  onRestore,
   parentOptions,
 }: {
   label: string;
   labelPlural: string;
+  emptyIcon: LucideIcon;
   items: CatalogItem[];
   onCreate: (data: FormState) => Promise<void>;
   onUpdate: (id: number, data: FormState) => Promise<void>;
   onArchive: (id: number) => Promise<void>;
+  onRestore: (id: number) => Promise<void>;
   /** Si se provee, habilita el campo "Categoría padre" (subcategorías). */
   parentOptions?: { id: number; name: string }[];
 }) {
@@ -84,26 +91,28 @@ function CatalogSection({
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [toArchive, setToArchive] = useState<CatalogItem | null>(null);
+  const { errors, validate, clearError, clearAll } = useFormErrors<"name">();
 
   const openCreate = () => {
     setEditing(null);
+    clearAll();
     setForm(EMPTY_FORM);
     setModalOpen(true);
   };
 
   const openEdit = (item: CatalogItem) => {
     setEditing(item);
+    clearAll();
     setForm({
       name: item.name,
       description: item.description ?? "",
-      active: item.active,
       parent_id: item.parent_id ? String(item.parent_id) : "",
     });
     setModalOpen(true);
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return toast.error("El nombre es requerido");
+    if (!validate({ name: !form.name.trim() ? "El nombre es requerido" : null })) return;
     setSaving(true);
     try {
       if (editing) await onUpdate(editing.id, form);
@@ -119,12 +128,25 @@ function CatalogSection({
 
   const handleArchive = async () => {
     if (!toArchive) return;
+    const target = toArchive;
+    setToArchive(null);
     try {
-      await onArchive(toArchive.id);
-      toast.success(`${label} archivada`);
-      setToArchive(null);
+      await onArchive(target.id);
+      toastUndo(`${label} "${target.name}" archivada`, async () => {
+        await onRestore(target.id);
+        toast.success(`${label} restaurada`);
+      });
     } catch (e) {
       toast.error(errorMessage(e, `Error al archivar la ${label.toLowerCase()}`));
+    }
+  };
+
+  const handleRestore = async (item: CatalogItem) => {
+    try {
+      await onRestore(item.id);
+      toast.success(`${label} restaurada`);
+    } catch (e) {
+      toast.error(errorMessage(e, `Error al restaurar la ${label.toLowerCase()}`));
     }
   };
 
@@ -138,21 +160,28 @@ function CatalogSection({
 
       <Card className="rounded-xl p-0">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                {parentOptions && <TableHead>Categoría padre</TableHead>}
-                <TableHead>Descripción</TableHead>
-                <TableHead>Productos</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.length ? (
-                items.map((item) => (
-                  <TableRow key={item.id}>
+          {items.length === 0 ? (
+            <EmptyState
+              icon={emptyIcon}
+              title={`Aún no hay ${labelPlural.toLowerCase()}`}
+              description={`Crea tu primera ${label.toLowerCase()} para organizar tu inventario.`}
+              action={{ label: `Nueva ${label.toLowerCase()}`, onClick: openCreate, icon: Plus }}
+            />
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  {parentOptions && <TableHead>Categoría padre</TableHead>}
+                  <TableHead>Descripción</TableHead>
+                  <TableHead>Productos</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {items.map((item) => (
+                  <TableRow key={item.id} className={!item.active ? "opacity-60" : undefined}>
                     <TableCell className="font-medium">
                       {item.parent_name && <span className="text-muted-foreground">{item.parent_name} › </span>}
                       {item.name}
@@ -170,26 +199,20 @@ function CatalogSection({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      {item.active && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setToArchive(item)} title="Archivar">
-                          <Archive className="h-4 w-4" />
-                        </Button>
+                      {item.active ? (
+                        <>
+                          <EditAction onClick={() => openEdit(item)} />
+                          <ArchiveAction onClick={() => setToArchive(item)} />
+                        </>
+                      ) : (
+                        <RestoreAction onClick={() => handleRestore(item)} />
                       )}
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={parentOptions ? 6 : 5} className="h-24 text-center text-muted-foreground">
-                    No hay {labelPlural.toLowerCase()} registradas.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
@@ -200,14 +223,29 @@ function CatalogSection({
             <DialogTitle>{editing ? `Editar ${label}` : `Nueva ${label}`}</DialogTitle>
             <DialogDescription>Datos del catálogo</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="c-name">Nombre</Label>
-              <Input id="c-name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-            </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit();
+            }}
+            className="space-y-4 py-2"
+          >
+            <FormField label="Nombre" htmlFor="c-name" required error={errors.name}>
+              <Input
+                id="c-name"
+                name="name"
+                autoFocus
+                aria-invalid={!!errors.name}
+                value={form.name}
+                onChange={(e) => { setForm({ ...form, name: e.target.value }); clearError("name"); }}
+              />
+            </FormField>
             {parentOptions && (
-              <div className="space-y-2">
-                <Label htmlFor="c-parent">Categoría padre</Label>
+              <FormField
+                label="Categoría padre"
+                htmlFor="c-parent"
+                hint="Selecciona una categoría padre para crear una subcategoría."
+              >
                 <select
                   id="c-parent"
                   value={form.parent_id ?? ""}
@@ -221,26 +259,19 @@ function CatalogSection({
                       <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                 </select>
-                <p className="text-xs text-muted-foreground">
-                  Selecciona una categoría padre para crear una subcategoría.
-                </p>
-              </div>
+              </FormField>
             )}
-            <div className="space-y-2">
-              <Label htmlFor="c-desc">Descripción</Label>
+            <FormField label="Descripción" htmlFor="c-desc">
               <Textarea id="c-desc" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={form.active} onChange={(e) => setForm({ ...form, active: e.target.checked })} />
-              Activa
-            </label>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSubmit} disabled={saving}>
-              {saving ? "Guardando..." : editing ? "Guardar cambios" : "Crear"}
-            </Button>
-          </DialogFooter>
+            </FormField>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -250,7 +281,7 @@ function CatalogSection({
           <AlertDialogHeader>
             <AlertDialogTitle>Archivar {label.toLowerCase()}</AlertDialogTitle>
             <AlertDialogDescription>
-              ¿Seguro que deseas archivar {toArchive?.name}? Quedará inactiva pero no se eliminará.
+              ¿Seguro que deseas archivar {toArchive?.name}? Quedará inactiva pero no se eliminará. Podrás deshacer esta acción.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -301,9 +332,11 @@ export default function BrandsIndex() {
     createBrand,
     updateBrand,
     deleteBrand,
+    restoreBrand,
     createCategory,
     updateCategory,
     deleteCategory,
+    restoreCategory,
   } = useInventoryStore();
 
   const [firstLoad, setFirstLoad] = useState(true);
@@ -343,16 +376,19 @@ export default function BrandsIndex() {
           <CatalogSection
             label="Marca"
             labelPlural="Marcas"
+            emptyIcon={Tag}
             items={brands as Brand[]}
             onCreate={(d) => createBrand(d)}
             onUpdate={(id, d) => updateBrand(id, d)}
             onArchive={(id) => deleteBrand(id)}
+            onRestore={(id) => restoreBrand(id)}
           />
         </TabsContent>
         <TabsContent value="categories" className="mt-4">
           <CatalogSection
             label="Categoría"
             labelPlural="Categorías"
+            emptyIcon={FolderTree}
             items={categories as Category[]}
             parentOptions={(categories as Category[])
               .filter((c) => !c.parent_id)
@@ -364,6 +400,7 @@ export default function BrandsIndex() {
               updateCategory(id, { ...d, parent_id: d.parent_id ? Number(d.parent_id) : null })
             }
             onArchive={(id) => deleteCategory(id)}
+            onRestore={(id) => restoreCategory(id)}
           />
         </TabsContent>
       </Tabs>
