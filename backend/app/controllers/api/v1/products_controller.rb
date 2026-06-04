@@ -12,7 +12,7 @@ module Api
         @q = Product.includes(:category, :brand, :images_attachments, product_variants: [:images_attachments, { stock_levels: :location }]).ransack(search_params)
         @q.sorts = "name asc" if @q.sorts.empty?
 
-        @pagy, products = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
+        @pagy, products = pagy(filtered_products, page: params[:page] || 1, limit: params[:per_page] || 12)
 
         render_success(
           products: products.map { |p| serialize(p) },
@@ -120,6 +120,8 @@ module Api
       def images
         ProductImageStorageService.attach(@product, params[:images], folder: "products")
         render_success({ product: serialize(@product.reload) }, "Imágenes actualizadas")
+      rescue ProductImageStorageService::InvalidImage => e
+        render_error(e.message, :unprocessable_entity)
       end
 
       # DELETE /api/v1/products/:id/images/:image_id
@@ -165,6 +167,13 @@ module Api
           search[:active_eq] = true
         end
         search
+      end
+
+      def filtered_products
+        products = @q.result(distinct: true)
+        return products unless Product::PRODUCT_TYPES.include?(params[:product_type])
+
+        products.where(product_type: params[:product_type])
       end
 
       def serialize(product)

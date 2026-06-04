@@ -1,5 +1,6 @@
 class Product < ApplicationRecord
   MAX_IMAGES = 3
+  MAX_IMAGE_SIZE = 5.megabytes
   PRODUCT_TYPES = %w[good service].freeze
 
   audited
@@ -23,6 +24,8 @@ class Product < ApplicationRecord
   validate :images_type_validation
 
   scope :active, -> { where(active: true) }
+  scope :physical_goods, -> { where(product_type: "good") }
+  scope :services, -> { where(product_type: "service") }
 
   # Total stock across all variants
   def total_stock
@@ -62,7 +65,7 @@ class Product < ApplicationRecord
     acceptable = %w[image/jpeg image/jpg image/png image/webp]
     images.each do |img|
       errors.add(:images, "debe ser JPG, PNG o WEBP") unless acceptable.include?(img.blob.content_type)
-      errors.add(:images, "cada imagen debe ser menor a 2MB") if img.blob.byte_size > 2.megabytes
+      errors.add(:images, "cada imagen debe ser menor a 5MB") if img.blob.byte_size > MAX_IMAGE_SIZE
     end
   end
 

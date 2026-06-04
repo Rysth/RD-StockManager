@@ -3,6 +3,9 @@
 # and the local Disk service in development/test.
 class ProductImageStorageService
   MAX_IMAGES = 3
+  MAX_IMAGE_SIZE = 5.megabytes
+  ACCEPTABLE_CONTENT_TYPES = %w[image/jpeg image/jpg image/png image/webp].freeze
+  InvalidImage = Class.new(StandardError)
 
   # record  - a Product or ProductVariant (responds to #images)
   # files   - one file or an array of uploaded files
@@ -12,11 +15,13 @@ class ProductImageStorageService
     return if files.empty?
 
     available = MAX_IMAGES - record.images.count
-    return if available <= 0
+    raise InvalidImage, "máximo #{MAX_IMAGES} imágenes" if available <= 0
 
     service_name = Rails.env.production? ? :cloudflare : :local
 
     files.first(available).each do |file|
+      validate_file!(file)
+
       timestamp = Time.current.to_i
       extension = File.extname(file.original_filename)
       filename = "img_#{timestamp}_#{SecureRandom.hex(4)}#{extension}"
@@ -37,5 +42,15 @@ class ProductImageStorageService
   def self.remove(record, image_id)
     attachment = record.images.find_by(id: image_id)
     attachment&.purge
+  end
+
+  def self.validate_file!(file)
+    unless ACCEPTABLE_CONTENT_TYPES.include?(file.content_type)
+      raise InvalidImage, "La imagen debe ser JPG, PNG o WEBP"
+    end
+
+    return unless file.size.to_i > MAX_IMAGE_SIZE
+
+    raise InvalidImage, "Cada imagen debe ser menor a 5MB"
   end
 end
