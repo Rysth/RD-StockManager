@@ -65,6 +65,13 @@ function Thumb({ url, size = "h-10 w-10" }: { url?: string; size?: string }) {
   );
 }
 
+function productThumb(product: Product) {
+  return (
+    product.images?.[0]?.url ??
+    product.variants.find((variant) => variant.images?.[0]?.url)?.images?.[0]?.url
+  );
+}
+
 function ProductsSkeleton() {
   return (
     <div className="space-y-6">
@@ -347,7 +354,7 @@ export default function ProductsIndex() {
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-3">
-                          <Thumb url={p.images?.[0]?.url} />
+                          <Thumb url={productThumb(p)} />
                           <div>
                             <div className="flex items-center gap-2">
                               <p className="font-medium">{p.name}</p>
