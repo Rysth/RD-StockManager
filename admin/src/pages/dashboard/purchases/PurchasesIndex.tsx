@@ -130,7 +130,7 @@ export default function PurchasesIndex() {
           </p>
         </div>
         <Button asChild size="sm">
-          <Link to="/dashboard/pos?mode=purchase">
+          <Link to="/dashboard/purchase-entry">
             <PackagePlus className="w-4 h-4 mr-2" /> Ingresar mercancía
           </Link>
         </Button>

@@ -168,11 +168,10 @@ export default function AppSidebar({
       location.pathname.startsWith("/dashboard/users"),
     [location.pathname],
   );
-  const isPurchaseEntryActive =
-    location.pathname.startsWith("/dashboard/pos") &&
-    location.search.includes("mode=purchase");
-  const isPosActive =
-    location.pathname.startsWith("/dashboard/pos") && !isPurchaseEntryActive;
+  const isPurchaseEntryActive = location.pathname.startsWith(
+    "/dashboard/purchase-entry",
+  );
+  const isPosActive = location.pathname.startsWith("/dashboard/pos");
   const storeSections: NavSectionConfig[] = [
     {
       label: "Catálogo",
@@ -214,7 +213,7 @@ export default function AppSidebar({
       items: [
         {
           label: "Ingreso de Mercadería",
-          to: "/dashboard/pos?mode=purchase",
+          to: "/dashboard/purchase-entry",
           icon: PackagePlus,
           active: isPurchaseEntryActive,
           visible: canViewPurchases && !isBusinessEmployee,

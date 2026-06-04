@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
 import {
   Plus,
   Minus,
@@ -53,6 +52,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import ProductCard from "./ProductCard";
 
 type Mode = "sale" | "purchase";
 
@@ -143,8 +143,11 @@ const validateSupplierId = (idType: string, idNumber: string) => {
   return null;
 };
 
-export default function PosIndex() {
-  const [searchParams, setSearchParams] = useSearchParams();
+interface PosIndexProps {
+  forcedMode?: Mode;
+}
+
+export default function PosIndex({ forcedMode }: PosIndexProps) {
   const { products, categories, fetchProducts, fetchCategories } =
     useInventoryStore();
   const { customers, fetchCustomers, createCustomer, updateCustomer } =
@@ -165,11 +168,7 @@ export default function PosIndex() {
 
   // ── Mode (venta / compra) ────────────────────────────────────
   const [mode, setMode] = useState<Mode>(() =>
-    searchParams.get("mode") === "purchase" && canPurchase
-      ? "purchase"
-      : canSell
-        ? "sale"
-        : "purchase",
+    forcedMode ?? (canSell ? "sale" : "purchase"),
   );
   const isSubmitting =
     mode === "sale" ? isSubmittingSale : isSubmittingPurchase;
@@ -284,11 +283,6 @@ export default function PosIndex() {
 
   // Cambiar de modo limpia el carrito y los datos específicos (operación distinta).
   const switchMode = (next: Mode) => {
-    const nextParams = new URLSearchParams(searchParams);
-    if (next === "purchase") nextParams.set("mode", "purchase");
-    else nextParams.delete("mode");
-    setSearchParams(nextParams, { replace: true });
-
     if (next === mode) return;
     setMode(next);
     setCart([]);
@@ -306,15 +300,9 @@ export default function PosIndex() {
   };
 
   useEffect(() => {
-    if (
-      searchParams.get("mode") === "purchase" &&
-      canPurchase &&
-      mode !== "purchase"
-    ) {
-      switchMode("purchase");
-    }
+    if (forcedMode && mode !== forcedMode) switchMode(forcedMode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, canPurchase, mode]);
+  }, [forcedMode, mode]);
 
   // Stock de una variante en la ubicación seleccionada (cae al total si no hay desglose).
   const stockAt = (v: ProductVariant): number => {
@@ -766,7 +754,7 @@ export default function PosIndex() {
 
         <div className="flex flex-wrap items-center gap-3">
           {/* Toggle venta / compra */}
-          {canSell && canPurchase && (
+          {!forcedMode && canSell && canPurchase && (
             <div className="inline-flex rounded-lg border bg-muted/40 p-0.5">
               <button
                 type="button"
@@ -869,7 +857,7 @@ export default function PosIndex() {
             ))}
           </div>
 
-          <div className={`grid gap-3 ${isSale ? "grid-cols-2 sm:grid-cols-3 xl:grid-cols-4" : "grid-cols-2 sm:grid-cols-3 xl:grid-cols-5"}`}>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
             {productGroups.length ? (
               productGroups.map((p) => {
                 const inCartCount = cart
@@ -883,9 +871,21 @@ export default function PosIndex() {
                   (v) => !!v.size || !!v.color,
                 );
                 return (
-                  <button
+                  <ProductCard
                     key={p.id}
-                    type="button"
+                    name={p.name}
+                    brand={p.brand}
+                    thumb={p.thumb}
+                    badge={
+                      p.product_type === "service" && p.variantCount === 0
+                        ? "Servicio"
+                        : p.variantCount === 1 && !hasNamedVariants
+                          ? "Prod. base"
+                          : `${p.variantCount} ${p.variantCount === 1 ? "talla" : "tallas"}`
+                    }
+                    price={money(isSale ? p.base_price : p.cost)}
+                    priceSuffix={isSale ? undefined : "costo"}
+                    inCartCount={inCartCount}
                     onClick={() => {
                       if (isSale && p.product_type === "service" && !p.variants.length) {
                         addServiceWithoutVariant(p);
@@ -893,55 +893,7 @@ export default function PosIndex() {
                       }
                       setSelectedProduct(p);
                     }}
-                    className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
-                  >
-                    <div className={`relative w-full bg-muted ${isSale ? "aspect-square" : "aspect-[4/3]"}`}>
-                      {p.thumb ? (
-                        <img
-                          src={p.thumb}
-                          alt=""
-                          className="h-full w-full bg-white object-contain"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                          <ImageIcon className="h-8 w-8" />
-                        </div>
-                      )}
-                      <Badge
-                        variant="secondary"
-                        className="absolute left-1.5 top-1.5 bg-background/85 text-foreground backdrop-blur-sm text-[10px]"
-                      >
-                        {p.product_type === "service" && p.variantCount === 0
-                          ? "Servicio"
-                          : p.variantCount === 1 && !hasNamedVariants
-                            ? "Prod. base"
-                          : `${p.variantCount} ${p.variantCount === 1 ? "talla" : "tallas"}`}
-                      </Badge>
-                      {inCartCount > 0 && (
-                        <div className="absolute right-1.5 top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-bold text-primary-foreground">
-                          {inCartCount}
-                        </div>
-                      )}
-                    </div>
-                    <div className={`flex flex-1 flex-col gap-0.5 ${isSale ? "p-2.5" : "p-2"}`}>
-                      <p className={`${isSale ? "text-sm" : "text-xs"} line-clamp-2 font-medium leading-tight`}>
-                        {p.name}
-                      </p>
-                      {p.brand && (
-                        <p className="truncate text-[11px] text-muted-foreground">
-                          {p.brand}
-                        </p>
-                      )}
-                      <p className={`${isSale ? "text-base" : "text-sm"} mt-auto pt-1 font-semibold text-primary`}>
-                        {money(isSale ? p.base_price : p.cost)}
-                        {!isSale && (
-                          <span className="ml-1 text-[10px] font-normal text-muted-foreground">
-                            costo
-                          </span>
-                        )}
-                      </p>
-                    </div>
-                  </button>
+                  />
                 );
               })
             ) : (

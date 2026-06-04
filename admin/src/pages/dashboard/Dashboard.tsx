@@ -106,7 +106,7 @@ const QUICK_LINKS = [
     perm: Permissions.MANAGE_SALES,
   },
   {
-    to: "/dashboard/pos?mode=purchase",
+    to: "/dashboard/purchase-entry",
     icon: PackagePlus,
     label: "Ingreso rápido",
     color: "text-blue-600",

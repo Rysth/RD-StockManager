@@ -11,7 +11,8 @@ import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
 import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
 import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
 import SalesIndex from "../pages/dashboard/sales/SalesIndex";
-import PosIndex from "../pages/dashboard/sales/PosIndex";
+import SalesPosIndex from "../pages/dashboard/sales/SalesPosIndex";
+import PurchaseEntryIndex from "../pages/dashboard/purchases/PurchaseEntryIndex";
 import QuotationsIndex from "../pages/dashboard/quotations/QuotationsIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
@@ -119,13 +120,16 @@ export const router = createBrowserRouter([
       {
         path: "pos",
         element: (
-          <ProtectedRoute
-            requiredPermission={[
-              Permissions.MANAGE_SALES,
-              Permissions.VIEW_PURCHASES,
-            ]}
-          >
-            <PosIndex />
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <SalesPosIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "purchase-entry",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <PurchaseEntryIndex />
           </ProtectedRoute>
         ),
       },
