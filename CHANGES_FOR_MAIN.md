@@ -210,6 +210,37 @@ removes stock from the origin and adds it to the destination via
 
 ---
 
+### Pending from `clients/rysthdesign` — SRI logo support and POS card sizing
+
+Generic pieces that are safe to port to `main`, but should be applied carefully
+because the client branch also contains RysthDesign-specific branding assets.
+
+**Safe to include in `main`**
+- Add logo support to the SRI gem RIDE renderer (`logo_data` / `logo_content_type` on `Emisor`, draw PNG/JPG in `Ride`).
+- Pass the configured `Business.logo` into `InvoiceService` when generating the RIDE.
+- Re-enable the business logo uploader in `BusinessSettings.tsx` so each tenant can update its own logo.
+- Fix POS product cards to use fixed image/card heights so oversized product photos do not break the grid.
+
+**Do not include in `main` as-is**
+- RysthDesign default branding assets (`rysth_logo.png`) or default favicon/logo changes.
+- Any fallback that hardcodes `rysth_logo.png` as the default RIDE logo.
+
+**Files touched by the client-branch implementation**
+- `admin/src/pages/dashboard/business/BusinessSettings.tsx`
+- `admin/src/pages/dashboard/sales/ProductCard.tsx`
+- `backend/app/services/invoice_service.rb`
+- `sri_facturacion-gem/lib/sri_facturacion/models.rb`
+- `sri_facturacion-gem/lib/sri_facturacion/ride.rb`
+
+**Client-only branding files in the same work**
+- `admin/index.html`
+- `admin/public/rysth_logo.png`
+- `admin/src/assets/rysth_logo.png`
+- `backend/app/assets/images/rysth_logo.png`
+- Admin default-logo imports and `InvoicesIndex.tsx` Rysth logo header
+
+---
+
 ## What to EXCLUDE from main
 
 These two commits are RysthDesign-specific and must stay on `clients/rysthdesign` only:
@@ -218,6 +249,7 @@ These two commits are RysthDesign-specific and must stay on `clients/rysthdesign
 |------|--------|
 | `e59c119` | `admin/index.html` has client branding in the `<title>` tag; `backend/db/seeds/production.rb` seeds client-specific admin credentials and business settings |
 | `62e0946` | `docker-compose.prod.yml` contains client-specific domain names and environment variable values |
+| pending Rysth logo commit | Contains `rysth_logo.png` branding and default-logo fallbacks for the RysthDesign deployment |
 
 ---
 

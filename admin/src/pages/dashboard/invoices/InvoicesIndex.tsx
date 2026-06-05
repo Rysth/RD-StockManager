@@ -15,6 +15,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import Pagination from "../../../components/common/Pagination";
+import rysthLogo from "../../../assets/rysth_logo.png";
 
 const money = (n: string | number | null) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(Number(n) || 0);
@@ -74,13 +75,18 @@ export default function InvoicesIndex() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+        <div className="flex items-center gap-4">
+          <div className="flex h-14 w-24 shrink-0 items-center justify-center rounded-xl border bg-white px-3 shadow-sm">
+            <img src={rysthLogo} alt="Rysth" className="max-h-10 max-w-full object-contain" />
+          </div>
+          <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
             <FileText className="size-6" /> Facturas SRI
           </h1>
           <p className="text-sm text-muted-foreground">
             Comprobantes electrónicos emitidos al SRI. Descarga el XML autorizado y el RIDE.
           </p>
+          </div>
         </div>
       </div>
 

@@ -26,7 +26,7 @@ export const useDocumentTitle = () => {
       updateFavicon(publicBusiness.logo_url);
     } else {
       // Fallback to default favicon
-      updateFavicon('/logo.svg');
+      updateFavicon('/rysth_logo.png');
     }
   }, [publicBusiness]);
 
@@ -41,7 +41,7 @@ export const useDocumentTitle = () => {
     // Create new favicon link
     const newFavicon = document.createElement('link');
     newFavicon.rel = 'icon';
-    newFavicon.type = 'image/x-icon';
+    newFavicon.type = iconUrl.endsWith('.png') ? 'image/png' : 'image/x-icon';
     newFavicon.href = iconUrl;
     
     // Add the new favicon to the head

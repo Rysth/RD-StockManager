@@ -27,6 +27,8 @@ class InvoiceService
   FORMA_PAGO  = { "cash" => "01", "transfer" => "20" }.freeze
   DUPLICATE_SECUENCIAL_IDENTIFIER = "45".freeze
   MAX_DUPLICATE_SECUENCIAL_RETRIES = 25
+  SUPPORTED_RIDE_LOGO_TYPES = %w[image/png image/jpeg image/jpg].freeze
+  DEFAULT_RIDE_LOGO_PATH = Rails.root.join("app", "assets", "images", "rysth_logo.png")
 
   def self.generate(sale:)
     new(sale).generate
@@ -99,6 +101,7 @@ class InvoiceService
   end
 
   def build_factura(business, comprador, secuencial, est, pe)
+    logo = ride_logo_for(business)
     emisor = SriFacturacion::Emisor.new(
       ruc: business.ruc,
       razon_social: business.razon_social,
@@ -109,7 +112,9 @@ class InvoiceService
       punto_emision: pe,
       obligado_contabilidad: business.obligado_contabilidad,
       contribuyente_especial: business.contribuyente_especial.presence,
-      contribuyente_rimpe: business.contribuyente_rimpe.presence
+      contribuyente_rimpe: business.contribuyente_rimpe.presence,
+      logo_data: logo&.fetch(:data),
+      logo_content_type: logo&.fetch(:content_type)
     )
 
     detalles = build_detalles
@@ -200,6 +205,19 @@ class InvoiceService
 
   def sri_iva_rate
     @sri_iva_rate ||= BigDecimal(@sale.sri_iva_rate.to_s).round(2)
+  end
+
+  def ride_logo_for(business)
+    if business.logo.attached? && SUPPORTED_RIDE_LOGO_TYPES.include?(business.logo.blob.content_type.to_s.downcase)
+      return { data: business.logo.download, content_type: business.logo.blob.content_type }
+    end
+
+    return unless File.exist?(DEFAULT_RIDE_LOGO_PATH)
+
+    { data: File.binread(DEFAULT_RIDE_LOGO_PATH), content_type: "image/png" }
+  rescue StandardError => e
+    Rails.logger.warn("[InvoiceService] No se pudo cargar logo para RIDE: #{e.class} #{e.message}")
+    nil
   end
 
   def emitir(factura)

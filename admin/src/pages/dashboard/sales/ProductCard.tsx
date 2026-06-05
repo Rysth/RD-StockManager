@@ -29,14 +29,14 @@ export default function ProductCard({
     <button
       type="button"
       onClick={onClick}
-      className="group relative flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md"
+      className="group relative flex h-[260px] flex-col overflow-hidden rounded-xl border bg-card text-left transition-all hover:border-primary hover:shadow-md sm:h-[270px]"
     >
-      <div className="relative aspect-square w-full bg-muted">
+      <div className="relative h-36 w-full shrink-0 overflow-hidden bg-muted sm:h-40">
         {thumb ? (
           <img
             src={thumb}
             alt=""
-            className="h-full w-full bg-white object-contain"
+            className="h-full w-full bg-white object-contain p-2"
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/50">

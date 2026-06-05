@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../../stores/authStore";
 import { useBusinessStore } from "../../stores/businessStore";
-import logo from "../../assets/logo.svg";
+import logo from "../../assets/rysth_logo.png";
 import { getDefaultAdminRoute } from "../../utils/adminRoutes";
 
 export default function NotFound() {
