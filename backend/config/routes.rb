@@ -129,6 +129,7 @@ Rails.application.routes.draw do
       # Public endpoints (no authentication)
       namespace :public do
         resource :business, only: [:show]
+        get "invoices/verify/:clave_acceso", to: "invoices#verify"
       end
     end
 
