@@ -486,7 +486,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                 </Button>
               )}
 
-              {selectedSale.status !== "cancelled" && (
+              {selectedSale.status !== "cancelled" && !(selectedSale.invoice?.authorized && selectedSale.invoice?.ambiente === "2") && (
                 <Button
                   variant="outline"
                   className="w-full text-destructive"
