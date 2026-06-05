@@ -62,8 +62,14 @@ class Sale < ApplicationRecord
   end
 
   # Cancel the sale; restore stock only if it had previously been discounted.
+  # Bloquea la cancelación si la venta tiene una factura autorizada en producción.
   def cancel!
     return if cancelled?
+
+    if invoices.authorized.where(ambiente: "2").exists?
+      errors.add(:base, "No se puede cancelar una venta con factura autorizada en producción")
+      raise ActiveRecord::RecordInvalid, self
+    end
 
     transaction do
       if completed?
