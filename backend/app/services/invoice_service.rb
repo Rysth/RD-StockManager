@@ -15,14 +15,11 @@ class InvoiceService
   class MissingEmisorError < InvoiceError; end
   class InvoicingDisabledError < InvoiceError; end
 
-  # true  => unit_price YA incluye IVA (precio al público) -> base = price / 1.15
-  # false => unit_price es base sin IVA, el IVA se SUMA encima (el total facturado sube ~15%)
-  # Decisión del negocio (EDLU): precios cargados netos -> false.
-  PRICES_INCLUDE_IVA = false
-
-  IVA_TARIFA      = 15
-  IVA_CODIGO_PORC = "4".freeze
-  IVA_DIVISOR     = BigDecimal("1.15")
+  IVA_CODIGO_PORCENTAJE = {
+    0 => "0",
+    12 => "2",
+    15 => "4"
+  }.freeze
 
   # id_type de Customer -> tipoIdentificacion del SRI.
   ID_TYPE_MAP = { "cedula" => "05", "ruc" => "04", "pasaporte" => "06" }.freeze
@@ -154,7 +151,7 @@ class InvoiceService
 
   def build_detalles
     @sale.sale_items.map do |item|
-      base_unit = base_unit_price(item.unit_price)
+      base_unit = sri_unit_price(item.unit_price)
       line_base = (BigDecimal(item.quantity.to_s) * base_unit).round(2)
       SriFacturacion::Detalle.new(
         descripcion: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
@@ -163,13 +160,13 @@ class InvoiceService
         precio_unitario: base_unit,
         descuento: 0,
         unidad_medida: "UNIDAD",
-        impuestos: [SriFacturacion::Impuesto.iva(line_base, tarifa: IVA_TARIFA, codigo_porcentaje: IVA_CODIGO_PORC)]
+        impuestos: [sri_iva(line_base)]
       )
     end
   end
 
   def build_shipping_detalle
-    base = base_unit_price(@sale.shipping_cost)
+    base = sri_unit_price(@sale.shipping_cost)
     line_base = base.round(2)
     SriFacturacion::Detalle.new(
       descripcion: "Costo de envío",
@@ -178,14 +175,31 @@ class InvoiceService
       precio_unitario: base,
       descuento: 0,
       unidad_medida: "SERVICIO",
-      impuestos: [SriFacturacion::Impuesto.iva(line_base, tarifa: IVA_TARIFA, codigo_porcentaje: IVA_CODIGO_PORC)]
+      impuestos: [sri_iva(line_base)]
     )
   end
 
-  # Base sin IVA por unidad (6 decimales, según permite el SRI).
-  def base_unit_price(price)
-    d = BigDecimal(price.to_s)
-    PRICES_INCLUDE_IVA ? (d / IVA_DIVISOR).round(6) : d.round(6)
+  # El POS guarda precios finales; si se elige IVA, se desglosa sin cambiar el total cobrado.
+  def sri_unit_price(price)
+    gross = BigDecimal(price.to_s)
+    return gross.round(6) if sri_iva_rate.zero?
+
+    (gross / (1 + (sri_iva_rate / 100))).round(6)
+  end
+
+  def sri_iva(line_base)
+    rate = sri_iva_rate
+    return SriFacturacion::Impuesto.iva_cero(line_base) if rate.zero?
+
+    SriFacturacion::Impuesto.iva(
+      line_base,
+      tarifa: rate,
+      codigo_porcentaje: IVA_CODIGO_PORCENTAJE.fetch(rate.to_i, "4")
+    )
+  end
+
+  def sri_iva_rate
+    @sri_iva_rate ||= BigDecimal(@sale.sri_iva_rate.to_s).round(2)
   end
 
   def emitir(factura)

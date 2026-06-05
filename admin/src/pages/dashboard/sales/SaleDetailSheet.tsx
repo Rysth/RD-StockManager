@@ -347,6 +347,10 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                   <span className="text-muted-foreground">Total</span>
                   <span className="text-lg font-bold">{money(selectedSale.total)}</span>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">IVA SRI</span>
+                  <span>{selectedSale.sri_iva_rate ?? 0}%</span>
+                </div>
                 {selectedSale.profit != null && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Ganancia</span>

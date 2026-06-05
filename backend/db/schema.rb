@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_04_100001) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_05_170000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -439,6 +439,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_04_100001) do
     t.integer "payment_status", default: 0, null: false
     t.date "due_date"
     t.decimal "shipping_cost", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "sri_iva_rate", precision: 5, scale: 2, default: "0.0", null: false
     t.index ["customer_id"], name: "index_sales_on_customer_id"
     t.index ["due_date"], name: "index_sales_on_due_date"
     t.index ["location_id"], name: "index_sales_on_location_id"

@@ -177,6 +177,7 @@ export interface Sale {
   seller?: string | null;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  sri_iva_rate?: number;
   items_count: number;
   items?: SaleItem[];
   profit?: number;
@@ -274,6 +275,7 @@ export interface CreateSaleData {
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
   shipping_cost?: number;
+  sri_iva_rate?: number;
   items: SaleItemInput[];
 }
 

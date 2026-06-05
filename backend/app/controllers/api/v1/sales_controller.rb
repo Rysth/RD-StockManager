@@ -59,6 +59,7 @@ module Api
             status: :pending,
             payment_method: sale_params[:payment_method].presence || :cash,
             shipping_cost: sale_params[:shipping_cost].presence || 0,
+            sri_iva_rate: sale_params[:sri_iva_rate].presence || 0,
             cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
           )
           sale.save!
@@ -244,11 +245,11 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
       end
 
       def sale_update_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
       end
 
       def desired_status
@@ -288,6 +289,7 @@ module Api
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
+          sri_iva_rate: sale.sri_iva_rate,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,
           invoice: serialize_invoice(sale.latest_invoice)

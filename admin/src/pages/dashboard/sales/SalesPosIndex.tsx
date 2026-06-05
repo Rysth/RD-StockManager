@@ -135,6 +135,7 @@ export default function SalesPosIndex() {
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
+  const [sriIvaRate, setSriIvaRate] = useState<0 | 15>(0);
   const [shippingCost, setShippingCost] = useState(0);
 
   const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(
@@ -506,6 +507,7 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
+    setSriIvaRate(0);
     setShippingCost(0);
   };
 
@@ -517,6 +519,7 @@ export default function SalesPosIndex() {
         status: cashOnDelivery ? "pending" : "completed",
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
+        sri_iva_rate: sriIvaRate,
         shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
@@ -882,6 +885,32 @@ export default function SalesPosIndex() {
               <Truck className="h-4 w-4 text-muted-foreground" />
               Pago contra entrega
             </label>
+          </div>
+
+          {/* IVA para factura electrónica */}
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
+              IVA SRI
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setSriIvaRate(0)}
+                className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${sriIvaRate === 0 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+              >
+                0% / RIMPE
+              </button>
+              <button
+                type="button"
+                onClick={() => setSriIvaRate(15)}
+                className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${sriIvaRate === 15 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
+              >
+                15%
+              </button>
+            </div>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Solo afecta el desglose del XML/RIDE; no cambia el total cobrado.
+            </p>
           </div>
 
           {/* Envío */}
@@ -1284,6 +1313,10 @@ export default function SalesPosIndex() {
                 <span className="font-medium">
                   {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
                 </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">IVA SRI</span>
+                <span className="font-medium">{sriIvaRate}%</span>
               </div>
               {cashOnDelivery && (
                 <div className="flex justify-between">

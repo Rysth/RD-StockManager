@@ -180,6 +180,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
           payment_method: data.payment_method ?? "cash",
           cash_on_delivery: data.cash_on_delivery ?? false,
           shipping_cost: data.shipping_cost ?? 0,
+          sri_iva_rate: data.sri_iva_rate ?? 0,
         },
         items: data.items,
       });
@@ -225,6 +226,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
           payment_method: data.payment_method,
           cash_on_delivery: data.cash_on_delivery,
           shipping_cost: data.shipping_cost,
+          sri_iva_rate: data.sri_iva_rate,
         },
       });
       const sale = response.data.sale as Sale;
