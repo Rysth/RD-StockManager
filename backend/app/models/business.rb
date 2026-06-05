@@ -1,5 +1,8 @@
+require "fileutils"
+
 class Business < ApplicationRecord
   has_one_attached :logo
+  has_one_attached :sri_certificate
   SRI_AMBIENTES = %w[1 2].freeze
   
   validates :name, presence: { message: "es requerido" }, length: { maximum: 100, message: "no puede tener más de 100 caracteres" }
@@ -42,7 +45,10 @@ class Business < ApplicationRecord
   end
 
   def sri_cert_path_for_emission
-    sri_cert_path.presence
+    return sri_cert_path if sri_cert_path.present? && File.exist?(sri_cert_path)
+    return unless sri_certificate.attached?
+
+    cache_sri_certificate_for_emission
   end
 
   def sri_cert_password_for_emission
@@ -54,8 +60,7 @@ class Business < ApplicationRecord
   end
 
   def sri_cert_file_present?
-    path = sri_cert_path_for_emission
-    path.present? && File.exist?(path)
+    sri_certificate.attached? || (sri_cert_path.present? && File.exist?(sri_cert_path))
   end
 
   def sri_cert_password=(value)
@@ -103,6 +108,25 @@ class Business < ApplicationRecord
   end
 
   private
+
+  def cache_sri_certificate_for_emission
+    FileUtils.mkdir_p(sri_certificate_cache_dir)
+    path = sri_certificate_cache_dir.join("business-#{id}-#{sri_certificate.blob.key}#{sri_certificate_extension}")
+    return path.to_s if File.exist?(path)
+
+    File.binwrite(path, sri_certificate.download)
+    File.chmod(0o600, path)
+    path.to_s
+  end
+
+  def sri_certificate_cache_dir
+    Rails.root.join("tmp", "sri_certs")
+  end
+
+  def sri_certificate_extension
+    extension = File.extname(sri_certificate.filename.to_s).downcase
+    %w[.p12 .pfx].include?(extension) ? extension : ".p12"
+  end
 
   def decrypted_sri_cert_password
     return if sri_cert_password_ciphertext.blank?
