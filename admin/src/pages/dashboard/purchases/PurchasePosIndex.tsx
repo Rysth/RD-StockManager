@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -174,6 +175,18 @@ export default function PurchasePosIndex() {
     [customers],
   );
   const selectedSupplier = suppliers.find((s) => String(s.id) === supplierId);
+  const supplierOptions = useMemo<ComboboxOption[]>(
+    () => [
+      { value: "", label: "Sin proveedor", description: "Compra sin proveedor asignado" },
+      ...suppliers.map((s) => ({
+        value: String(s.id),
+        label: s.name,
+        description: [s.id_number, s.phone, s.email].filter(Boolean).join(" · "),
+        keywords: [s.id_number, s.phone, s.email, s.city].filter(Boolean).join(" "),
+      })),
+    ],
+    [suppliers],
+  );
 
   useEffect(() => {
     fetchCustomers(1, 200, "");
@@ -579,18 +592,17 @@ export default function PurchasePosIndex() {
         <div className="shrink-0 border-b px-4 py-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">PROVEEDOR</p>
           <div className="flex gap-2">
-            <select
+            <Combobox
+              options={supplierOptions}
               value={supplierId}
-              onChange={(e) => setSupplierId(e.target.value)}
-              className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Sin proveedor</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
-                </option>
-              ))}
-            </select>
+              onSelect={setSupplierId}
+              placeholder="Sin proveedor"
+              searchPlaceholder="Buscar por proveedor, RUC, teléfono..."
+              emptyText="No se encontró ese proveedor."
+              actionLabel="Crear proveedor nuevo"
+              onAction={() => setSupplierQuickOpen(true)}
+              className="h-9 min-w-0 flex-1"
+            />
             <Button
               variant="outline"
               size="icon"

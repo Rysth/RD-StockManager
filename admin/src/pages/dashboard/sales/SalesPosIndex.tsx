@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Combobox, type ComboboxOption } from "@/components/ui/combobox";
 import {
   Dialog,
   DialogContent,
@@ -48,16 +49,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import ProductCard from "./ProductCard";
 
 const money = (n: number) =>
@@ -142,7 +133,6 @@ export default function SalesPosIndex() {
   const [categoryFilter, setCategoryFilter] = useState<number | "all">("all");
 
   const [customerId, setCustomerId] = useState("");
-  const [customerSearch, setCustomerSearch] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
@@ -151,9 +141,6 @@ export default function SalesPosIndex() {
     null,
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [customerByOpen, setCustomerByOpen] = useState(false);
-  const [customerByQuery, setCustomerByQuery] = useState("");
-  const customerSearchRef = useRef<HTMLInputElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusSearch = () => {
     searchInputRef.current?.focus();
@@ -181,6 +168,18 @@ export default function SalesPosIndex() {
 
   const total = itemsTotal + shippingCost;
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
+  const customerOptions = useMemo<ComboboxOption[]>(
+    () => [
+      { value: "", label: "Consumidor final", description: "Sin cliente asignado" },
+      ...customers.map((c) => ({
+        value: String(c.id),
+        label: c.name,
+        description: [c.id_number, c.phone, c.email].filter(Boolean).join(" · "),
+        keywords: [c.id_number, c.phone, c.email, c.city].filter(Boolean).join(" "),
+      })),
+    ],
+    [customers],
+  );
 
   useEffect(() => {
     fetchCustomers(1, 200, "");
@@ -423,7 +422,6 @@ export default function SalesPosIndex() {
           (quickForm.id_type as "cedula" | "pasaporte" | "ruc") || "cedula",
       });
       setCustomerId(String(created.id));
-      setCustomerSearch(created.name);
       await fetchCustomers(1, 200, "");
       toast.success(`Cliente ${created.name} creado y seleccionado`);
       setQuickOpen(false);
@@ -506,7 +504,6 @@ export default function SalesPosIndex() {
     clearCart();
     setVariantQuery("");
     setCustomerId("");
-    setCustomerSearch("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
     setShippingCost(0);
@@ -711,40 +708,17 @@ export default function SalesPosIndex() {
             CLIENTE
           </p>
           <div className="flex gap-2">
-            <div className="relative flex-1">
-              <Input
-                ref={customerSearchRef}
-                value={customerSearch}
-                onChange={(e) => {
-                  setCustomerSearch(e.target.value);
-                  if (customerId) setCustomerId("");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    const num = customerSearch.trim();
-                    if (!num) {
-                      setCustomerId("");
-                      return;
-                    }
-                    const found = customers.find((c) => c.id_number === num);
-                    if (found) {
-                      setCustomerId(String(found.id));
-                      setCustomerSearch(
-                        `${found.name}${found.id_number ? ` (${found.id_number})` : ""}`,
-                      );
-                      toast.success(`Cliente: ${found.name}`);
-                    } else {
-                      setCustomerByQuery(num);
-                      setCustomerByOpen(true);
-                    }
-                  }
-                }}
-                placeholder="Cédula / Enter para buscar..."
-                className="h-9 pr-8"
-              />
-              <Search className="pointer-events-none absolute right-2.5 top-2 h-4 w-4 text-muted-foreground" />
-            </div>
+            <Combobox
+              options={customerOptions}
+              value={customerId}
+              onSelect={setCustomerId}
+              placeholder="Consumidor final"
+              searchPlaceholder="Buscar por nombre, cédula, teléfono..."
+              emptyText="No se encontró ese cliente."
+              actionLabel="Crear cliente nuevo"
+              onAction={() => setQuickOpen(true)}
+              className="h-9 min-w-0 flex-1"
+            />
             <Button
               variant="outline"
               size="icon"
@@ -1110,42 +1084,6 @@ export default function SalesPosIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* ── Cliente no encontrado ── */}
-      <AlertDialog
-        open={customerByOpen}
-        onOpenChange={(o) => {
-          if (!o) setCustomerByOpen(false);
-        }}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cliente no encontrado</AlertDialogTitle>
-            <AlertDialogDescription>
-              No se encontró un cliente con cédula{" "}
-              <strong>{customerByQuery}</strong>. ¿Deseas registrarlo?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setCustomerByOpen(false)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => {
-                setCustomerByOpen(false);
-                setQuickForm((f) => ({
-                  ...f,
-                  id_number: customerByQuery,
-                  id_type: "cedula",
-                }));
-                setQuickOpen(true);
-              }}
-            >
-              Registrar nuevo cliente
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       {/* ── Nuevo cliente rápido ── */}
       <Dialog open={quickOpen} onOpenChange={setQuickOpen}>
