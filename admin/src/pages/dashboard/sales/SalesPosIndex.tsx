@@ -130,6 +130,7 @@ export default function SalesPosIndex() {
     addBundleToCart,
     addServiceWithoutVariant,
     setQuantity,
+    setUnitValue,
     removeItem,
     clearCart,
     itemsTotal,
@@ -776,6 +777,7 @@ export default function SalesPosIndex() {
             <div className="space-y-2">
               {cart.map((i) => {
                 const wholesaleApplies =
+                  !i.value_edited &&
                   !!i.wholesale_price &&
                   i.wholesale_price > 0 &&
                   i.quantity >= i.wholesale_min_quantity;
@@ -791,6 +793,14 @@ export default function SalesPosIndex() {
                         <span className="text-xs text-muted-foreground">
                           {money(i.unit_value)} c/u
                         </span>
+                        {i.value_edited && (
+                          <Badge
+                            variant="secondary"
+                            className="bg-amber-100 px-1 py-0 text-[10px] text-amber-800"
+                          >
+                            Editado
+                          </Badge>
+                        )}
                         {wholesaleApplies && (
                           <Badge
                             variant="secondary"
@@ -799,6 +809,24 @@ export default function SalesPosIndex() {
                             Mayoreo
                           </Badge>
                         )}
+                      </div>
+                      <div className="mt-1.5 flex items-center gap-1.5">
+                        <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Precio
+                        </span>
+                        <Input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={i.unit_value}
+                          onChange={(e) =>
+                            setUnitValue(
+                              i.cart_key,
+                              Math.max(0, Number(e.target.value) || 0),
+                            )
+                          }
+                          className="h-7 w-24 px-2 text-sm"
+                        />
                       </div>
                     </div>
                     <div className="flex items-center rounded-md border">
