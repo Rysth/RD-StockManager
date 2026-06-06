@@ -108,6 +108,7 @@ interface SaleState {
   createSale: (data: CreateSaleData) => Promise<Sale>;
   updateSaleStatus: (id: number, status: SaleStatus) => Promise<void>;
   updateSale: (id: number, data: Partial<CreateSaleData>) => Promise<Sale>;
+  confirmSalePayment: (id: number, proof?: File | null) => Promise<Sale>;
   syncSaleItems: (id: number, items: SaleItemInput[]) => Promise<Sale>;
   deleteSale: (id: number) => Promise<void>;
   issueInvoice: (id: number) => Promise<Invoice>;
@@ -240,6 +241,29 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       return sale;
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la venta");
+      set({ error: msg, isSubmitting: false });
+      throw new Error(msg);
+    }
+  },
+
+  confirmSalePayment: async (id, proof) => {
+    set({ isSubmitting: true, error: null });
+    try {
+      const formData = new FormData();
+      if (proof) formData.append("payment_proof", proof);
+      const response = await api.put(
+        `/api/v1/sales/${id}/confirm_payment`,
+        formData,
+      );
+      const sale = response.data.sale as Sale;
+      set((state) => ({
+        selectedSale: state.selectedSale?.id === id ? sale : state.selectedSale,
+        sales: state.sales.map((s) => (s.id === id ? sale : s)),
+        isSubmitting: false,
+      }));
+      return sale;
+    } catch (error) {
+      const msg = toMessage(error, "Error al confirmar el pago");
       set({ error: msg, isSubmitting: false });
       throw new Error(msg);
     }

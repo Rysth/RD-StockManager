@@ -9,13 +9,13 @@ module Api
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
       before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
-      before_action :set_sale, only: [:show, :update, :destroy, :sync_items]
+      before_action :set_sale, only: [:show, :update, :destroy, :sync_items, :confirm_payment]
       before_action :set_sale_for_invoice, only: [:invoice]
       before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride, :send_invoice_email]
 
       # GET /api/v1/sales
       def index
-        @q = Sale.includes(:customer, :user, :location, :invoices).ransack(search_params)
+        @q = Sale.includes(:customer, :user, :location, :invoices).with_attached_payment_proof.ransack(search_params)
         @q.sorts = "sold_at desc" if @q.sorts.empty?
 
         @pagy, sales = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -92,7 +92,7 @@ module Api
         end
 
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(sale.reload, with_items: true) }, "Venta registrada correctamente")
+        render_success({ sale: serialize(sale, with_items: true) }, "Venta registrada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo registrar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -111,7 +111,7 @@ module Api
           @sale.recalculate_total! if sale_update_params.key?(:shipping_cost)
         end
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta actualizada correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Venta actualizada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo actualizar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -121,7 +121,7 @@ module Api
       def destroy
         @sale.cancel!
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta cancelada correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Venta cancelada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo cancelar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -154,9 +154,35 @@ module Api
         end
 
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Items actualizados correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Items actualizados correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudieron actualizar los items", :unprocessable_entity, e.record.errors.full_messages)
+      end
+
+      # PUT /api/v1/sales/:id/confirm_payment — verifica el pago (marca pagada),
+      # adjunta el comprobante opcional (foto/PDF de la transferencia) y completa
+      # la venta pendiente. Usado por el botón "Confirmar entrega y pago".
+      def confirm_payment
+        unless @sale.pending?
+          return render_error("Solo se pueden confirmar ventas pendientes", :unprocessable_entity)
+        end
+
+        # El comprobante es obligatorio para las transferencias.
+        if @sale.payment_transfer? && params[:payment_proof].blank? && !@sale.payment_proof.attached?
+          return render_error("Debes adjuntar el comprobante de la transferencia", :unprocessable_entity)
+        end
+
+        ActiveRecord::Base.transaction do
+          @sale.payment_proof.attach(params[:payment_proof]) if params[:payment_proof].present?
+          @sale.update!(paid_amount: @sale.total)
+          @sale.sync_payment_status!
+          @sale.complete!
+        end
+
+        Rails.cache.delete("inventory:stats")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Pago confirmado y venta completada")
+      rescue ActiveRecord::RecordInvalid => e
+        render_error("No se pudo confirmar el pago", :unprocessable_entity, e.record.errors.full_messages)
       end
 
       # POST /api/v1/sales/:id/invoice — emite la factura electrónica SRI de la venta.
@@ -241,7 +267,7 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: [:product, :images_attachments] }]).with_attached_payment_proof.find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
@@ -306,6 +332,9 @@ module Api
           cash_received: sale.cash_received,
           cash_change: sale.cash_change,
           sri_iva_rate: sale.sri_iva_rate,
+          payment_status: sale.payment_status,
+          paid_amount: sale.paid_amount,
+          payment_proof_url: sale.payment_proof.attached? ? url_for(sale.payment_proof) : nil,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,
           invoice: serialize_invoice(sale.latest_invoice)

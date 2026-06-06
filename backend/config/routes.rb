@@ -80,6 +80,7 @@ Rails.application.routes.draw do
           get  :invoice_xml          # descarga el XML autorizado
           get  :invoice_ride         # descarga el RIDE (PDF)
           put  :sync_items           # reemplaza los items de una venta pendiente
+          put  :confirm_payment      # verifica el pago (con comprobante) y completa la venta
         end
       end
       resources :cash_sessions, only: [:show] do

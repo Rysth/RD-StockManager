@@ -11,6 +11,8 @@ class Sale < ApplicationRecord
   belongs_to :cash_session, optional: true
   has_many :sale_items, dependent: :destroy
   has_many :invoices, dependent: :destroy
+  # Comprobante de pago (foto/PDF de la transferencia) para control del vendedor.
+  has_one_attached :payment_proof
 
   accepts_nested_attributes_for :sale_items
 
@@ -26,7 +28,8 @@ class Sale < ApplicationRecord
     items_total = sale_items.sum("quantity * unit_price")
     iva_base    = sale_items.where(applies_iva: true).sum("quantity * unit_price").to_d
     iva_amount  = (iva_base * BigDecimal("0.15")).round(2)
-    update_column(:total, items_total + iva_amount + shipping_cost.to_d)
+    self.total  = items_total + iva_amount + shipping_cost.to_d
+    update_column(:total, total)
     sync_payment_status!
   end
 
@@ -40,7 +43,8 @@ class Sale < ApplicationRecord
       else
         :due
       end
-    update_column(:payment_status, Sale.payment_statuses[new_status])
+    self[:payment_status] = Sale.payment_statuses[new_status]
+    update_column(:payment_status, self[:payment_status])
   end
 
   def balance_due

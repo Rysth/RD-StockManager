@@ -184,6 +184,9 @@ export interface Sale {
   cash_received?: number | null;
   cash_change?: number | null;
   sri_iva_rate?: number;
+  payment_status?: "due" | "partial" | "paid";
+  paid_amount?: number;
+  payment_proof_url?: string | null;
   items_count: number;
   items?: SaleItem[];
   profit?: number;
