@@ -104,7 +104,8 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
     downloadInvoiceRide,
   } = useSaleStore();
   const { business, publicBusiness } = useBusinessStore();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
+  const isBusinessEmployee = user?.roles?.includes("business_employee") ?? false;
 
   const [editSaleOpen, setEditSaleOpen] = useState(false);
   const [editItemsOpen, setEditItemsOpen] = useState(false);
@@ -278,7 +279,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
               </div>
 
               {/* Edit sale info */}
-              {selectedSale.status !== "cancelled" && !selectedSale.invoice?.authorized && (
+              {selectedSale.status !== "cancelled" && !selectedSale.invoice?.authorized && !(isBusinessEmployee && selectedSale.status === "completed") && (
                 <Button variant="outline" className="w-full gap-2" onClick={() => setEditSaleOpen(true)}>
                   <Pencil className="h-4 w-4" /> Editar datos de venta
                 </Button>
@@ -486,7 +487,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                 </Button>
               )}
 
-              {selectedSale.status !== "cancelled" && !(selectedSale.invoice?.authorized && selectedSale.invoice?.ambiente === "2") && (
+              {selectedSale.status !== "cancelled" && !(selectedSale.invoice?.authorized && selectedSale.invoice?.ambiente === "2") && !(isBusinessEmployee && selectedSale.status === "completed") && (
                 <Button
                   variant="outline"
                   className="w-full text-destructive"
