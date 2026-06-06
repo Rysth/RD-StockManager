@@ -171,7 +171,7 @@ class InvoiceService
   end
 
   def build_shipping_detalle
-    base = sri_unit_price(@sale.shipping_cost)
+    base = BigDecimal(@sale.shipping_cost.to_s).round(6)
     line_base = base.round(2)
     SriFacturacion::Detalle.new(
       descripcion: "Costo de envío",
@@ -180,16 +180,13 @@ class InvoiceService
       precio_unitario: base,
       descuento: 0,
       unidad_medida: "SERVICIO",
-      impuestos: [sri_iva(line_base)]
+      impuestos: [SriFacturacion::Impuesto.iva_cero(line_base)]
     )
   end
 
-  # El POS guarda precios finales; si se elige IVA, se desglosa sin cambiar el total cobrado.
+  # Los precios en sale_items son precios base (sin IVA); el IVA se añade encima.
   def sri_unit_price(price)
-    gross = BigDecimal(price.to_s)
-    return gross.round(6) if sri_iva_rate.zero?
-
-    (gross / (1 + (sri_iva_rate / 100))).round(6)
+    BigDecimal(price.to_s).round(6)
   end
 
   def sri_iva(line_base)
