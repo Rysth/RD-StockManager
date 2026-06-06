@@ -50,6 +50,15 @@ module Api
             sale_params[:location_id].presence
           end
 
+        payment_method = sale_params[:payment_method].presence || :cash
+        cash_on_delivery = ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
+
+        # Las ventas al contado (no contra entrega) se asocian a la caja abierta del cajero.
+        cash_session =
+          if payment_method.to_s == "cash" && !cash_on_delivery && effective_location_id.present?
+            CashSession.current_for(current_rodauth_user, Location.find_by(id: effective_location_id))
+          end
+
         sale = nil
         ActiveRecord::Base.transaction do
           sale = Sale.new(
@@ -57,10 +66,13 @@ module Api
             location_id: effective_location_id,
             user: current_rodauth_user,
             status: :pending,
-            payment_method: sale_params[:payment_method].presence || :cash,
+            payment_method: payment_method,
             shipping_cost: sale_params[:shipping_cost].presence || 0,
             sri_iva_rate: sale_params[:sri_iva_rate].presence || 0,
-            cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
+            cash_on_delivery: cash_on_delivery,
+            cash_received: sale_params[:cash_received].presence,
+            cash_change: sale_params[:cash_change].presence,
+            cash_session_id: cash_session&.id
           )
           sale.save!
 
@@ -247,11 +259,11 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change)
       end
 
       def sale_update_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change)
       end
 
       def desired_status
@@ -291,6 +303,8 @@ module Api
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
+          cash_received: sale.cash_received,
+          cash_change: sale.cash_change,
           sri_iva_rate: sale.sri_iva_rate,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,

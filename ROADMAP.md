@@ -1,173 +1,140 @@
-# RD-StockManager — Roadmap: Deploy clients/rysthdesign
+# Roadmap — POS Safety & Cash Controls
 
-> Deploy de producción para **RysthDesign** (jpalacios@novicompu.com) en servidor Dokploy.
-> Estrategia: rama `clients/rysthdesign` derivada de `main`, con su propio proyecto en Dokploy.
+## 1. Backend: Below-cost enforcement for `business_employee`
 
----
+**Files:** `backend/app/models/sale_item.rb`, `backend/app/controllers/api/v1/sales_controller.rb`
 
-## Estado actual (rama `main`)
+- Add validation in `SaleItem`:
+  - On create, compare `unit_price` vs `unit_cost` (already set in `set_unit_price`).
+  - Exempt services (`product_variant.product.service?`).
+  - For bundles, use `product_bundle.total_cost`.
+  - Only reject if user is `business_employee` (check `sale.user.has_role?(:business_employee)`).
+  - Error: `No puedes vender productos por debajo del costo`.
 
-- [x] Módulo completo de inventario, ventas, compras, gastos, reportes, facturación SRI
-- [x] Módulo de Cotizaciones (Quotation) con plantilla A4 RysthDesign, conversión a venta
-- [x] `Business.current` env-driven (`BUSINESS_*` vars, sin hardcode EDLU)
-- [x] Permiso `MANAGE_QUOTATIONS` registrado y sembrado
-- [x] Migración `20260601160000_create_quotations_and_items` aplicada en dev
-
----
-
-## Fase 1 — Crear la rama `clients/rysthdesign`
-
-**Objetivo:** tener la rama de producción lista para conectar a Dokploy.
-
-- [ ] Commit de todos los cambios pendientes en `main` (quotations + env defaults)
-- [ ] `git checkout -b clients/rysthdesign`
-- [ ] `git push -u origin clients/rysthdesign`
+- This covers both `create` and `sync_items` since both create `SaleItem` records.
 
 ---
 
-## Fase 2 — Ajustes específicos de RysthDesign en la rama
+## 2. Frontend: Below-cost UX in `SalesPosIndex.tsx`
 
-**Objetivo:** personalizar la rama para el negocio sin tocar `main`.
+**File:** `admin/src/pages/dashboard/sales/SalesPosIndex.tsx`
 
-### 2.1 — Seeds de producción
-- [ ] Ajustar `backend/db/seeds.rb` o crear `backend/db/seeds/production.rb`:
-  - Solo crear el usuario admin con email real (no datos demo de EDLU Store)
-  - Permiso seed (`Permission.seed!`) incluido
-  - Sin datos demo de zapatos/gorras (base limpia para uso real)
-- [ ] Definir `ADMIN_EMAIL` y `ADMIN_PASSWORD` en env de Dokploy (no en código)
-
-### 2.2 — Título del panel admin
-- [ ] Cambiar `admin/index.html` title de `"EDLU Store | Powered By RysthDesign"` → `"RysthDesign | Panel de Gestión"`
-
-### 2.3 — Terms & Conditions de cotización
-- [ ] Revisar `admin/src/constants/terms.ts` — el texto ya dice "50% al inicio / 50% al finalizar"
-  y es correcto para RysthDesign; confirmar o ajustar si cambia el modelo de cobro
+- Detect `isBusinessEmployee = user?.roles?.includes("business_employee")`.
+- In `setUnitValue` handler (line 847): prevent value below `i.cost` for non-service items.
+  - Toast: `No puedes vender por debajo del costo`.
+- Disable `Confirmar y registrar` button if any cart item has `unit_value < cost` for `business_employee`.
+- Optional: show a warning badge on affected cart rows.
 
 ---
 
-## Fase 3 — Infraestructura Dokploy
+## 3. Frontend: Cash received & change
 
-**Objetivo:** tener el proyecto levantado en el servidor.
+**File:** `admin/src/pages/dashboard/sales/SalesPosIndex.tsx`
 
-### 3.1 — Crear proyecto en Dokploy
-- [ ] Servidor Dokploy → **New Project** → nombre: `RD-StockManager`
-- [ ] Dentro del proyecto, crear **dos aplicaciones**:
-  - `rysthdesign-api` → rama `clients/rysthdesign`, directorio `backend/`, Dockerfile existente
-  - `rysthdesign-admin` → rama `clients/rysthdesign`, directorio `admin/`, Dockerfile o build estático
-
-### 3.2 — Base de datos y servicios
-- [ ] PostgreSQL (Dokploy managed o contenedor): crear DB `rdstock_rysthdesign_production`
-- [ ] Redis: instancia compartida o dedicada
-- [ ] Configurar `DATABASE_URL` y `REDIS_URL` en el env de la app API
-
-### 3.3 — Variables de entorno para el API (Dokploy → Environment)
-
-```env
-# Rails
-RAILS_ENV=production
-SECRET_KEY_BASE=<rails secret>
-
-# Base de datos
-DATABASE_URL=postgres://user:pass@host:5432/rdstock_rysthdesign_production
-REDIS_URL=redis://host:6379/1
-
-# Orígenes
-ADMIN_FRONTEND_URL=https://admin.rysthdesign.com
-ADMIN_ALLOWED_ORIGINS=https://admin.rysthdesign.com
-
-# SMTP
-SMTP_HOST=smtp.rysthdesign.com
-SMTP_PORT=587
-SMTP_USER=support@rysthdesign.com
-SMTP_PASSWORD=<password>
-SMTP_DOMAIN=rysthdesign.com
-
-# Identidad del negocio (siembra Business.current solo en primer arranque)
-BUSINESS_NAME=RysthDesign
-BUSINESS_SLOGAN=Diseño y desarrollo de software
-BUSINESS_WHATSAPP=+593000000000
-BUSINESS_EMAIL=support@rysthdesign.com
-BUSINESS_LOCATION=Ecuador
-BUSINESS_INSTAGRAM=
-BUSINESS_FACEBOOK=
-BUSINESS_TIKTOK=
-
-# Admin inicial (seed de producción)
-ADMIN_EMAIL=jpalacios@novicompu.com
-# ADMIN_PASSWORD= (dejar vacío para auto-generar; se escribe en tmp/initial_admin.txt)
-
-# Cloudflare R2 (imágenes) — opcional
-CLOUDFLARE_ENDPOINT=
-CLOUDFLARE_ACCESS_KEY_ID=
-CLOUDFLARE_SECRET_ACCESS_KEY=
-CLOUDFLARE_BUCKET_NAME=
-```
-
-### 3.4 — Variables de entorno para el admin (Vite build-time)
-```env
-VITE_API_URL=https://api.rysthdesign.com
-```
-
----
-
-## Fase 4 — Deploy y post-arranque
-
-**Objetivo:** aplicación funcional en producción.
-
-- [ ] **Build y deploy** del API desde Dokploy (detecta `Dockerfile` en `backend/`)
-- [ ] **Verificar** que el entrypoint corre `db:prepare` (ya configurado en `docker-compose.dev.yml`; confirmar Dockerfile de producción)
-- [ ] **Post-deploy** (una sola vez, desde Dokploy Console o SSH):
-  ```bash
-  bin/rails db:migrate
-  bin/rails runner "Permission.seed!"
+- Add state: `const [cashReceived, setCashReceived] = useState("");`
+- Compute: `const changeDue = cashReceived ? parseFloat(cashReceived) - total : 0;`
+- Show in cart footer (below total):
   ```
-- [ ] Verificar que `Business` fue creado con datos de RysthDesign (`Business.first.name`)
-- [ ] **Build y deploy** del frontend (admin)
-- [ ] Verificar login en `https://admin.rysthdesign.com` con el admin inicial
+  Recibido: [input field]
+  Cambio:   $X.XX
+  ```
+- In confirm dialog: show received + change.
+- Disable `Confirmar y registrar` when `paymentMethod === "cash"` and `cashReceived < total`.
+- Reset `cashReceived` in `resetAfterSubmit` and `clearAll`.
+- Reset `cashReceived` when switching to transfer payment.
+- Include received/change in `handlePrintTicket` lines.
 
 ---
 
-## Fase 5 — Configuración post-login
+## 4. Backend: Persist cash_received / cash_change
 
-**Objetivo:** dejar el negocio operativo desde el panel.
+**Files:** `backend/db/migrate/YYYYMMDD_add_cash_fields_to_sales.rb`, `Sale`, `CreateSaleData`
 
-- [ ] Settings → Negocio: subir logo de RysthDesign, confirmar nombre/slogan/WhatsApp
-- [ ] Settings → Negocio → SRI: configurar ambiente (pruebas primero), RUC, razón social, dirección matriz
-- [ ] Subir certificado `.p12` desde el panel
-- [ ] Crear al menos una ubicación (si se gestionará inventario físico) o dejar "Principal"
-- [ ] Crear las categorías de servicios/productos de RysthDesign
-- [ ] Invitar usuarios adicionales si los hay
+- Migration: `add_column :sales, :cash_received, :decimal, precision: 10, scale: 2, default: nil`
+- Migration: `add_column :sales, :cash_change, :decimal, precision: 10, scale: 2, default: nil`
+- Permit params in `sales_controller.rb` (`sale_params`, `sale_update_params`).
+- Frontend: add `cash_received` and `cash_change` to `CreateSaleData` and send them.
 
 ---
 
-## Fase 6 — Verificación end-to-end
+## 5. Cash Session Model (opening/closing per seller shift)
 
-- [ ] Crear una cotización → descargar PDF (debe mostrar logo y datos de RysthDesign)
-- [ ] Cambiar estado a Aceptada → Convertir a venta
-- [ ] Completar la venta
-- [ ] (Opcional) Emitir factura SRI en ambiente de pruebas
-- [ ] Crear un gasto y verificar que aparece en reportes
+**Files:** New migration + model + controller + store + UI
 
----
-
-## Gestión de futuras actualizaciones
-
+### Migration
+```ruby
+create_table :cash_sessions do |t|
+  t.references :user, null: false
+  t.references :location, null: false
+  t.integer :status, default: 0, null: false  # 0=open, 1=closed
+  t.decimal :opening_amount, precision: 10, scale: 2, default: 0, null: false
+  t.decimal :counted_amount, precision: 10, scale: 2
+  t.decimal :expected_amount, precision: 10, scale: 2
+  t.decimal :variance, precision: 10, scale: 2
+  t.text :notes
+  t.datetime :opened_at, null: false
+  t.datetime :closed_at
+  t.timestamps
+end
+add_column :sales, :cash_session_id, :bigint
 ```
-# Mejora nueva en main → traer a clients/rysthdesign
-git checkout clients/rysthdesign
-git merge main
-git push origin clients/rysthdesign
-# Dokploy detecta el push y redeploy automático (si está configurado webhook)
+
+### Model: `CashSession`
+- `belongs_to :user`, `belongs_to :location`, `has_many :sales`
+- `enum status: { open: 0, closed: 1 }`
+- Methods:
+  - `close!(counted_amount, notes)`: locks, calculates expected, variance, sets closed_at.
+  - `expected_cash`: opening + completed cash sales in session.
+  - `self.current_for(user, location)`: find open session.
+
+### API: `CashSessionsController`
+- `GET /api/v1/cash_sessions/current` — return open session for current user+location.
+- `POST /api/v1/cash_sessions/open` — create with opening_amount.
+- `PUT /api/v1/cash_sessions/:id/close` — close with counted_amount + notes.
+- `GET /api/v1/cash_sessions/:id` — detail with sales list.
+
+### Frontend: Cash Session UI
+- `useCashSessionStore` — fetch current, open, close.
+- Dialog/modal in `SalesPosIndex`:
+  - If no open session and payment is cash: show "Abrir caja" prompt with opening amount input.
+  - Disable completed cash sales until session is open.
+  - "Cerrar caja" button in cart footer (only when session is open).
+  - Closing dialog: counted cash input, auto-calculated expected + variance, notes field.
+
+### POS Block
+- In `submitSale`: if `paymentMethod === "cash"` and `!cashOnDelivery` and no open session, show toast: `Debes abrir la caja antes de registrar ventas en efectivo`.
+
+### Routes
+- In `backend/config/routes.rb`: `resources :cash_sessions` with members `close`.
+
+---
+
+## 6. Verify
+
+```bash
+# Backend
+cd backend && rails db:migrate
+rails test                    # or rspec if present
+
+# Frontend
+cd admin && npx tsc --noEmit
+
+# Manual tests:
+# - Cash sale: check received/change, ticket
+# - Below-cost: employee blocked, owner/admin allowed
+# - Transfer sale: no cash received needed
+# - COD sale: no cash received needed
+# - Cash session: open, complete sale, close, verify expected/variance
 ```
 
 ---
 
-## Decisiones de diseño registradas
+## Order of Execution
 
-| Decisión | Razón |
-|----------|-------|
-| Estrategia branch-per-client | Un despliegue Dokploy por cliente; `main` es el tronco compartido |
-| `Business` singleton env-driven | Cada rama configura su identidad sin editar código |
-| Cotizaciones con líneas libres + variante opcional | RysthDesign vende servicios (libres) y a veces productos de inventario |
-| PDF client-side (react-to-print) | Sin dependencia de PDF server-side; plantilla ya es RysthDesign-branded |
-| No multi-tenancy | Cada cliente es un despliegue independiente; más simple y sin riesgo de contaminación de datos |
+1. Backend below-cost validation + migration
+2. Frontend below-cost UX
+3. Frontend cash received/change UI
+4. Backend cash_received/cash_change migration + params
+5. Cash session migration + model + controller
+6. Cash session store + UI dialogs
+7. Verify (tsc + manual)

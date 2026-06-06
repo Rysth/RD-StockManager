@@ -82,6 +82,15 @@ Rails.application.routes.draw do
           put  :sync_items           # reemplaza los items de una venta pendiente
         end
       end
+      resources :cash_sessions, only: [:show] do
+        collection do
+          get  :current # caja abierta del cajero en la sucursal
+          post :open    # abre una caja con monto inicial
+        end
+        member do
+          put :close    # cierra la caja con arqueo
+        end
+      end
       resources :invoices, only: [:index, :show] do
         member do
           get :xml   # descarga el XML autorizado de esa factura

@@ -30,6 +30,8 @@ export interface TicketData {
   total: number;
   paymentMethod: PaymentMethod;
   cashOnDelivery: boolean;
+  cashReceived?: number | null;
+  cashChange?: number | null;
 }
 
 export function buildTicketHtml(data: TicketData): string {
@@ -104,6 +106,12 @@ export function buildTicketHtml(data: TicketData): string {
     <span class="label">Método de pago</span>
     <span>${data.paymentMethod === "cash" ? "Efectivo" : "Transferencia"}</span>
   </div>
+  ${
+    data.paymentMethod === "cash" && !data.cashOnDelivery && data.cashReceived != null
+      ? `<div class="row"><span class="label">Recibido</span><span>${money(data.cashReceived)}</span></div>
+         <div class="row"><span class="label">Cambio</span><span>${money(data.cashChange ?? 0)}</span></div>`
+      : ""
+  }
   ${data.cashOnDelivery ? '<p class="cod">PAGO CONTRA ENTREGA</p>' : ""}
   <hr class="solid">
   <p class="footer">¡Gracias por su compra!</p>

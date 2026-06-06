@@ -181,6 +181,8 @@ export interface Sale {
   seller?: string | null;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  cash_received?: number | null;
+  cash_change?: number | null;
   sri_iva_rate?: number;
   items_count: number;
   items?: SaleItem[];
@@ -278,9 +280,41 @@ export interface CreateSaleData {
   status?: SaleStatus;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  cash_received?: number | null;
+  cash_change?: number | null;
   shipping_cost?: number;
   sri_iva_rate?: number;
   items: SaleItemInput[];
+}
+
+export type CashSessionStatus = "open" | "closed";
+
+export interface CashSessionSale {
+  id: number;
+  code: string;
+  total: number;
+  payment_method: PaymentMethod;
+  status: SaleStatus;
+  sold_at: string | null;
+}
+
+export interface CashSession {
+  id: number;
+  status: CashSessionStatus;
+  location_id: number;
+  location_name?: string | null;
+  user_id: number;
+  user_name?: string | null;
+  opening_amount: number;
+  counted_amount?: number | null;
+  expected_amount?: number | null;
+  variance?: number | null;
+  notes?: string | null;
+  sales_count: number;
+  opened_at: string;
+  closed_at?: string | null;
+  created_at: string;
+  sales?: CashSessionSale[];
 }
 
 export interface SalesReport {

@@ -179,6 +179,8 @@ export const useSaleStore = create<SaleState>((set, get) => ({
           status: data.status ?? "completed",
           payment_method: data.payment_method ?? "cash",
           cash_on_delivery: data.cash_on_delivery ?? false,
+          cash_received: data.cash_received ?? null,
+          cash_change: data.cash_change ?? null,
           shipping_cost: data.shipping_cost ?? 0,
           sri_iva_rate: data.sri_iva_rate ?? 0,
         },

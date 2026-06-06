@@ -12,6 +12,7 @@ class SaleItem < ApplicationRecord
   validates :quantity, numericality: { greater_than: 0, only_integer: true, message: "La cantidad debe ser mayor a 0" }
   validate :single_sellable_reference
   validate :sufficient_stock, on: :create
+  validate :not_below_cost_for_employee, on: :create
 
   def subtotal
     quantity * unit_price
@@ -42,6 +43,19 @@ class SaleItem < ApplicationRecord
   def set_description
     self.description = product_bundle.name if description.blank? && product_bundle.present?
     self.description = product_variant&.product&.name if description.blank? && product_variant.present?
+  end
+
+  # Los empleados restringidos no pueden vender por debajo del costo.
+  # El costo ya quedó registrado en unit_cost por set_unit_price (para combos
+  # es product_bundle.total_cost; para variantes, product.cost). Los servicios
+  # se eximen porque no manejan costo de inventario.
+  def not_below_cost_for_employee
+    return unless sale&.user&.has_role?(:business_employee)
+    return if product_variant&.product&.service?
+    return if unit_price.blank? || unit_cost.blank?
+    return unless unit_price < unit_cost
+
+    errors.add(:base, "No puedes vender productos por debajo del costo")
   end
 
   def single_sellable_reference

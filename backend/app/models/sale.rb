@@ -8,6 +8,7 @@ class Sale < ApplicationRecord
   belongs_to :user
   belongs_to :customer, optional: true
   belongs_to :location, optional: true
+  belongs_to :cash_session, optional: true
   has_many :sale_items, dependent: :destroy
   has_many :invoices, dependent: :destroy
 
