@@ -204,6 +204,14 @@ export default function ProductsIndex() {
     new Set(),
   );
 
+  const activeCategoryIds = useMemo(() => {
+    const ids = new Set<number>();
+    products.forEach((p) => {
+      if (p.category_id) ids.add(p.category_id);
+    });
+    return ids;
+  }, [products]);
+
   const productFilters = () => ({
     search,
     category_id: categoryFilter,
@@ -245,6 +253,11 @@ export default function ProductsIndex() {
     addOptions(null);
     return options;
   }, [categories]);
+
+  const filteredCategoryOptions = useMemo(
+    () => categoryOptions.filter((c) => activeCategoryIds.has(c.id)),
+    [categoryOptions, activeCategoryIds],
+  );
 
   const productLocationStock = (product: Product) => {
     const totals = new Map<string, number>();
@@ -431,7 +444,7 @@ export default function ProductsIndex() {
               className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             >
               <option value="">Todas las categorías</option>
-              {categoryOptions.map((c) => (
+              {filteredCategoryOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
                 </option>
