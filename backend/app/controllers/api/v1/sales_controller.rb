@@ -160,7 +160,7 @@ module Api
       end
 
       # PUT /api/v1/sales/:id/confirm_payment — verifica el pago (marca pagada),
-      # adjunta el comprobante opcional (foto/PDF de la transferencia) y completa
+      # adjunta el comprobante (obligatorio en transferencias: foto/PDF) y completa
       # la venta pendiente. Usado por el botón "Confirmar entrega y pago".
       def confirm_payment
         unless @sale.pending?
