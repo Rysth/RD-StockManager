@@ -88,6 +88,20 @@ function SalesList() {
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
 
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
+  const restrictedToBranch =
+    !!user?.restricted_to_location && !!user?.location_id;
+
+  // Empleados de sucursal solo ven (y filtran por) su ubicación asignada.
+  const visibleLocations = restrictedToBranch
+    ? locations.filter((l) => l.id === user?.location_id)
+    : locations;
+
+  // Fija la ubicación del empleado restringido como filtro activo.
+  useEffect(() => {
+    if (restrictedToBranch && user?.location_id) {
+      setLocationFilter(String(user.location_id));
+    }
+  }, [restrictedToBranch, user?.location_id]);
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, {
@@ -120,7 +134,11 @@ function SalesList() {
     if (canViewReports) fetchReport().catch(() => {});
   }, [canViewReports, fetchReport]);
 
-  const hasFilters = !!(status || locationFilter || sellerFilter);
+  const hasFilters = !!(
+    status ||
+    sellerFilter ||
+    (!restrictedToBranch && locationFilter)
+  );
   const money0 = (n: number) =>
     new Intl.NumberFormat("es-EC", {
       style: "currency",
@@ -130,8 +148,8 @@ function SalesList() {
 
   const clearFilters = () => {
     setStatus("");
-    setLocationFilter("");
     setSellerFilter("");
+    if (!restrictedToBranch) setLocationFilter("");
   };
 
   const openDetail = (id: number) => {
@@ -172,26 +190,29 @@ function SalesList() {
         <select
           value={locationFilter}
           onChange={(e) => setLocationFilter(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          disabled={restrictedToBranch}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <option value="">Todas las ubicaciones</option>
-          {locations.map((l) => (
+          {!restrictedToBranch && <option value="">Todas las ubicaciones</option>}
+          {visibleLocations.map((l) => (
             <option key={l.id} value={l.id}>{l.name}</option>
           ))}
         </select>
 
-        <select
-          value={sellerFilter}
-          onChange={(e) => setSellerFilter(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Todos los vendedores</option>
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>{e.fullname}</option>
-          ))}
-        </select>
+        {!restrictedToBranch && (
+          <select
+            value={sellerFilter}
+            onChange={(e) => setSellerFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Todos los vendedores</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>{e.fullname}</option>
+            ))}
+          </select>
+        )}
 
-        {(status || locationFilter || sellerFilter) && (
+        {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-xs">
             Limpiar filtros
           </Button>
