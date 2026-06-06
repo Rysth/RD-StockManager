@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Eye, ShoppingCart, DollarSign, CalendarRange, SearchX } from "lucide-react";
+import { Eye, ShoppingCart, DollarSign, CalendarRange, SearchX, Paperclip } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import EmptyState from "../../../components/common/EmptyState";
@@ -281,6 +281,13 @@ function SalesList() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {s.payment_proof_url && (
+                        <ActionIconButton
+                          icon={Paperclip}
+                          label="Ver comprobante"
+                          onClick={() => window.open(s.payment_proof_url!, "_blank", "noopener,noreferrer")}
+                        />
+                      )}
                       <ActionIconButton icon={Eye} label="Ver detalle" onClick={() => openDetail(s.id)} />
                     </TableCell>
                   </TableRow>
