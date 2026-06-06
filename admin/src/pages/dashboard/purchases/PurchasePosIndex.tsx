@@ -4,7 +4,6 @@ import {
   Minus,
   Trash2,
   Search,
-  ImageIcon,
   UserPlus,
   Clock,
   CheckCircle,
@@ -22,7 +21,6 @@ import {
   stockTone,
   findVariantBySku,
   variantCartKey,
-  type VariantOption,
 } from "../../../hooks/usePosCart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,24 +37,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import ProductCard from "../sales/ProductCard";
-
-const money = (n: number) =>
-  new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(
-    n || 0,
-  );
-
-const isServiceProduct = (product: { product_type?: string | null }) =>
-  ["service", "servicio"].includes(
-    String(product.product_type ?? "").toLowerCase(),
-  );
+import {
+  money,
+  isServiceProduct,
+  Thumb,
+  parseVariantLabel,
+  type CatalogItem,
+} from "../shared/pos-helpers";
 
 const validateSupplierId = (idType: string, idNumber: string) => {
   const value = idNumber.trim();
@@ -70,46 +64,6 @@ const validateSupplierId = (idType: string, idNumber: string) => {
     return "El pasaporte debe tener entre 5 y 20 caracteres";
   return null;
 };
-
-function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
-  return url ? (
-    <img
-      src={url}
-      alt=""
-      className={`${size} aspect-square rounded-md border bg-white object-contain`}
-    />
-  ) : (
-    <div
-      className={`${size} flex items-center justify-center rounded-md border bg-muted text-muted-foreground`}
-    >
-      <ImageIcon className="h-4 w-4" />
-    </div>
-  );
-}
-
-interface CatalogItem {
-  item_type: "product";
-  id: number;
-  name: string;
-  product_type?: "good" | "service";
-  brand?: string | null;
-  base_price: number;
-  wholesale_price: number | null;
-  wholesale_min_quantity: number;
-  cost: number;
-  thumb?: string;
-  variantCount: number;
-  variants: {
-    cart_key: string;
-    id: number;
-    is_service: boolean;
-    size?: string | null;
-    color?: string | null;
-    stock: number;
-    sku: string;
-    thumb?: string;
-  }[];
-}
 
 export default function PurchasePosIndex() {
   const { products, categories, fetchProducts, fetchCategories } =
@@ -530,7 +484,7 @@ export default function PurchasePosIndex() {
         {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-4">
           {productGroups.length ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {productGroups.map((p) => {
                 const inCartCount = cart
                   .filter((c) =>
@@ -587,7 +541,7 @@ export default function PurchasePosIndex() {
       </div>
 
       {/* ── Orden de compra (derecha) ── */}
-      <div className="flex w-96 shrink-0 flex-col overflow-hidden bg-background xl:w-[26rem]">
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[420px] 2xl:w-[480px]">
         {/* Proveedor + Referencia */}
         <div className="shrink-0 border-b px-4 py-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">PROVEEDOR</p>
@@ -622,98 +576,96 @@ export default function PurchasePosIndex() {
         </div>
 
         {/* Tabla de ítems */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between px-4 py-2">
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-medium text-muted-foreground">
               ORDEN DE COMPRA
             </p>
             <Badge variant="secondary">{itemCount} items</Badge>
           </div>
           {cart.length ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4">Producto</TableHead>
-                  <TableHead className="w-20 text-center">Cant.</TableHead>
-                  <TableHead className="w-24">Costo u.</TableHead>
-                  <TableHead className="w-8" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {cart.map((i) => (
-                  <TableRow key={i.cart_key}>
-                    <TableCell className="pl-4">
-                      <div className="flex items-center gap-2">
-                        <Thumb url={i.thumb} size="h-8 w-8" />
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {i.label}
-                          </p>
-                          <p className="text-xs text-muted-foreground font-mono">
-                            {i.sku}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center rounded-md border">
-                        <button
-                          type="button"
-                          className="px-1 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            setQuantity(i.cart_key, i.quantity - 1)
-                          }
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <Input
-                          type="number"
-                          min={1}
-                          value={i.quantity}
-                          onChange={(e) =>
-                            setQuantity(i.cart_key, Number(e.target.value) || 1)
-                          }
-                          className="h-7 w-10 rounded-none border-0 px-1 text-center text-sm focus-visible:ring-0"
-                        />
-                        <button
-                          type="button"
-                          className="px-1 py-1 text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            setQuantity(i.cart_key, i.quantity + 1)
-                          }
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    </TableCell>
-                    <TableCell>
+            <div className="space-y-2">
+              {cart.map((i) => (
+                <div
+                  key={i.cart_key}
+                  className="flex flex-col gap-2 rounded-xl border bg-card p-3 shadow-sm"
+                >
+                  <div className="flex items-center gap-3">
+                    <Thumb url={i.thumb} size="h-10 w-10" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold leading-tight">
+                        {parseVariantLabel(i.label).name}
+                      </p>
+                      {parseVariantLabel(i.label).variant && (
+                        <p className="text-[11px] font-medium text-primary">
+                          {parseVariantLabel(i.label).variant}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-sm font-bold tabular-nums">
+                        {money(i.unit_value * i.quantity)}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-destructive hover:text-destructive"
+                        onClick={() => removeItem(i.cart_key)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center rounded-lg border bg-background">
+                      <button
+                        type="button"
+                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                        onClick={() => setQuantity(i.cart_key, i.quantity - 1)}
+                      >
+                        <Minus className="h-3.5 w-3.5" />
+                      </button>
+                      <Input
+                        type="number"
+                        min={1}
+                        value={i.quantity}
+                        onChange={(e) =>
+                          setQuantity(i.cart_key, Number(e.target.value) || 1)
+                        }
+                        className="h-7 w-12 rounded-none border-x px-1 text-center text-sm font-semibold focus-visible:ring-0"
+                      />
+                      <button
+                        type="button"
+                        className="px-2 py-1.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                        onClick={() => setQuantity(i.cart_key, i.quantity + 1)}
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-1 items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                        $/u
+                      </span>
                       <Input
                         type="number"
                         min={0}
                         step="0.01"
                         value={i.unit_value}
                         onChange={(e) =>
-                          setUnitValue(i.cart_key, Number(e.target.value) || 0)
+                          setUnitValue(
+                            i.cart_key,
+                            Math.max(0, Number(e.target.value) || 0),
+                          )
                         }
-                        className="h-8 w-24 text-sm"
+                        className="h-7 flex-1 min-w-0 px-2 text-sm"
                       />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 text-destructive"
-                        onClick={() => removeItem(i.cart_key)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           ) : (
-            <p className="py-10 text-center text-sm text-muted-foreground px-4">
+            <p className="py-10 text-center text-sm text-muted-foreground">
               Selecciona productos del catálogo para agregar.
             </p>
           )}
@@ -801,8 +753,8 @@ export default function PurchasePosIndex() {
         </div>
       </div>
 
-      {/* ── Selector de variante ── */}
-      <Dialog
+      {/* ── Selector de variante (right-side drawer) ── */}
+      <Sheet
         open={!!selectedProduct}
         onOpenChange={(open) => {
           if (!open) {
@@ -811,112 +763,130 @@ export default function PurchasePosIndex() {
           }
         }}
       >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{selectedProduct?.name}</DialogTitle>
-            <DialogDescription>
-              {selectedProduct?.brand && `${selectedProduct.brand} · `}
-              {`Costo base ${money(selectedProduct?.cost ?? 0)} · Selecciona variante`}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex gap-4">
-            {selectedProduct && (
-              <div className="hidden w-28 shrink-0 sm:block">
-                {selectedProduct.thumb ? (
-                  <img
-                    src={selectedProduct.thumb}
-                    alt={selectedProduct.name}
-                    className="h-28 w-28 rounded-lg border bg-white object-contain"
-                  />
-                ) : (
-                  <div className="flex h-28 w-28 items-center justify-center rounded-lg border bg-muted text-muted-foreground">
-                    <ImageIcon className="h-8 w-8" />
+        <SheetContent side="right" className="w-full px-0 pb-0 pt-3 sm:max-w-xs">
+          <div className="flex h-full flex-col">
+            <SheetHeader className="px-4 pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  {selectedProduct && (
+                    <Thumb url={selectedProduct.thumb} size="h-9 w-9" />
+                  )}
+                  <div className="min-w-0">
+                    <SheetTitle className="truncate text-left text-sm font-bold">
+                      {selectedProduct?.name}
+                    </SheetTitle>
+                    <SheetDescription className="text-left text-[11px]">
+                      {selectedProduct?.brand && `${selectedProduct.brand} · `}
+                      {money(selectedProduct?.cost ?? 0)} · {selectedProduct?.variants.length ?? 0} opciones
+                    </SheetDescription>
                   </div>
-                )}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-8 shrink-0"
+                  onClick={() => {
+                    setSelectedProduct(null);
+                    focusSearch();
+                  }}
+                >
+                  Cerrar
+                </Button>
               </div>
-            )}
-            <div className="flex-1 space-y-2">
-              {selectedProduct?.variants.map((v) => {
-                const sizeLabel =
-                  [v.size, v.color].filter(Boolean).join(" / ") ||
-                  "Producto base";
-                const inCart = cart.find((c) => c.cart_key === v.cart_key);
-                const variantOpt: VariantOption = {
-                  cart_key: v.cart_key,
-                  id: v.id,
-                  is_service: false,
-                  label: `${selectedProduct.name} — ${sizeLabel}`,
-                  sku: v.sku,
-                  thumb: v.thumb,
-                  stock: v.stock,
-                  base_price: selectedProduct.base_price,
-                  wholesale_price: selectedProduct.wholesale_price,
-                  wholesale_min_quantity:
-                    selectedProduct.wholesale_min_quantity,
-                  cost: selectedProduct.cost,
-                };
-                return (
-                  <div
-                    key={v.id}
-                    className={`flex items-center justify-between gap-3 rounded-lg border p-3 ${inCart ? "border-primary/40 bg-primary/5" : ""}`}
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-sm">{sizeLabel}</p>
-                      <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                        <Badge
-                          variant="secondary"
-                          className={`px-1.5 py-0 text-[10px] ${stockTone(v.stock)}`}
+            </SheetHeader>
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              <div className="grid grid-cols-2 gap-2">
+                {selectedProduct?.variants.map((v) => {
+                  const sizeLabel =
+                    [v.size, v.color].filter(Boolean).join(" / ") ||
+                    "Producto base";
+                  const inCart = cart.find((c) => c.cart_key === v.cart_key);
+
+                  const handleAdd = () => {
+                    if (!selectedProduct) return;
+                    addToCart({
+                      cart_key: v.cart_key,
+                      id: v.id,
+                      is_service: false,
+                      label: `${selectedProduct.name} — ${sizeLabel}`,
+                      sku: v.sku,
+                      thumb: v.thumb,
+                      stock: v.stock,
+                      base_price: selectedProduct.base_price,
+                      wholesale_price: selectedProduct.wholesale_price,
+                      wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
+                      cost: selectedProduct.cost,
+                    });
+                  };
+
+                  return (
+                    <div
+                      key={v.id}
+                      className={`relative flex flex-col overflow-hidden rounded-lg border transition-all ${inCart ? "border-primary/60 bg-primary/5" : ""} cursor-pointer active:scale-[0.97] hover:border-primary/30`}
+                    >
+                      {!inCart ? (
+                        <button
+                          type="button"
+                          onClick={handleAdd}
+                          className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
                         >
-                          {v.stock} en stock
-                        </Badge>
-                        · <span className="font-mono">{v.sku}</span>
-                      </p>
+                          <Thumb url={v.thumb} size="w-full aspect-square rounded-md" />
+                          <p className="text-[11px] font-semibold leading-tight line-clamp-1">
+                            {sizeLabel}
+                          </p>
+                          <span className={`text-[9px] font-medium ${stockTone(v.stock)}`}>
+                            {v.stock} disp.
+                          </span>
+                        </button>
+                      ) : (
+                        <div className="flex flex-col">
+                          <button
+                            type="button"
+                            onClick={handleAdd}
+                            className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
+                          >
+                            <div className="relative w-full aspect-square">
+                              <Thumb url={v.thumb} size="w-full aspect-square rounded-md" />
+                              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground shadow">
+                                {inCart.quantity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-semibold leading-tight line-clamp-1">
+                              {sizeLabel}
+                            </p>
+                            <span className={`text-[9px] font-medium ${stockTone(v.stock)}`}>
+                              {v.stock} disp.
+                            </span>
+                          </button>
+                          <div className="flex items-center justify-around border-t bg-primary/5 px-1 py-1">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(v.cart_key, inCart.quantity - 1)}
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="text-[10px] font-bold tabular-nums">
+                              {inCart.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(v.cart_key, inCart.quantity + 1)}
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    {inCart ? (
-                      <div className="flex items-center gap-0.5 rounded-md border bg-background">
-                        <button
-                          type="button"
-                          className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            setQuantity(v.cart_key, inCart.quantity - 1)
-                          }
-                        >
-                          <Minus className="h-3 w-3" />
-                        </button>
-                        <span className="w-8 text-center text-sm font-semibold">
-                          {inCart.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          className="px-2 py-1.5 text-muted-foreground hover:text-foreground"
-                          onClick={() =>
-                            setQuantity(v.cart_key, inCart.quantity + 1)
-                          }
-                        >
-                          <Plus className="h-3 w-3" />
-                        </button>
-                      </div>
-                    ) : (
-                      <Button size="sm" onClick={() => addToCart(variantOpt)}>
-                        <Plus className="mr-1 h-3.5 w-3.5" /> Agregar
-                      </Button>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={() => setSelectedProduct(null)}
-            >
-              Cerrar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
 
       {/* ── Nuevo proveedor rápido ── */}
       <Dialog open={supplierQuickOpen} onOpenChange={setSupplierQuickOpen}>
