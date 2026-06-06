@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import toast from "react-hot-toast";
 import type { Product, ProductVariant } from "../types/inventory";
 
@@ -101,27 +101,8 @@ export function stockAt(variant: ProductVariant, locationId: string): number {
   return variant.stock;
 }
 
-const CART_SESSION_KEY = "pos_cart_sale";
-
 export function usePosCart(mode: "sale" | "purchase" | "transfer") {
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    if (mode !== "sale") return [];
-    try {
-      const stored = sessionStorage.getItem(CART_SESSION_KEY);
-      return stored ? (JSON.parse(stored) as CartItem[]) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  useEffect(() => {
-    if (mode !== "sale") return;
-    if (cart.length === 0) {
-      sessionStorage.removeItem(CART_SESSION_KEY);
-    } else {
-      sessionStorage.setItem(CART_SESSION_KEY, JSON.stringify(cart));
-    }
-  }, [cart, mode]);
+  const [cart, setCart] = useState<CartItem[]>([]);
 
   function withQuantity(item: CartItem, quantity: number): CartItem {
     const cap = mode === "purchase" ? Number.MAX_SAFE_INTEGER : item.max;
@@ -279,10 +260,7 @@ export function usePosCart(mode: "sale" | "purchase" | "transfer") {
   const removeItem = (key: string) =>
     setCart((prev) => prev.filter((i) => i.cart_key !== key));
 
-  const clearCart = () => {
-    sessionStorage.removeItem(CART_SESSION_KEY);
-    setCart([]);
-  };
+  const clearCart = () => setCart([]);
 
   const itemsTotal = cart.reduce(
     (sum, i) => sum + (i.unit_value - i.discount) * i.quantity,

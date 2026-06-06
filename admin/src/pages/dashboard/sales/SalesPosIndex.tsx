@@ -106,6 +106,7 @@ export default function SalesPosIndex() {
     null,
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const focusSearch = () => {
     searchInputRef.current?.focus();
@@ -484,6 +485,18 @@ export default function SalesPosIndex() {
     setShippingCost(0);
   };
 
+  const clearAll = () => {
+    clearCart();
+    setVariantQuery("");
+    setCustomerId("");
+    setPaymentMethod("cash");
+    setCashOnDelivery(false);
+    setShippingCost(0);
+    setClearConfirmOpen(false);
+    toast.success("Carrito reiniciado");
+    focusSearch();
+  };
+
   const submitSale = async () => {
     const isTransfer = paymentMethod === "transfer";
     const finalStatus = cashOnDelivery || isTransfer ? "pending" : "completed";
@@ -725,7 +738,18 @@ export default function SalesPosIndex() {
         <div className="flex-1 overflow-y-auto px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs font-medium text-muted-foreground">CARRITO</p>
-            <Badge variant="secondary">{itemCount}</Badge>
+            <div className="flex items-center gap-2">
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setClearConfirmOpen(true)}
+                  className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Vaciar
+                </button>
+              )}
+              <Badge variant="secondary">{itemCount}</Badge>
+            </div>
           </div>
           {cart.length ? (
             <div className="space-y-2">
@@ -940,7 +964,7 @@ export default function SalesPosIndex() {
               )}
               {ivaAmount > 0 && (
                 <div className="flex justify-between">
-                  <span>IVA {sriIvaRate}%</span>
+                  <span>IVA 15%</span>
                   <span>{money(ivaAmount)}</span>
                 </div>
               )}
@@ -1297,7 +1321,7 @@ export default function SalesPosIndex() {
                 )}
                 {ivaAmount > 0 && (
                   <div className="flex justify-between text-muted-foreground">
-                    <span>IVA {sriIvaRate}%</span>
+                    <span>IVA 15%</span>
                     <span>{money(ivaAmount)}</span>
                   </div>
                 )}
@@ -1388,7 +1412,7 @@ export default function SalesPosIndex() {
             <DialogTitle>¿Salir del punto de venta?</DialogTitle>
             <DialogDescription>
               Tienes {itemCount} ítem{itemCount !== 1 ? "s" : ""} en el
-              carrito. El carrito se guardará y podrás continuar al volver.
+              carrito. Si sales ahora perderás el progreso.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="gap-2">
@@ -1400,6 +1424,31 @@ export default function SalesPosIndex() {
               onClick={() => blocker.proceed?.()}
             >
               Salir de todas formas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirmar vaciar carrito ── */}
+      <Dialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Vaciar el carrito?</DialogTitle>
+            <DialogDescription>
+              Se eliminarán los {itemCount} ítem{itemCount !== 1 ? "s" : ""} y
+              se reiniciarán cliente, pago y envío. Esta acción no se puede
+              deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setClearConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={clearAll}>
+              Sí, vaciar todo
             </Button>
           </DialogFooter>
         </DialogContent>

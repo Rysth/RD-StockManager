@@ -101,6 +101,7 @@ export default function PurchasePosIndex() {
     null,
   );
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [clearConfirmOpen, setClearConfirmOpen] = useState(false);
   const [confirmStatus, setConfirmStatus] = useState<"draft" | "received">(
     "draft",
   );
@@ -380,6 +381,17 @@ export default function PurchasePosIndex() {
     setPaid("0");
   };
 
+  const clearAll = () => {
+    clearCart();
+    setVariantQuery("");
+    setSupplierId("");
+    setReference("");
+    setPaid("0");
+    setClearConfirmOpen(false);
+    toast.success("Orden reiniciada");
+    focusSearch();
+  };
+
   const openConfirm = (status: "draft" | "received") => {
     if (cart.length === 0) {
       toast.error("Agrega al menos un producto");
@@ -599,7 +611,18 @@ export default function PurchasePosIndex() {
             <p className="text-xs font-medium text-muted-foreground">
               ORDEN DE COMPRA
             </p>
-            <Badge variant="secondary">{itemCount} items</Badge>
+            <div className="flex items-center gap-2">
+              {cart.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setClearConfirmOpen(true)}
+                  className="flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10 transition-colors"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Vaciar
+                </button>
+              )}
+              <Badge variant="secondary">{itemCount} items</Badge>
+            </div>
           </div>
           {cart.length ? (
             <div className="space-y-2">
@@ -949,6 +972,31 @@ export default function PurchasePosIndex() {
               onClick={() => blocker.proceed?.()}
             >
               Salir de todas formas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Confirmar vaciar orden ── */}
+      <Dialog open={clearConfirmOpen} onOpenChange={setClearConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Vaciar la orden?</DialogTitle>
+            <DialogDescription>
+              Se eliminarán los {itemCount} ítem{itemCount !== 1 ? "s" : ""} y
+              se reiniciarán proveedor y referencia. Esta acción no se puede
+              deshacer.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setClearConfirmOpen(false)}
+            >
+              Cancelar
+            </Button>
+            <Button variant="destructive" onClick={clearAll}>
+              Sí, vaciar todo
             </Button>
           </DialogFooter>
         </DialogContent>
