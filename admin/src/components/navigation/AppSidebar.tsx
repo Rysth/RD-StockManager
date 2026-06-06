@@ -27,6 +27,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
@@ -347,9 +348,9 @@ export default function AppSidebar({
                     {prevGroupsHaveItems && (
                       <SidebarSeparator className="my-1" />
                     )}
-                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                    <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-wider">
                       {groupLabels[index]}
-                    </p>
+                    </SidebarGroupLabel>
                     {renderItems(group)}
                   </div>
                 );
