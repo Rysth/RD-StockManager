@@ -19,6 +19,7 @@ import { useAuthStore } from "../../../stores/authStore";
 import {
   usePosCart,
   stockAt,
+  stockTone,
   findVariantBySku,
   variantCartKey,
 } from "../../../hooks/usePosCart";
@@ -67,7 +68,7 @@ export default function TransferPosIndex() {
     removeItem,
     clearCart,
     itemCount,
-  } = usePosCart("purchase");
+  } = usePosCart("transfer");
 
   const [fromLocationId, setFromLocationId] = useState("");
   const [toLocationId, setToLocationId] = useState("");
@@ -480,7 +481,9 @@ export default function TransferPosIndex() {
           </div>
           {cart.length ? (
             <div className="space-y-2">
-              {cart.map((i) => (
+              {cart.map((i) => {
+                  const atMax = i.quantity >= i.max;
+                  return (
                 <div
                   key={i.cart_key}
                   className="flex items-center gap-3 rounded-xl border bg-card p-3 shadow-sm"
@@ -498,6 +501,9 @@ export default function TransferPosIndex() {
                     <p className="text-[11px] text-muted-foreground">
                       {i.sku}
                     </p>
+                    <span className={`inline-block px-1 py-0.5 rounded text-[10px] font-medium ${i.is_service ? "" : stockTone(i.max)}`}>
+                      {i.is_service ? "∞ disp." : `${i.max} disponibles`}
+                    </span>
                   </div>
                   <div className="flex items-center rounded-lg border bg-background">
                     <button
@@ -510,6 +516,7 @@ export default function TransferPosIndex() {
                     <Input
                       type="number"
                       min={1}
+                      max={i.max}
                       value={i.quantity}
                       onChange={(e) =>
                         setQuantity(i.cart_key, Number(e.target.value) || 1)
@@ -518,8 +525,9 @@ export default function TransferPosIndex() {
                     />
                     <button
                       type="button"
-                      className="px-2 py-1.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
-                      onClick={() => setQuantity(i.cart_key, i.quantity + 1)}
+                      className={`px-2 py-1.5 transition-transform active:scale-90 ${atMax ? "text-muted-foreground/30 cursor-not-allowed" : "text-muted-foreground hover:text-foreground"}`}
+                      onClick={() => !atMax && setQuantity(i.cart_key, i.quantity + 1)}
+                      disabled={atMax}
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </button>
@@ -533,7 +541,8 @@ export default function TransferPosIndex() {
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>
-              ))}
+                  );
+              })}
             </div>
           ) : (
             <div className="flex flex-col items-center gap-2 py-10 text-center text-sm text-muted-foreground">
@@ -613,6 +622,10 @@ export default function TransferPosIndex() {
 
                   const handleAdd = () => {
                     if (!selectedProduct) return;
+                    if (v.stock <= 0) {
+                      toast.error("Sin stock disponible en el origen");
+                      return;
+                    }
                     addToCart({
                       cart_key: v.cart_key,
                       id: v.id,
@@ -629,15 +642,18 @@ export default function TransferPosIndex() {
                     });
                   };
 
+                  const atMax = inCart ? inCart.quantity >= v.stock : false;
+
                   return (
                     <div
                       key={v.id}
-                      className={`relative flex flex-col overflow-hidden rounded-lg border transition-all ${inCart ? "border-primary/60 bg-primary/5" : ""} cursor-pointer active:scale-[0.97] hover:border-primary/30`}
+                      className={`relative flex flex-col overflow-hidden rounded-lg border transition-all ${inCart ? "border-primary/60 bg-primary/5" : v.stock <= 0 ? "opacity-40" : ""} ${v.stock > 0 ? "cursor-pointer active:scale-[0.97] hover:border-primary/30" : ""}`}
                     >
                       {!inCart ? (
                         <button
                           type="button"
-                          onClick={handleAdd}
+                          onClick={v.stock > 0 ? handleAdd : undefined}
+                          disabled={v.stock <= 0}
                           className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
                         >
                           <Thumb url={v.thumb} size="w-full aspect-square rounded-md" />
@@ -647,14 +663,15 @@ export default function TransferPosIndex() {
                           <span
                             className={`text-[9px] font-medium ${stockTone(v.stock)}`}
                           >
-                            {v.stock} disp.
+                            {v.stock <= 0 ? "Sin stock" : `${v.stock} disp.`}
                           </span>
                         </button>
                       ) : (
                         <div className="flex flex-col">
                           <button
                             type="button"
-                            onClick={handleAdd}
+                            onClick={atMax ? undefined : handleAdd}
+                            disabled={atMax}
                             className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
                           >
                             <div className="relative w-full aspect-square">
@@ -688,9 +705,10 @@ export default function TransferPosIndex() {
                             <button
                               type="button"
                               onClick={() =>
-                                setQuantity(v.cart_key, inCart.quantity + 1)
+                                !atMax && setQuantity(v.cart_key, inCart.quantity + 1)
                               }
-                              className="rounded p-0.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                              disabled={atMax}
+                              className={`rounded p-0.5 transition-transform active:scale-90 ${atMax ? "text-muted-foreground/30" : "text-muted-foreground hover:text-foreground"}`}
                             >
                               <Plus className="h-3 w-3" />
                             </button>

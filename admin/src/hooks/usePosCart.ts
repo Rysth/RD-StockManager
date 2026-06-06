@@ -103,7 +103,7 @@ export function stockAt(variant: ProductVariant, locationId: string): number {
 
 const CART_SESSION_KEY = "pos_cart_sale";
 
-export function usePosCart(mode: "sale" | "purchase") {
+export function usePosCart(mode: "sale" | "purchase" | "transfer") {
   const [cart, setCart] = useState<CartItem[]>(() => {
     if (mode !== "sale") return [];
     try {
@@ -124,7 +124,7 @@ export function usePosCart(mode: "sale" | "purchase") {
   }, [cart, mode]);
 
   function withQuantity(item: CartItem, quantity: number): CartItem {
-    const cap = mode === "sale" ? item.max : Number.MAX_SAFE_INTEGER;
+    const cap = mode === "purchase" ? Number.MAX_SAFE_INTEGER : item.max;
     const q = Math.max(1, Math.min(quantity, cap));
     const next = { ...item, quantity: q };
     if (mode === "sale" && !item.value_edited)
@@ -137,7 +137,7 @@ export function usePosCart(mode: "sale" | "purchase") {
       const existing = prev.find((i) => i.cart_key === v.cart_key);
       if (existing) {
         if (
-          mode === "sale" &&
+          (mode === "sale" || mode === "transfer") &&
           !existing.is_service &&
           existing.quantity >= existing.max
         ) {
@@ -147,6 +147,10 @@ export function usePosCart(mode: "sale" | "purchase") {
         return prev.map((i) =>
           i.cart_key === v.cart_key ? withQuantity(i, i.quantity + 1) : i,
         );
+      }
+      if ((mode === "sale" || mode === "transfer") && !v.is_service && v.stock <= 0) {
+        toast.error("Sin stock disponible");
+        return prev;
       }
       const base: CartItem = {
         cart_key: v.cart_key,
@@ -165,7 +169,7 @@ export function usePosCart(mode: "sale" | "purchase") {
         unit_value: mode === "sale" ? v.base_price : v.cost,
         value_edited: false,
         discount: 0,
-        applies_iva: true,
+        applies_iva: mode !== "sale",
       };
       return [...prev, withQuantity(base, 1)];
     });
@@ -203,7 +207,7 @@ export function usePosCart(mode: "sale" | "purchase") {
           unit_value: bundle.base_price,
           value_edited: false,
           discount: 0,
-          applies_iva: true,
+          applies_iva: mode !== "sale",
         },
       ];
     });
