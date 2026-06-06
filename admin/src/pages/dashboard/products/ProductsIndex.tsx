@@ -357,6 +357,8 @@ export default function ProductsIndex() {
   };
 
   const hasFilters = !!(search.trim() || categoryFilter || showArchived);
+
+  const handleExport = async (locationId?: number) => {
     try {
       await exportProducts(locationId);
     } catch (e) {
