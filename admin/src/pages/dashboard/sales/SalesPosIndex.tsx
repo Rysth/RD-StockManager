@@ -694,7 +694,7 @@ export default function SalesPosIndex() {
       </div>
 
       {/* ── Carrito (derecha) ── */}
-      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[420px] 2xl:w-[480px]">
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[480px] 2xl:w-[560px]">
         {/* Cliente */}
         <div className="shrink-0 border-b px-4 py-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">

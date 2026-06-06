@@ -9,6 +9,7 @@ import {
   ArrowRightLeft,
   Send,
   Package,
+  Warehouse,
   Boxes,
 } from "lucide-react";
 import toast from "react-hot-toast";
@@ -317,8 +318,19 @@ export default function TransferPosIndex() {
     }
   };
 
+  const needsLocations = locations.length < 2 && !restrictedToBranch;
+
   return (
     <div className="flex min-h-0 w-full flex-1 overflow-hidden">
+      {needsLocations ? (
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center p-8">
+          <Warehouse className="h-12 w-12 text-muted-foreground/40" />
+          <p className="text-sm font-medium text-muted-foreground max-w-sm">
+            Para utilizar esta funcionalidad, debes tener al menos dos ubicaciones creadas.
+          </p>
+        </div>
+      ) : (
+      <>
       {/* ── Catálogo (izquierda) ── */}
       <div className="flex flex-1 flex-col overflow-hidden border-r">
         {/* Búsqueda + origen */}
@@ -450,7 +462,7 @@ export default function TransferPosIndex() {
       </div>
 
       {/* ── Panel de transferencia (derecha) ── */}
-      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[420px] 2xl:w-[480px]">
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[480px] 2xl:w-[560px]">
         {/* Destino + notas */}
         <div className="shrink-0 border-b px-4 py-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">
@@ -871,6 +883,8 @@ export default function TransferPosIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </>
+      )}
     </div>
   );
 }

@@ -571,7 +571,7 @@ export default function PurchasePosIndex() {
       </div>
 
       {/* ── Orden de compra (derecha) ── */}
-      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[420px] 2xl:w-[480px]">
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[480px] 2xl:w-[560px]">
         {/* Proveedor + Referencia */}
         <div className="shrink-0 border-b px-4 py-3 space-y-2">
           <p className="text-xs font-medium text-muted-foreground">PROVEEDOR</p>
