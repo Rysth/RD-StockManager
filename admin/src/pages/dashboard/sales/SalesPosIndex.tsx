@@ -86,6 +86,7 @@ export default function SalesPosIndex() {
     setQuantity,
     setUnitValue,
     resetUnitValue,
+    toggleItemIva,
     removeItem,
     clearCart,
     itemsTotal,
@@ -99,7 +100,6 @@ export default function SalesPosIndex() {
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
-  const [sriIvaRate, setSriIvaRate] = useState<0 | 15>(0);
   const [shippingCost, setShippingCost] = useState(0);
 
   const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(
@@ -131,8 +131,11 @@ export default function SalesPosIndex() {
     email: "",
   });
 
-  const ivaAmount =
-    sriIvaRate > 0 ? Math.round(itemsTotal * (sriIvaRate / 100) * 100) / 100 : 0;
+  const ivaAmount = cart.reduce(
+    (sum, i) =>
+      sum + (i.applies_iva ? Math.round(i.unit_value * i.quantity * 0.15 * 100) / 100 : 0),
+    0,
+  );
   const total = itemsTotal + ivaAmount + shippingCost;
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
   const customerOptions = useMemo<ComboboxOption[]>(
@@ -478,7 +481,6 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
-    setSriIvaRate(0);
     setShippingCost(0);
   };
 
@@ -492,7 +494,6 @@ export default function SalesPosIndex() {
         status: finalStatus,
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
-        sri_iva_rate: sriIvaRate,
         shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
@@ -500,6 +501,7 @@ export default function SalesPosIndex() {
           description: i.product_variant_id ? undefined : i.label,
           quantity: i.quantity,
           unit_price: i.unit_value,
+          applies_iva: i.applies_iva,
         })),
       });
       toast.success(
@@ -837,6 +839,13 @@ export default function SalesPosIndex() {
                           </button>
                         )}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => toggleItemIva(i.cart_key)}
+                        className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${i.applies_iva ? "border-primary bg-primary/10 text-primary" : "border-muted text-muted-foreground hover:bg-muted"}`}
+                      >
+                        IVA 15%
+                      </button>
                     </div>
                   </div>
                 );
@@ -880,32 +889,6 @@ export default function SalesPosIndex() {
               <Truck className="h-4 w-4 text-muted-foreground" />
               Pago contra entrega
             </label>
-          </div>
-
-          {/* IVA para factura electrónica */}
-          <div>
-            <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-              IVA SRI
-            </p>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setSriIvaRate(0)}
-                className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${sriIvaRate === 0 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
-              >
-                0% / RIMPE
-              </button>
-              <button
-                type="button"
-                onClick={() => setSriIvaRate(15)}
-                className={`rounded-md border py-1.5 text-sm font-medium transition-colors ${sriIvaRate === 15 ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
-              >
-                15%
-              </button>
-            </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              Se suma al total cobrado al cliente y define el desglose del XML/RIDE.
-            </p>
           </div>
 
           {/* Envío */}
@@ -1339,10 +1322,6 @@ export default function SalesPosIndex() {
                 <span className="font-medium">
                   {paymentMethod === "cash" ? "Efectivo" : "Transferencia"}
                 </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">IVA SRI</span>
-                <span className="font-medium">{sriIvaRate}%</span>
               </div>
               {cashOnDelivery && (
                 <div className="flex justify-between">

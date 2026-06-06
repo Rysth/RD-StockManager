@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_06_020000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -441,6 +441,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_020000) do
     t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.string "description"
     t.bigint "product_bundle_id"
+    t.boolean "applies_iva", default: false, null: false
     t.index ["product_bundle_id"], name: "index_sale_items_on_product_bundle_id"
     t.index ["product_variant_id"], name: "index_sale_items_on_product_variant_id"
     t.index ["sale_id"], name: "index_sale_items_on_sale_id"

@@ -158,6 +158,7 @@ class InvoiceService
     @sale.sale_items.map do |item|
       base_unit = sri_unit_price(item.unit_price)
       line_base = (BigDecimal(item.quantity.to_s) * base_unit).round(2)
+      impuesto = item.applies_iva? ? sri_iva_15(line_base) : SriFacturacion::Impuesto.iva_cero(line_base)
       SriFacturacion::Detalle.new(
         descripcion: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
         codigo_principal: item.product_bundle.present? ? "COMBO-#{item.product_bundle_id}" : item.product_variant&.sku || "SERV-#{item.id}",
@@ -165,7 +166,7 @@ class InvoiceService
         precio_unitario: base_unit,
         descuento: 0,
         unidad_medida: "UNIDAD",
-        impuestos: [sri_iva(line_base)]
+        impuestos: [impuesto]
       )
     end
   end
@@ -189,19 +190,12 @@ class InvoiceService
     BigDecimal(price.to_s).round(6)
   end
 
-  def sri_iva(line_base)
-    rate = sri_iva_rate
-    return SriFacturacion::Impuesto.iva_cero(line_base) if rate.zero?
-
+  def sri_iva_15(line_base)
     SriFacturacion::Impuesto.iva(
       line_base,
-      tarifa: rate,
-      codigo_porcentaje: IVA_CODIGO_PORCENTAJE.fetch(rate.to_i, "4")
+      tarifa: 15,
+      codigo_porcentaje: IVA_CODIGO_PORCENTAJE.fetch(15, "4")
     )
-  end
-
-  def sri_iva_rate
-    @sri_iva_rate ||= BigDecimal(@sale.sri_iva_rate.to_s).round(2)
   end
 
   def ride_logo_for(business)

@@ -70,7 +70,8 @@ module Api
               product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
-              unit_price: item[:unit_price]
+              unit_price: item[:unit_price],
+              applies_iva: ActiveModel::Type::Boolean.new.cast(item[:applies_iva]) || false
             )
           end
 
@@ -133,7 +134,8 @@ module Api
               product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
-              unit_price: item[:unit_price]
+              unit_price: item[:unit_price],
+              applies_iva: ActiveModel::Type::Boolean.new.cast(item[:applies_iva]) || false
             )
           end
           @sale.recalculate_total!
