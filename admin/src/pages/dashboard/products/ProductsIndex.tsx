@@ -181,8 +181,9 @@ export default function ProductsIndex() {
   } = useInventoryStore();
   const { bundles, fetchBundles, deleteBundle, restoreBundle } = useProductBundleStore();
   const { locations, fetchLocations } = useLocationStore();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PRODUCTS);
+  const isBusinessEmployee = user?.roles?.includes("business_employee") ?? false;
 
   const [firstLoad, setFirstLoad] = useState(true);
   const [search, setSearch] = useState("");
@@ -457,7 +458,7 @@ export default function ProductsIndex() {
                     <TableHead>Producto</TableHead>
                     <TableHead>Categoría</TableHead>
                     <TableHead>Precio</TableHead>
-                    <TableHead>Costo</TableHead>
+                    {!isBusinessEmployee && <TableHead>Costo</TableHead>}
                     <TableHead>Mayoreo</TableHead>
                     <TableHead>Stock</TableHead>
                     {canManage && (
@@ -468,7 +469,7 @@ export default function ProductsIndex() {
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-24 text-center">
+                      <TableCell colSpan={canManage ? 9 : isBusinessEmployee ? 7 : 8} className="h-24 text-center">
                         Cargando productos...
                       </TableCell>
                     </TableRow>
@@ -512,9 +513,11 @@ export default function ProductsIndex() {
                           </TableCell>
                           <TableCell>{p.category || "—"}</TableCell>
                           <TableCell>{money(p.base_price)}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {money(p.cost)}
-                          </TableCell>
+                          {!isBusinessEmployee && (
+                            <TableCell className="text-muted-foreground">
+                              {money(p.cost)}
+                            </TableCell>
+                          )}
                           <TableCell>
                             {p.wholesale_price ? money(p.wholesale_price) : "—"}
                           </TableCell>
@@ -546,7 +549,7 @@ export default function ProductsIndex() {
                           <TableRow className="bg-muted/30 hover:bg-muted/30">
                             <TableCell />
                             <TableCell />
-                            <TableCell colSpan={canManage ? 7 : 6}>
+                            <TableCell colSpan={canManage ? 7 : isBusinessEmployee ? 5 : 6}>
                               {p.variants.length ? (
                                 <div className="space-y-3 py-2">
                                   {productLocationStock(p).length > 0 && (
@@ -619,7 +622,7 @@ export default function ProductsIndex() {
                     ))
                   ) : (
                     <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={9} className="p-0">
+                      <TableCell colSpan={canManage ? 9 : isBusinessEmployee ? 7 : 8} className="p-0">
                         {search.trim() || categoryFilter ? (
                           <EmptyState
                             variant="no-results"
