@@ -3,6 +3,7 @@
 
 export interface Category {
   id: number;
+  code: string;
   name: string;
   description?: string | null;
   active: boolean;
@@ -15,6 +16,7 @@ export interface Category {
 
 export interface Brand {
   id: number;
+  code: string;
   name: string;
   description?: string | null;
   active: boolean;
@@ -30,6 +32,7 @@ export interface ProductImage {
 
 export interface Location {
   id: number;
+  code: string;
   name: string;
   address?: string | null;
   phone?: string | null;
@@ -95,6 +98,7 @@ export type IdType = "cedula" | "pasaporte" | "ruc" | "";
 
 export interface Customer {
   id: number;
+  code: string;
   name: string;
   phone?: string | null;
   city?: string | null;

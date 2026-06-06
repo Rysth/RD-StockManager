@@ -171,7 +171,7 @@ function CatalogSection({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
+                  <TableHead className="w-24">Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   {parentOptions && <TableHead>Categoría padre</TableHead>}
                   <TableHead>Descripción</TableHead>
@@ -183,8 +183,8 @@ function CatalogSection({
               <TableBody>
                 {items.map((item, idx) => (
                   <TableRow key={item.id} className={!item.active ? "opacity-60" : undefined}>
-                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
-                      {idx + 1}
+                    <TableCell>
+                      <span className="font-mono text-xs text-muted-foreground">{item.code}</span>
                     </TableCell>
                     <TableCell className="font-medium">
                       {item.parent_name && <span className="text-muted-foreground">{item.parent_name} › </span>}

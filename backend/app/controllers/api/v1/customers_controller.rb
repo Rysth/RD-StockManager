@@ -90,6 +90,7 @@ module Api
       def serialize(customer, sales_count: nil)
         {
           id: customer.id,
+          code: customer.code,
           name: customer.name,
           phone: customer.phone,
           city: customer.city,

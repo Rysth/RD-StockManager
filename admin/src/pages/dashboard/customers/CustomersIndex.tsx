@@ -340,7 +340,7 @@ export default function CustomersIndex() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-12 text-center">#</TableHead>
+                  <TableHead className="w-28">Código</TableHead>
                   <TableHead>Nombre</TableHead>
                   <TableHead>Tipo</TableHead>
                   <TableHead>Documento</TableHead>
@@ -353,8 +353,8 @@ export default function CustomersIndex() {
               <TableBody>
                 {customers.map((c, idx) => (
                   <TableRow key={c.id} className={c.active === false ? "opacity-60" : undefined}>
-                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
-                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    <TableCell>
+                      <span className="font-mono text-xs text-muted-foreground">{c.code}</span>
                     </TableCell>
                     <TableCell className="font-medium">
                       <div className="flex items-center gap-2">
