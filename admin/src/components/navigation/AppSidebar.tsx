@@ -6,7 +6,6 @@ import {
   SlidersHorizontal,
   LogOut,
   ChevronsUpDown,
-  ChevronDown,
   Package2,
   PackagePlus,
   ShoppingBag,
@@ -28,18 +27,12 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -272,44 +265,16 @@ export default function AppSidebar({
     },
   ].filter((i) => i.visible);
 
-  interface NavGroupConfig {
-    label: string;
-    icon: LucideIcon;
-    items: NavItemConfig[];
-  }
+  const groups = [catalogItems, comprasItems, ventasItems, transferenciasItems, adminItems, settingsItems];
 
-  const groups: NavGroupConfig[] = [
-    {
-      label: "Catálogo",
-      icon: Package2,
-      items: catalogItems,
-    },
-    {
-      label: "Compras",
-      icon: Truck,
-      items: comprasItems,
-    },
-    {
-      label: "Ventas",
-      icon: ShoppingBag,
-      items: ventasItems,
-    },
-    {
-      label: "Transferencias",
-      icon: ArrowRightLeft,
-      items: transferenciasItems,
-    },
-    {
-      label: "Administración",
-      icon: BarChart3,
-      items: adminItems,
-    },
-    {
-      label: "Sistema",
-      icon: SlidersHorizontal,
-      items: settingsItems,
-    },
-  ].filter((g) => g.items.length > 0);
+  const groupLabels = [
+    "Catálogo",
+    "Compras",
+    "Ventas",
+    "Transferencias",
+    "Administración",
+    "Sistema",
+  ];
 
   const renderItems = (items: NavItemConfig[]) =>
     items.map((item) => {
@@ -370,39 +335,28 @@ export default function AppSidebar({
           <SidebarGroupContent>
             <SidebarMenu>
               {renderItems(dashboardItems)}
+
+              {groups.map((group, index) => {
+                if (group.length === 0) return null;
+                const prevGroupsHaveItems = [
+                  dashboardItems,
+                  ...groups.slice(0, index),
+                ].some((g) => g.length > 0);
+                return (
+                  <div key={index}>
+                    {prevGroupsHaveItems && (
+                      <SidebarSeparator className="my-1" />
+                    )}
+                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                      {groupLabels[index]}
+                    </p>
+                    {renderItems(group)}
+                  </div>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {groups.map((group, index) => {
-          const groupIsActive = group.items.some((i) => i.active);
-          const GroupIcon = group.icon;
-          return (
-            <SidebarGroup key={index}>
-              <Collapsible defaultOpen={groupIsActive} className="group/collapsible">
-                <SidebarGroupLabel
-                  asChild
-                  className="group/label text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent rounded-md transition-colors"
-                >
-                  <CollapsibleTrigger className="flex items-center gap-2 w-full cursor-pointer">
-                    <GroupIcon className="size-4 shrink-0" />
-                    <span className="text-xs font-medium uppercase tracking-wider flex-1 text-left">
-                      {group.label}
-                    </span>
-                    <ChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                  </CollapsibleTrigger>
-                </SidebarGroupLabel>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {renderItems(group.items)}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </SidebarGroup>
-          );
-        })}
       </SidebarContent>
 
       <SidebarFooter>
