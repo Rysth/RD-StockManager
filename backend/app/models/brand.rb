@@ -8,6 +8,10 @@ class Brand < ApplicationRecord
 
   scope :active, -> { where(active: true) }
 
+  def code
+    "MRC-#{id.to_s.rjust(4, '0')}"
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id name description active created_at updated_at]
   end
