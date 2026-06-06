@@ -17,6 +17,7 @@ import {
   Wallet,
   Lock,
   AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -124,6 +125,9 @@ export default function SalesPosIndex() {
   const [openingAmount, setOpeningAmount] = useState("");
   const [countedAmount, setCountedAmount] = useState("");
   const [closeNotes, setCloseNotes] = useState("");
+  // Indica si ya se consultó el estado de la caja para la ubicación actual
+  // (evita parpadear el gate de "abrir caja" mientras carga).
+  const [cajaChecked, setCajaChecked] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(
     null,
@@ -213,7 +217,11 @@ export default function SalesPosIndex() {
   }, [fetchBundles, locationId]);
 
   useEffect(() => {
-    if (locationId) fetchCashSession(locationId).catch(() => {});
+    if (!locationId) return;
+    setCajaChecked(false);
+    fetchCashSession(locationId)
+      .catch(() => {})
+      .finally(() => setCajaChecked(true));
   }, [fetchCashSession, locationId]);
 
   // Edición de precio unitario con tope inferior al costo para empleados.
@@ -646,6 +654,94 @@ export default function SalesPosIndex() {
       );
     }
   };
+
+  // ── Gate obligatorio: abrir caja antes de poder usar el POS ──
+  // Mientras se verifica el estado de la caja, mostramos un loader para no
+  // parpadear el gate.
+  if (!cajaChecked) {
+    return (
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">Verificando caja…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cashSession) {
+    const showLocationPicker = !restrictedToBranch && locations.length > 1;
+    return (
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <h2 className="text-lg font-bold">Abre la caja para comenzar</h2>
+            <p className="text-sm text-muted-foreground">
+              Debes aperturar la caja antes de registrar ventas o usar el punto
+              de venta. Es el primer paso del turno.
+            </p>
+          </div>
+
+          {showLocationPicker && (
+            <div className="space-y-1.5">
+              <Label htmlFor="gate-location">Ubicación</Label>
+              <select
+                id="gate-location"
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {restrictedToBranch && (
+            <div className="flex items-center justify-center">
+              <Badge variant="secondary" className="gap-1.5">
+                <Truck className="h-3.5 w-3.5" />
+                {user?.location_name || "Sucursal"}
+              </Badge>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="gate-opening-amount">Monto inicial (base)</Label>
+            <Input
+              id="gate-opening-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              autoFocus
+              value={openingAmount}
+              placeholder="0.00"
+              onChange={(e) => setOpeningAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isOpening) handleOpenCaja();
+              }}
+            />
+          </div>
+
+          <Button
+            className="h-11 w-full text-base font-semibold"
+            onClick={handleOpenCaja}
+            disabled={isOpening || !locationId}
+          >
+            <Wallet className="mr-2 h-5 w-5" />
+            {isOpening ? "Abriendo caja…" : "Abrir caja"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 w-full flex-1 overflow-hidden">

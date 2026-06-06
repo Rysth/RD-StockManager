@@ -382,7 +382,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                     )}
                   </div>
 
-                  {!sriEnabled && (
+                  {!sriEnabled && !isBusinessEmployee && (
                     <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 [&>svg]:text-amber-500">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">
