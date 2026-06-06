@@ -359,22 +359,43 @@ export default function AppSidebar({
         </SidebarGroup>
       </SidebarContent>
       <style>{`
-        .custom-scrollbar::-webkit-scrollbar {
-          width: 4px;
+        .custom-scrollbar {
+          scrollbar-gutter: stable both-edges;
         }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+
         .custom-scrollbar::-webkit-scrollbar-track {
           background: transparent;
+          margin-block: 4px;
         }
+
         .custom-scrollbar::-webkit-scrollbar-thumb {
-          background: hsl(var(--sidebar-border));
-          border-radius: 4px;
+          background: transparent;
+          border-radius: 999px;
+          border: 1px solid transparent;
+          background-clip: padding-box;
         }
+
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: hsl(var(--sidebar-foreground) / 0.12);
+        }
+
         .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-          background: hsl(var(--sidebar-foreground) / 0.3);
+          background: hsl(var(--sidebar-foreground) / 0.24) !important;
         }
-        .custom-scrollbar {
-          scrollbar-width: thin;
-          scrollbar-color: hsl(var(--sidebar-border)) transparent;
+
+        @supports not selector(::-webkit-scrollbar) {
+          .custom-scrollbar {
+            scrollbar-width: none;
+          }
+          .custom-scrollbar:hover {
+            scrollbar-width: thin;
+            scrollbar-color: hsl(var(--sidebar-foreground) / 0.12) transparent;
+          }
         }
       `}</style>
 
