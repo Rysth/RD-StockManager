@@ -4,6 +4,10 @@ require 'sidekiq-scheduler'
 Sidekiq.configure_server do |config|
   config.redis = { url: ENV.fetch('REDIS_URL', 'redis://localhost:6379/1') }
 
+  if Rails.env.development?
+    ActionMailer::Base.delivery_method = :letter_opener_web
+  end
+
   # Load sidekiq-scheduler schedule
   config.on(:startup) do
     schedule_file = File.expand_path('../../sidekiq.yml', __FILE__)

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { Eye } from "lucide-react";
+import { Eye, ShoppingCart, DollarSign, CalendarRange, SearchX } from "lucide-react";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
+import EmptyState from "../../../components/common/EmptyState";
+import { ActionIconButton } from "../../../components/common/RowActions";
+import { StatsCard } from "@/components/ui/stats-card";
 import { useSaleStore } from "../../../stores/saleStore";
 import { useExpenseStore } from "../../../stores/expenseStore";
 import { useLocationStore } from "../../../stores/locationStore";
@@ -69,11 +72,13 @@ function SaleListSkeleton() {
 }
 
 function SalesList() {
-  const { sales, pagination, isLoading, fetchSales, fetchSale } = useSaleStore();
+  const { sales, pagination, isLoading, fetchSales, fetchSale, report, fetchReport } =
+    useSaleStore();
   const { fetchBusiness, fetchPublicBusiness } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
   const { employees, fetchEmployees } = useExpenseStore();
   const { user, hasPermission, fetchUserInfo } = useAuthStore();
+  const canViewReports = hasPermission(Permissions.VIEW_REPORTS);
 
   const [firstLoad, setFirstLoad] = useState(true);
   const [status, setStatus] = useState<SaleStatus | "">("");
@@ -83,6 +88,20 @@ function SalesList() {
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
 
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
+  const restrictedToBranch =
+    !!user?.restricted_to_location && !!user?.location_id;
+
+  // Empleados de sucursal solo ven (y filtran por) su ubicación asignada.
+  const visibleLocations = restrictedToBranch
+    ? locations.filter((l) => l.id === user?.location_id)
+    : locations;
+
+  // Fija la ubicación del empleado restringido como filtro activo.
+  useEffect(() => {
+    if (restrictedToBranch && user?.location_id) {
+      setLocationFilter(String(user.location_id));
+    }
+  }, [restrictedToBranch, user?.location_id]);
 
   useEffect(() => {
     fetchSales(1, pagination.per_page, {
@@ -92,7 +111,6 @@ function SalesList() {
     })
       .catch((e) => toast.error(e instanceof Error ? e.message : "Error al cargar ventas"))
       .finally(() => setFirstLoad(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchSales, pagination.per_page, status, locationFilter, sellerFilter]);
 
   useEffect(() => {
@@ -112,10 +130,26 @@ function SalesList() {
     }
   }, [canManageInvoicing, fetchUserInfo, permissionsRefreshed, user]);
 
+  useEffect(() => {
+    if (canViewReports) fetchReport().catch(() => {});
+  }, [canViewReports, fetchReport]);
+
+  const hasFilters = !!(
+    status ||
+    sellerFilter ||
+    (!restrictedToBranch && locationFilter)
+  );
+  const money0 = (n: number) =>
+    new Intl.NumberFormat("es-EC", {
+      style: "currency",
+      currency: "USD",
+      maximumFractionDigits: 0,
+    }).format(n || 0);
+
   const clearFilters = () => {
     setStatus("");
-    setLocationFilter("");
     setSellerFilter("");
+    if (!restrictedToBranch) setLocationFilter("");
   };
 
   const openDetail = (id: number) => {
@@ -127,6 +161,19 @@ function SalesList() {
 
   return (
     <div className="space-y-4">
+      {/* Resumen */}
+      <div className="grid gap-3 sm:grid-cols-3">
+        {canViewReports && report ? (
+          <>
+            <StatsCard variant="colored" title="Ingresos hoy" value={money0(report.summary.revenue_today)} icon={DollarSign} iconColor="text-emerald-600" iconBgColor="bg-emerald-50" />
+            <StatsCard variant="colored" title="Ingresos del mes" value={money0(report.summary.revenue_month)} icon={CalendarRange} iconColor="text-blue-600" iconBgColor="bg-blue-50" />
+            <StatsCard variant="colored" title="Ventas hoy" value={report.summary.sales_today} icon={ShoppingCart} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
+          </>
+        ) : (
+          <StatsCard variant="colored" title="Total ventas" value={pagination.total_count} icon={ShoppingCart} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
+        )}
+      </div>
+
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
         <select
@@ -143,31 +190,40 @@ function SalesList() {
         <select
           value={locationFilter}
           onChange={(e) => setLocationFilter(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          disabled={restrictedToBranch}
+          className="h-9 rounded-md border border-input bg-background px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60"
         >
-          <option value="">Todas las ubicaciones</option>
-          {locations.map((l) => (
+          {!restrictedToBranch && <option value="">Todas las ubicaciones</option>}
+          {visibleLocations.map((l) => (
             <option key={l.id} value={l.id}>{l.name}</option>
           ))}
         </select>
 
-        <select
-          value={sellerFilter}
-          onChange={(e) => setSellerFilter(e.target.value)}
-          className="h-9 rounded-md border border-input bg-background px-3 text-sm"
-        >
-          <option value="">Todos los vendedores</option>
-          {employees.map((e) => (
-            <option key={e.id} value={e.id}>{e.fullname}</option>
-          ))}
-        </select>
+        {!restrictedToBranch && (
+          <select
+            value={sellerFilter}
+            onChange={(e) => setSellerFilter(e.target.value)}
+            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
+          >
+            <option value="">Todos los vendedores</option>
+            {employees.map((e) => (
+              <option key={e.id} value={e.id}>{e.fullname}</option>
+            ))}
+          </select>
+        )}
 
-        {(status || locationFilter || sellerFilter) && (
+        {hasFilters && (
           <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-xs">
             Limpiar filtros
           </Button>
         )}
       </div>
+
+      {!isLoading && sales.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {pagination.total_count} {pagination.total_count === 1 ? "venta" : "ventas"}
+        </p>
+      )}
 
       {/* Table */}
       <Card className="rounded-xl p-0">
@@ -175,6 +231,7 @@ function SalesList() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12 text-center">#</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Vendedor</TableHead>
@@ -188,17 +245,20 @@ function SalesList() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center">
+                  <TableCell colSpan={9} className="h-24 text-center">
                     Cargando ventas...
                   </TableCell>
                 </TableRow>
               ) : sales.length ? (
-                sales.map((s) => (
+                sales.map((s, idx) => (
                   <TableRow
                     key={s.id}
                     className="cursor-pointer"
                     onClick={() => openDetail(s.id)}
                   >
+                    <TableCell className="text-center text-sm text-muted-foreground tabular-nums">
+                      {(pagination.current_page - 1) * pagination.per_page + idx + 1}
+                    </TableCell>
                     <TableCell>
                       {s.sold_at ? new Date(s.sold_at).toLocaleDateString("es-EC") : "-"}
                     </TableCell>
@@ -221,22 +281,28 @@ function SalesList() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openDetail(s.id)}
-                        title="Ver detalle"
-                      >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <ActionIconButton icon={Eye} label="Ver detalle" onClick={() => openDetail(s.id)} />
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
-                <TableRow>
-                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
-                    No hay ventas registradas.
+                <TableRow className="hover:bg-transparent">
+                  <TableCell colSpan={9} className="p-0">
+                    {hasFilters ? (
+                      <EmptyState
+                        variant="no-results"
+                        icon={SearchX}
+                        title="Sin resultados"
+                        description="No hay ventas que coincidan con los filtros aplicados."
+                        action={{ label: "Limpiar filtros", onClick: clearFilters }}
+                      />
+                    ) : (
+                      <EmptyState
+                        icon={ShoppingCart}
+                        title="Aún no hay ventas"
+                        description="Las ventas que registres en el Punto de Venta aparecerán aquí."
+                      />
+                    )}
                   </TableCell>
                 </TableRow>
               )}

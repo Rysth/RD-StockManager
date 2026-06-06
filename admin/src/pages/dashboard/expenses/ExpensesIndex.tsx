@@ -249,6 +249,7 @@ export default function ExpensesIndex() {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-32">Código</TableHead>
                 <TableHead>Fecha</TableHead>
                 <TableHead>Categoría</TableHead>
                 <TableHead>Descripción</TableHead>
@@ -261,11 +262,12 @@ export default function ExpensesIndex() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">Cargando gastos...</TableCell>
+                  <TableCell colSpan={8} className="h-24 text-center">Cargando gastos...</TableCell>
                 </TableRow>
               ) : expenses.length ? (
                 expenses.map((e) => (
                   <TableRow key={e.id}>
+                    <TableCell><span className="font-mono text-xs text-muted-foreground">{e.code}</span></TableCell>
                     <TableCell>{e.expense_date ? new Date(e.expense_date).toLocaleDateString("es-EC") : "—"}</TableCell>
                     <TableCell>{e.category_name || "Sin categoría"}</TableCell>
                     <TableCell className="max-w-xs truncate">
@@ -293,7 +295,7 @@ export default function ExpensesIndex() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     No se encontraron gastos.
                   </TableCell>
                 </TableRow>

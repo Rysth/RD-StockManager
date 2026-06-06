@@ -45,11 +45,14 @@ interface LocationState {
   pagination: Pagination;
   isLoading: boolean;
   error: string | null;
+  currentSearch: string;
+  currentArchived: boolean;
 
-  fetchLocations: (page?: number, perPage?: number, search?: string) => Promise<void>;
+  fetchLocations: (page?: number, perPage?: number, search?: string, archived?: boolean) => Promise<void>;
   createLocation: (data: LocationInput) => Promise<Location>;
   updateLocation: (id: number, data: LocationInput) => Promise<void>;
   deleteLocation: (id: number) => Promise<void>;
+  restoreLocation: (id: number) => Promise<void>;
 }
 
 export const useLocationStore = create<LocationState>((set, get) => ({
@@ -57,12 +60,15 @@ export const useLocationStore = create<LocationState>((set, get) => ({
   pagination: DEFAULT_PAGINATION,
   isLoading: false,
   error: null,
+  currentSearch: "",
+  currentArchived: false,
 
-  fetchLocations: async (page = 1, perPage = 50, search = "") => {
-    set({ isLoading: true, error: null });
+  fetchLocations: async (page = 1, perPage = 50, search = "", archived = false) => {
+    set({ isLoading: true, error: null, currentSearch: search, currentArchived: archived });
     try {
       const params: Record<string, string | number> = { page, per_page: perPage };
       if (search) params.search = search;
+      if (archived) params.archived = "true";
       const response = await api.get("/api/v1/locations", { params });
       set({
         locations: response.data.locations,
@@ -79,7 +85,8 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const response = await api.post("/api/v1/locations", { location: data });
-      await get().fetchLocations(get().pagination.current_page, get().pagination.per_page);
+      const { pagination, currentSearch, currentArchived } = get();
+      await get().fetchLocations(pagination.current_page, pagination.per_page, currentSearch, currentArchived);
       return response.data.location as Location;
     } catch (error) {
       const msg = toMessage(error, "Error al crear la ubicación");
@@ -92,7 +99,8 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.put(`/api/v1/locations/${id}`, { location: data });
-      await get().fetchLocations(get().pagination.current_page, get().pagination.per_page);
+      const { pagination, currentSearch, currentArchived } = get();
+      await get().fetchLocations(pagination.current_page, pagination.per_page, currentSearch, currentArchived);
     } catch (error) {
       const msg = toMessage(error, "Error al actualizar la ubicación");
       set({ error: msg, isLoading: false });
@@ -104,9 +112,23 @@ export const useLocationStore = create<LocationState>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       await api.delete(`/api/v1/locations/${id}`);
-      await get().fetchLocations(get().pagination.current_page, get().pagination.per_page);
+      const { pagination, currentSearch, currentArchived } = get();
+      await get().fetchLocations(pagination.current_page, pagination.per_page, currentSearch, currentArchived);
     } catch (error) {
       const msg = toMessage(error, "Error al archivar la ubicación");
+      set({ error: msg, isLoading: false });
+      throw new Error(msg);
+    }
+  },
+
+  restoreLocation: async (id) => {
+    set({ isLoading: true, error: null });
+    try {
+      await api.put(`/api/v1/locations/${id}`, { location: { active: true } });
+      const { pagination, currentSearch, currentArchived } = get();
+      await get().fetchLocations(pagination.current_page, pagination.per_page, currentSearch, currentArchived);
+    } catch (error) {
+      const msg = toMessage(error, "Error al restaurar la ubicación");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
     }

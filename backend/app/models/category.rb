@@ -22,6 +22,10 @@ class Category < ApplicationRecord
     subcategories.flat_map { |subcategory| [subcategory.id] + subcategory.descendant_ids }
   end
 
+  def code
+    "CAT-#{id.to_s.rjust(4, '0')}"
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id name description active parent_id created_at updated_at]
   end

@@ -59,6 +59,7 @@ module Api
             status: :pending,
             payment_method: sale_params[:payment_method].presence || :cash,
             shipping_cost: sale_params[:shipping_cost].presence || 0,
+            sri_iva_rate: sale_params[:sri_iva_rate].presence || 0,
             cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
           )
           sale.save!
@@ -66,14 +67,16 @@ module Api
           items.each do |item|
             sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
-              unit_price: item[:unit_price]
+              unit_price: item[:unit_price],
+              applies_iva: ActiveModel::Type::Boolean.new.cast(item[:applies_iva]) || false
             )
           end
 
           sale.recalculate_total!
-          sale.complete! if desired_status == "completed"
+          sale.complete! if desired_status == "completed" && sale.payment_method != "transfer"
         end
 
         Rails.cache.delete("inventory:stats")
@@ -128,9 +131,11 @@ module Api
           items.each do |item|
             @sale.sale_items.create!(
               product_variant_id: item[:product_variant_id],
+              product_bundle_id: item[:product_bundle_id],
               description: item[:description],
               quantity: item[:quantity].to_i,
-              unit_price: item[:unit_price]
+              unit_price: item[:unit_price],
+              applies_iva: ActiveModel::Type::Boolean.new.cast(item[:applies_iva]) || false
             )
           end
           @sale.recalculate_total!
@@ -224,13 +229,13 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
 
       def set_sale_for_invoice
-        @sale = Sale.includes(:customer, sale_items: { product_variant: :product }).find(params[:id])
+        @sale = Sale.includes(:customer, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
@@ -242,11 +247,11 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
       end
 
       def sale_update_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
       end
 
       def desired_status
@@ -286,6 +291,7 @@ module Api
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
+          sri_iva_rate: sale.sri_iva_rate,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,
           invoice: serialize_invoice(sale.latest_invoice)
@@ -296,8 +302,9 @@ module Api
             {
               id: item.id,
               product_variant_id: item.product_variant_id,
-              sku: item.product_variant&.sku,
-              product_name: item.product_variant&.product&.name || item.description,
+              product_bundle_id: item.product_bundle_id,
+              sku: item.product_bundle.present? ? "COMBO" : item.product_variant&.sku,
+              product_name: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
               size: item.product_variant&.size,
               color: item.product_variant&.color,
               quantity: item.quantity,

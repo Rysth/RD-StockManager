@@ -1,14 +1,13 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import {
   Home,
   Users,
-  Settings,
   SlidersHorizontal,
   LogOut,
   ChevronsUpDown,
-  ChevronRight,
   Package2,
+  PackagePlus,
   ShoppingBag,
   ShoppingCart,
   Users2,
@@ -19,6 +18,8 @@ import {
   BarChart3,
   FileText,
   FileSignature,
+  ArrowRightLeft,
+  type LucideIcon,
 } from "lucide-react";
 import {
   Sidebar,
@@ -31,17 +32,8 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubButton,
-  SidebarMenuSubItem,
   SidebarSeparator,
-  useSidebar,
 } from "@/components/ui/sidebar";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -75,10 +67,16 @@ interface AppSidebarProps {
   setLogoutModalOpen: (open: boolean) => void;
 }
 
-// Helper function to get user initials
+interface NavItemConfig {
+  label: string;
+  to: string;
+  icon: LucideIcon;
+  active: boolean;
+  visible: boolean;
+}
+
 const getInitials = (fullname: string): string => {
   if (!fullname) return "U";
-
   const names = fullname.trim().split(" ");
   if (names.length >= 2) {
     return `${names[0][0]}${names[1][0]}`.toUpperCase();
@@ -86,9 +84,8 @@ const getInitials = (fullname: string): string => {
   return names[0].substring(0, 2).toUpperCase();
 };
 
-// Active-state classes shared by nav menu buttons
 const activeMenuClasses =
-  "relative transition-colors data-[active=true]:bg-sidebar-primary/15 data-[active=true]:font-medium data-[active=true]:text-sidebar-primary-foreground data-[active=true]:before:absolute data-[active=true]:before:bottom-1.5 data-[active=true]:before:left-0 data-[active=true]:before:top-1.5 data-[active=true]:before:w-1 data-[active=true]:before:rounded-r-full data-[active=true]:before:bg-sidebar-primary";
+  "transition-colors rounded-md data-[active=true]:bg-sidebar-foreground/10 data-[active=true]:font-medium data-[active=true]:text-sidebar-foreground";
 
 export default function AppSidebar({
   user,
@@ -110,28 +107,11 @@ export default function AppSidebar({
   } = storePermissions;
   const isBusinessEmployee = user.roles?.includes("business_employee");
 
-  const showStoreGroup =
-    canViewInventory ||
-    canManageProducts ||
-    canManageCustomers ||
-    canManageSales ||
-    canManageQuotations ||
-    canViewReports ||
-    canManageLocations ||
-    canViewPurchases ||
-    canViewExpenses ||
-    canManageInvoicing;
-  // Fetch business data so we can show logo + name (cached in store)
   const { fetchPublicBusiness, publicBusiness } = useBusinessStore();
-  const { isMobile, state } = useSidebar();
   const location = useLocation();
-  const isCollapsed = state === "collapsed";
 
-  // Helper function to check if a menu item is active
   const isActiveRoute = (to: string, end?: boolean) => {
-    if (end) {
-      return location.pathname === to;
-    }
+    if (end) return location.pathname === to;
     return location.pathname.startsWith(to);
   };
 
@@ -146,12 +126,176 @@ export default function AppSidebar({
     load();
   }, [fetchPublicBusiness]);
 
-  const isSettingsSectionActive = useMemo(
-    () =>
-      location.pathname.startsWith("/dashboard/settings") ||
-      location.pathname.startsWith("/dashboard/users"),
-    [location.pathname],
-  );
+  const dashboardItems: NavItemConfig[] = [
+    {
+      label: "Dashboard",
+      to: "/dashboard",
+      icon: Home,
+      active: isActiveRoute("/dashboard", true),
+      visible: !isBusinessEmployee,
+    },
+  ].filter((i) => i.visible);
+
+  const catalogItems: NavItemConfig[] = [
+    {
+      label: "Contactos",
+      to: "/dashboard/customers",
+      icon: Users2,
+      active: isActiveRoute("/dashboard/customers"),
+      visible: canManageCustomers && !isBusinessEmployee,
+    },
+    {
+      label: "Marcas y Categorías",
+      to: "/dashboard/brands",
+      icon: Tags,
+      active: isActiveRoute("/dashboard/brands"),
+      visible: canManageProducts && !isBusinessEmployee,
+    },
+    {
+      label: "Inventario",
+      to: "/dashboard/products",
+      icon: Package2,
+      active: isActiveRoute("/dashboard/products"),
+      visible: canViewInventory,
+    },
+    {
+      label: "Ubicaciones",
+      to: "/dashboard/locations",
+      icon: Warehouse,
+      active: isActiveRoute("/dashboard/locations"),
+      visible: canManageLocations && !isBusinessEmployee,
+    },
+  ].filter((i) => i.visible);
+
+  const comprasItems: NavItemConfig[] = [
+    {
+      label: "Ingreso de Mercadería",
+      to: "/dashboard/purchase-entry",
+      icon: PackagePlus,
+      active: isActiveRoute("/dashboard/purchase-entry"),
+      visible: canViewPurchases && !isBusinessEmployee,
+    },
+    {
+      label: "Compras",
+      to: "/dashboard/purchases",
+      icon: Truck,
+      active: isActiveRoute("/dashboard/purchases"),
+      visible: canViewPurchases && !isBusinessEmployee,
+    },
+  ].filter((i) => i.visible);
+
+  const ventasItems: NavItemConfig[] = [
+    {
+      label: "Punto de Venta",
+      to: "/dashboard/pos",
+      icon: ShoppingBag,
+      active: isActiveRoute("/dashboard/pos"),
+      visible: canManageSales,
+    },
+    {
+      label: "Ventas",
+      to: "/dashboard/sales",
+      icon: ShoppingCart,
+      active: isActiveRoute("/dashboard/sales"),
+      visible: canManageSales,
+    },
+  ].filter((i) => i.visible);
+
+  const transferenciasItems: NavItemConfig[] = [
+    {
+      label: "Transferencias",
+      to: "/dashboard/transfers",
+      icon: ArrowRightLeft,
+      active: isActiveRoute("/dashboard/transfers"),
+      visible: canViewPurchases,
+    },
+    {
+      label: "Transferencia POS",
+      to: "/dashboard/transfer-pos",
+      icon: ArrowRightLeft,
+      active: isActiveRoute("/dashboard/transfer-pos"),
+      visible: canViewPurchases,
+    },
+  ].filter((i) => i.visible);
+
+  const adminItems: NavItemConfig[] = [
+    {
+      label: "Cotizaciones",
+      to: "/dashboard/quotations",
+      icon: FileSignature,
+      active: isActiveRoute("/dashboard/quotations"),
+      visible: canManageQuotations,
+    },
+    {
+      label: "Facturas",
+      to: "/dashboard/invoices",
+      icon: FileText,
+      active: isActiveRoute("/dashboard/invoices"),
+      visible: canManageInvoicing && !isBusinessEmployee,
+    },
+    {
+      label: "Gastos",
+      to: "/dashboard/expenses",
+      icon: Receipt,
+      active: isActiveRoute("/dashboard/expenses"),
+      visible: canViewExpenses && !isBusinessEmployee,
+    },
+    {
+      label: "Informes",
+      to: "/dashboard/reports",
+      icon: BarChart3,
+      active: isActiveRoute("/dashboard/reports"),
+      visible: canViewReports && !isBusinessEmployee,
+    },
+  ].filter((i) => i.visible);
+
+  const settingsItems: NavItemConfig[] = [
+    {
+      label: "Configuración",
+      to: "/dashboard/settings",
+      icon: SlidersHorizontal,
+      active: isActiveRoute("/dashboard/settings"),
+      visible: !isBusinessEmployee,
+    },
+    {
+      label: "Usuarios",
+      to: "/dashboard/users",
+      icon: Users,
+      active: isActiveRoute("/dashboard/users"),
+      visible: canManageUsers && !isBusinessEmployee,
+    },
+  ].filter((i) => i.visible);
+
+  const groups = [catalogItems, comprasItems, ventasItems, transferenciasItems, adminItems, settingsItems];
+
+  const groupLabels = [
+    "Catálogo",
+    "Compras",
+    "Ventas",
+    "Transferencias",
+    "Administración",
+    "Sistema",
+  ];
+
+  const renderItems = (items: NavItemConfig[]) =>
+    items.map((item) => {
+      const Icon = item.icon;
+      return (
+        <SidebarMenuItem key={item.to}>
+          <SidebarMenuButton
+            asChild
+            tooltip={item.label}
+            isActive={item.active}
+            className={activeMenuClasses}
+          >
+            <NavLink to={item.to}>
+              <Icon />
+              <span>{item.label}</span>
+            </NavLink>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      );
+    });
 
   return (
     <Sidebar variant="inset" collapsible="icon">
@@ -187,324 +331,74 @@ export default function AppSidebar({
 
       <SidebarSeparator />
 
-      <SidebarContent>
-        {!isBusinessEmployee && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Navegación</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                <SidebarMenuItem>
-                  <SidebarMenuButton
-                    asChild
-                    tooltip="Dashboard"
-                    isActive={isActiveRoute("/dashboard", true)}
-                    className={activeMenuClasses}
-                  >
-                    <NavLink to="/dashboard" end>
-                      <Home />
-                      <span>Dashboard</span>
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
+      <SidebarContent className="custom-scrollbar">
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {renderItems(dashboardItems)}
 
-                {/* When collapsed: dropdown menu so sub-items remain accessible */}
-                {isCollapsed ? (
-                  <SidebarMenuItem>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <SidebarMenuButton
-                          tooltip="Configuración"
-                          className={activeMenuClasses}
-                          isActive={isSettingsSectionActive}
-                        >
-                          <Settings />
-                          <span>Configuración</span>
-                          <ChevronRight className="ml-auto size-4" />
-                        </SidebarMenuButton>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        side="right"
-                        align="start"
-                        sideOffset={4}
-                        className="min-w-48 rounded-lg"
-                      >
-                        <DropdownMenuLabel>Configuración</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <NavLink
-                            to="/dashboard/settings"
-                            className="flex items-center gap-2"
-                          >
-                            <SlidersHorizontal className="size-4" />
-                            General
-                          </NavLink>
-                        </DropdownMenuItem>
-                        {canManageUsers ? (
-                          <DropdownMenuItem asChild>
-                            <NavLink
-                              to="/dashboard/users"
-                              className="flex items-center gap-2"
-                            >
-                              <Users className="size-4" />
-                              Usuarios
-                            </NavLink>
-                          </DropdownMenuItem>
-                        ) : null}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </SidebarMenuItem>
-                ) : (
-                  /* When expanded: collapsible with smooth animation */
-                  <Collapsible
-                    asChild
-                    defaultOpen={isSettingsSectionActive}
-                    className="group/collapsible"
-                  >
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          tooltip="Configuración"
-                          className={activeMenuClasses}
-                          isActive={isSettingsSectionActive}
-                        >
-                          <Settings />
-                          <span>Configuración</span>
-                          <ChevronRight className="ml-auto size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          <SidebarMenuSubItem>
-                            <SidebarMenuSubButton
-                              asChild
-                              isActive={isActiveRoute("/dashboard/settings")}
-                            >
-                              <NavLink to="/dashboard/settings">
-                                <SlidersHorizontal />
-                                <span>General</span>
-                              </NavLink>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-
-                          {canManageUsers ? (
-                            <SidebarMenuSubItem>
-                              <SidebarMenuSubButton
-                                asChild
-                                isActive={isActiveRoute("/dashboard/users")}
-                              >
-                                <NavLink to="/dashboard/users">
-                                  <Users />
-                                  <span>Usuarios</span>
-                                </NavLink>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ) : null}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </Collapsible>
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
-
-        {showStoreGroup && (
-          <SidebarGroup>
-            <SidebarGroupLabel>Tienda</SidebarGroupLabel>
-            <SidebarGroupContent>
-              <SidebarMenu>
-                {/*
-                  Orden = flujo de trabajo paso a paso:
-                  1) Contactos → 2) Marcas/Categorías → 3) Inventario →
-                  4) Ubicaciones → 5) Compras → 6) Punto de Venta →
-                  7) Ventas → 8) Cotizaciones → 9) Facturas →
-                  10) Gastos → 11) Informes.
-                  Para business_employee: solo POS, Ventas e Inventario.
-                */}
-                {/* 1. Contactos (clientes y proveedores) */}
-                {canManageCustomers && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Contactos"
-                      isActive={isActiveRoute("/dashboard/customers")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/customers">
-                        <Users2 />
-                        <span>Contactos</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 2. Marcas y categorías (clasifican los productos) */}
-                {canManageProducts && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Marcas y categorías"
-                      isActive={isActiveRoute("/dashboard/brands")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/brands">
-                        <Tags />
-                        <span>Marcas y Categorías</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 3. Inventario (productos) */}
-                {canViewInventory && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Inventario"
-                      isActive={isActiveRoute("/dashboard/products")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/products">
-                        <Package2 />
-                        <span>Inventario</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 4. Ubicaciones (bodegas donde vive el stock) */}
-                {canManageLocations && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Ubicaciones"
-                      isActive={isActiveRoute("/dashboard/locations")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/locations">
-                        <Warehouse />
-                        <span>Ubicaciones</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 5. Compras (ingreso de mercancía / stock) */}
-                {canViewPurchases && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Compras"
-                      isActive={isActiveRoute("/dashboard/purchases")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/purchases">
-                        <Truck />
-                        <span>Compras</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 6. Punto de Venta */}
-                {(canManageSales ||
-                  (canViewPurchases && !isBusinessEmployee)) && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Punto de Venta"
-                      isActive={isActiveRoute("/dashboard/pos")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/pos">
-                        <ShoppingBag />
-                        <span>Punto de Venta</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 7. Ventas (historial) */}
-                {canManageSales && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Ventas"
-                      isActive={isActiveRoute("/dashboard/sales")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/sales">
-                        <ShoppingCart />
-                        <span>Ventas</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 8. Cotizaciones */}
-                {canManageQuotations && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Cotizaciones"
-                      isActive={isActiveRoute("/dashboard/quotations")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/quotations">
-                        <FileSignature />
-                        <span>Cotizaciones</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 9. Facturas */}
-                {canManageInvoicing && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Facturas"
-                      isActive={isActiveRoute("/dashboard/invoices")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/invoices">
-                        <FileText />
-                        <span>Facturas</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 10. Gastos */}
-                {canViewExpenses && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Gastos"
-                      isActive={isActiveRoute("/dashboard/expenses")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/expenses">
-                        <Receipt />
-                        <span>Gastos</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-                {/* 11. Informes */}
-                {canViewReports && !isBusinessEmployee && (
-                  <SidebarMenuItem>
-                    <SidebarMenuButton
-                      asChild
-                      tooltip="Informes"
-                      isActive={isActiveRoute("/dashboard/reports")}
-                      className={activeMenuClasses}
-                    >
-                      <NavLink to="/dashboard/reports">
-                        <BarChart3 />
-                        <span>Informes</span>
-                      </NavLink>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                )}
-              </SidebarMenu>
-            </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+              {groups.map((group, index) => {
+                if (group.length === 0) return null;
+                const prevGroupsHaveItems = [
+                  dashboardItems,
+                  ...groups.slice(0, index),
+                ].some((g) => g.length > 0);
+                return (
+                  <div key={index}>
+                    {prevGroupsHaveItems && (
+                      <SidebarSeparator className="my-1" />
+                    )}
+                    <SidebarGroupLabel className="text-[10px] font-semibold uppercase tracking-wider">
+                      {groupLabels[index]}
+                    </SidebarGroupLabel>
+                    {renderItems(group)}
+                  </div>
+                );
+              })}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
+      <style>{`
+        .custom-scrollbar {
+          scrollbar-gutter: stable both-edges;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 5px;
+          height: 5px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+          margin-block: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 999px;
+          border: 1px solid transparent;
+          background-clip: padding-box;
+        }
+
+        .custom-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: hsl(var(--sidebar-foreground) / 0.12);
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--sidebar-foreground) / 0.24) !important;
+        }
+
+        @supports not selector(::-webkit-scrollbar) {
+          .custom-scrollbar {
+            scrollbar-width: none;
+          }
+          .custom-scrollbar:hover {
+            scrollbar-width: thin;
+            scrollbar-color: hsl(var(--sidebar-foreground) / 0.12) transparent;
+          }
+        }
+      `}</style>
 
       <SidebarFooter>
         <SidebarMenu>
@@ -533,7 +427,7 @@ export default function AppSidebar({
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 className="w-[--radix-dropdown-menu-trigger-width] min-w-56 rounded-lg"
-                side={isMobile ? "bottom" : "right"}
+                side="right"
                 align="end"
                 sideOffset={4}
               >

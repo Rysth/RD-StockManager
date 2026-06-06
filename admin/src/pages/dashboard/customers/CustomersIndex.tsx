@@ -1,17 +1,17 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Archive } from "lucide-react";
+import { Plus, Loader2, Users2, SearchX } from "lucide-react";
 import toast from "react-hot-toast";
 import { useCustomerStore, type ContactRole } from "../../../stores/customerStore";
 import type { Customer } from "../../../types/inventory";
 import { ECUADOR_CITIES, COUNTRIES, ID_TYPES } from "../../../lib/locations";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Combobox } from "@/components/ui/combobox";
 import {
   Table,
   TableBody,
@@ -40,6 +40,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import Pagination from "../../../components/common/Pagination";
 import SearchBar from "../../../components/common/SearchBar";
+import EmptyState from "../../../components/common/EmptyState";
+import FormField from "../../../components/common/FormField";
+import ArchivedToggle from "../../../components/common/ArchivedToggle";
+import { EditAction, ArchiveAction, RestoreAction } from "../../../components/common/RowActions";
+import { useFormErrors } from "../../../hooks/useFormErrors";
+import { toastUndo } from "../../../lib/toastUndo";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface FormState {
@@ -82,10 +88,12 @@ const money = (n: number) =>
   new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(n || 0);
 
 const selectClass =
-  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm";
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm aria-[invalid=true]:border-destructive";
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error && error.message ? error.message : fallback;
+
+const isEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
 const validateIdNumber = (idType: string, idNumber: string) => {
   const value = idNumber.trim();
@@ -98,6 +106,8 @@ const validateIdNumber = (idType: string, idNumber: string) => {
   }
   return null;
 };
+
+type FieldKey = "name" | "roles" | "id_number" | "email";
 
 function CustomersSkeleton() {
   return (
@@ -140,25 +150,30 @@ export default function CustomersIndex() {
     createCustomer,
     updateCustomer,
     deleteCustomer,
+    restoreCustomer,
   } = useCustomerStore();
 
   const [firstLoad, setFirstLoad] = useState(true);
   const [search, setSearch] = useState("");
   const [role, setRole] = useState<ContactRole>("");
+  const [showArchived, setShowArchived] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Customer | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
   const [toDelete, setToDelete] = useState<Customer | null>(null);
+  const { errors, validate, clearError, clearAll } = useFormErrors<FieldKey>();
 
   useEffect(() => {
-    fetchCustomers(1, pagination.per_page, search, role)
+    fetchCustomers(1, pagination.per_page, search, role, showArchived)
       .catch((e) => toast.error(e.message || "Error al cargar contactos"))
       .finally(() => setFirstLoad(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, role]);
+  }, [search, role, showArchived]);
 
   const openCreate = () => {
     setEditing(null);
+    clearAll();
     setForm({
       ...EMPTY_FORM,
       is_customer: role !== "supplier",
@@ -169,6 +184,7 @@ export default function CustomersIndex() {
 
   const openEdit = (customer: Customer) => {
     setEditing(customer);
+    clearAll();
     setForm({
       name: customer.name,
       id_type: customer.id_type ?? "",
@@ -187,19 +203,14 @@ export default function CustomersIndex() {
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) {
-      toast.error("El nombre es requerido");
-      return;
-    }
-    if (!form.is_customer && !form.is_supplier) {
-      toast.error("El contacto debe ser cliente, proveedor o ambos");
-      return;
-    }
-    const idError = validateIdNumber(form.id_type, form.id_number);
-    if (idError) {
-      toast.error(idError);
-      return;
-    }
+    const ok = validate({
+      name: !form.name.trim() ? "El nombre es requerido" : null,
+      roles: !form.is_customer && !form.is_supplier ? "Selecciona al menos un rol (cliente o proveedor)" : null,
+      id_number: validateIdNumber(form.id_type, form.id_number),
+      email: form.email.trim() && !isEmail(form.email.trim()) ? "Correo electrónico inválido" : null,
+    });
+    if (!ok) return;
+
     const payload = {
       name: form.name,
       id_type: form.id_type,
@@ -214,6 +225,7 @@ export default function CustomersIndex() {
       credit_limit: Number(form.credit_limit || 0),
       payment_term_days: form.payment_term_days ? Number(form.payment_term_days) : null,
     };
+    setSaving(true);
     try {
       if (editing) {
         await updateCustomer(editing.id, payload);
@@ -225,21 +237,38 @@ export default function CustomersIndex() {
       setModalOpen(false);
     } catch (e) {
       toast.error(errorMessage(e, "Error al guardar el contacto"));
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleDelete = async () => {
     if (!toDelete) return;
+    const target = toDelete;
+    setToDelete(null);
     try {
-      await deleteCustomer(toDelete.id);
-      toast.success("Contacto archivado correctamente");
-      setToDelete(null);
+      await deleteCustomer(target.id);
+      toastUndo(`${target.name} archivado`, async () => {
+        await restoreCustomer(target.id);
+        toast.success("Contacto restaurado");
+      });
     } catch (e) {
       toast.error(errorMessage(e, "Error al archivar el contacto"));
     }
   };
 
+  const handleRestore = async (customer: Customer) => {
+    try {
+      await restoreCustomer(customer.id);
+      toast.success("Contacto restaurado");
+    } catch (e) {
+      toast.error(errorMessage(e, "Error al restaurar el contacto"));
+    }
+  };
+
   if (isLoading && firstLoad) return <CustomersSkeleton />;
+
+  const isSearching = search.trim().length > 0;
 
   return (
     <div className="space-y-6">
@@ -263,39 +292,78 @@ export default function CustomersIndex() {
             <TabsTrigger value="supplier">Proveedores</TabsTrigger>
           </TabsList>
         </Tabs>
-        <SearchBar
-          placeholder="Buscar por nombre o teléfono..."
-          value={search}
-          onSearch={setSearch}
-          className="max-w-sm"
-        />
+        <div className="flex flex-wrap items-center gap-3">
+          <ArchivedToggle checked={showArchived} onChange={setShowArchived} />
+          <SearchBar
+            placeholder="Buscar por nombre o teléfono..."
+            value={search}
+            onSearch={setSearch}
+            className="max-w-sm"
+          />
+        </div>
       </div>
+
+      {!isLoading && customers.length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {pagination.total_count} {pagination.total_count === 1 ? "contacto" : "contactos"}
+          {showArchived && " archivados"}
+        </p>
+      )}
 
       <Card className="p-0 rounded-xl">
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Teléfono</TableHead>
-                <TableHead>Por cobrar</TableHead>
-                <TableHead>Por pagar</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+          {!isLoading && customers.length === 0 ? (
+            isSearching ? (
+              <EmptyState
+                variant="no-results"
+                icon={SearchX}
+                title="Sin resultados"
+                description="No encontramos contactos que coincidan con tu búsqueda."
+                action={{ label: "Limpiar búsqueda", onClick: () => setSearch("") }}
+              />
+            ) : showArchived ? (
+              <EmptyState
+                variant="no-results"
+                icon={Users2}
+                title="No hay contactos archivados"
+                description="Los contactos que archives aparecerán aquí."
+              />
+            ) : (
+              <EmptyState
+                icon={Users2}
+                title="Aún no tienes contactos"
+                description="Registra a tus clientes y proveedores para llevar su historial de ventas y compras."
+                action={{ label: "Nuevo contacto", onClick: openCreate, icon: Plus }}
+              />
+            )
+          ) : (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
-                    Cargando contactos...
-                  </TableCell>
+                  <TableHead className="w-28">Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Teléfono</TableHead>
+                  <TableHead>Por cobrar</TableHead>
+                  <TableHead>Por pagar</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
-              ) : customers.length ? (
-                customers.map((c) => (
-                  <TableRow key={c.id}>
-                    <TableCell className="font-medium">{c.name}</TableCell>
+              </TableHeader>
+              <TableBody>
+                {customers.map((c, idx) => (
+                  <TableRow key={c.id} className={c.active === false ? "opacity-60" : undefined}>
+                    <TableCell>
+                      <span className="font-mono text-xs text-muted-foreground">{c.code}</span>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2">
+                        {c.name}
+                        {c.active === false && (
+                          <Badge variant="secondary" className="bg-muted text-muted-foreground">Archivado</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
                         {c.is_customer && <Badge variant="secondary">Cliente</Badge>}
@@ -322,47 +390,34 @@ export default function CustomersIndex() {
                       {money(c.payable ?? 0)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => openEdit(c)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        onClick={() => setToDelete(c)}
-                        title="Archivar"
-                      >
-                        <Archive className="h-4 w-4" />
-                      </Button>
+                      {c.active === false ? (
+                        <RestoreAction onClick={() => handleRestore(c)} />
+                      ) : (
+                        <>
+                          <EditAction onClick={() => openEdit(c)} />
+                          <ArchiveAction onClick={() => setToDelete(c)} />
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
-                ))
-              ) : (
-                <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                    No se encontraron contactos.
-                  </TableCell>
-                </TableRow>
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 
-      <Pagination
-        currentPage={pagination.current_page - 1}
-        pageCount={pagination.total_pages}
-        totalCount={pagination.total_count}
-        perPage={pagination.per_page}
-        onPageChange={({ selected }) =>
-          fetchCustomers(selected + 1, pagination.per_page, search, role)
-        }
-      />
+      {customers.length > 0 && (
+        <Pagination
+          currentPage={pagination.current_page - 1}
+          pageCount={pagination.total_pages}
+          totalCount={pagination.total_count}
+          perPage={pagination.per_page}
+          onPageChange={({ selected }) =>
+            fetchCustomers(selected + 1, pagination.per_page, search, role, showArchived)
+          }
+        />
+      )}
 
       {/* Create / Edit modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
@@ -373,90 +428,100 @@ export default function CustomersIndex() {
               {editing ? "Actualiza los datos del contacto" : "Registra un nuevo cliente o proveedor"}
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="flex gap-6">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.is_customer}
-                  onCheckedChange={(v) => setForm({ ...form, is_customer: !!v })}
-                />
-                Cliente
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.is_supplier}
-                  onCheckedChange={(v) => setForm({ ...form, is_supplier: !!v })}
-                />
-                Proveedor
-              </label>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit();
+            }}
+            className="space-y-5 py-2"
+          >
+            {/* Rol */}
+            <div className="space-y-1.5">
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.is_customer}
+                    onCheckedChange={(v) => { setForm({ ...form, is_customer: !!v }); clearError("roles"); }}
+                  />
+                  Cliente
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={form.is_supplier}
+                    onCheckedChange={(v) => { setForm({ ...form, is_supplier: !!v }); clearError("roles"); }}
+                  />
+                  Proveedor
+                </label>
+              </div>
+              {errors.roles && <p className="text-xs font-medium text-destructive">{errors.roles}</p>}
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="name">Nombre</Label>
+            {/* Identidad */}
+            <FormField label="Nombre" htmlFor="name" required error={errors.name}>
               <Input
                 id="name"
+                name="name"
+                autoFocus
+                aria-invalid={!!errors.name}
                 value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                onChange={(e) => { setForm({ ...form, name: e.target.value }); clearError("name"); }}
                 placeholder="Nombre completo o razón social"
               />
-            </div>
+            </FormField>
 
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="id_type">Tipo de documento *</Label>
+              <FormField label="Tipo de documento" htmlFor="id_type" required>
                 <select
                   id="id_type"
                   value={form.id_type}
-                  onChange={(e) => setForm({ ...form, id_type: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, id_type: e.target.value }); clearError("id_number"); }}
                   className={selectClass}
-                  required
                 >
                   {ID_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                      {t.label}
-                    </option>
+                    <option key={t.value} value={t.value}>{t.label}</option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="id_number">Número *</Label>
+              </FormField>
+              <FormField label="Número" htmlFor="id_number" required error={errors.id_number}>
                 <Input
                   id="id_number"
+                  name="id_number"
+                  aria-invalid={!!errors.id_number}
                   value={form.id_number}
-                  onChange={(e) => setForm({ ...form, id_number: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, id_number: e.target.value }); clearError("id_number"); }}
                   inputMode={form.id_type === "pasaporte" ? "text" : "numeric"}
                   maxLength={form.id_type === "ruc" ? 13 : form.id_type === "cedula" ? 10 : 20}
                   placeholder="0102030405"
-                  required
                 />
-              </div>
+              </FormField>
             </div>
 
+            {/* Contacto */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="phone">Teléfono</Label>
+              <FormField label="Teléfono" htmlFor="phone">
                 <Input
                   id="phone"
                   value={form.phone}
                   onChange={(e) => setForm({ ...form, phone: e.target.value })}
                   placeholder="09XXXXXXXX"
                 />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+              </FormField>
+              <FormField label="Email" htmlFor="email" error={errors.email}>
                 <Input
                   id="email"
+                  name="email"
                   type="email"
+                  aria-invalid={!!errors.email}
                   value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
+                  onChange={(e) => { setForm({ ...form, email: e.target.value }); clearError("email"); }}
                   placeholder="correo@ejemplo.com"
                 />
-              </div>
+              </FormField>
             </div>
 
+            {/* Ubicación */}
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="country">País</Label>
+              <FormField label="País" htmlFor="country">
                 <select
                   id="country"
                   value={form.country}
@@ -464,48 +529,40 @@ export default function CustomersIndex() {
                   className={selectClass}
                 >
                   {COUNTRIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
+                    <option key={c} value={c}>{c}</option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="city">Ciudad</Label>
-                <select
-                  id="city"
+              </FormField>
+              <FormField label="Ciudad" htmlFor="city">
+                <Combobox
+                  options={ECUADOR_CITIES.map((c) => ({ value: c, label: c }))}
                   value={form.city}
-                  onChange={(e) => setForm({ ...form, city: e.target.value })}
-                  className={selectClass}
-                >
-                  <option value="">Selecciona...</option>
-                  {ECUADOR_CITIES.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  onSelect={(v) => setForm({ ...form, city: v })}
+                  placeholder="Selecciona..."
+                  searchPlaceholder="Buscar ciudad..."
+                />
+              </FormField>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="address">Dirección</Label>
+            <FormField label="Dirección" htmlFor="address">
               <Textarea
                 id="address"
                 value={form.address}
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
                 placeholder="Calle principal y referencia"
               />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handleSubmit} disabled={isLoading}>
-              {editing ? "Guardar cambios" : "Crear contacto"}
-            </Button>
-          </DialogFooter>
+            </FormField>
+
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setModalOpen(false)}>
+                Cancelar
+              </Button>
+              <Button type="submit" disabled={saving}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {saving ? "Guardando…" : editing ? "Guardar cambios" : "Crear contacto"}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -516,7 +573,7 @@ export default function CustomersIndex() {
             <AlertDialogTitle>Archivar contacto</AlertDialogTitle>
             <AlertDialogDescription>
               ¿Seguro que deseas archivar a {toDelete?.name}? No se eliminará: quedará inactivo
-              para conservar el historial de sus transacciones.
+              para conservar el historial de sus transacciones. Podrás deshacer esta acción.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

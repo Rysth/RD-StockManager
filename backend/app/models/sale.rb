@@ -23,7 +23,9 @@ class Sale < ApplicationRecord
   # Recalculate the total from the persisted line items (+ shipping)
   def recalculate_total!
     items_total = sale_items.sum("quantity * unit_price")
-    update_column(:total, items_total + shipping_cost.to_d)
+    iva_base    = sale_items.where(applies_iva: true).sum("quantity * unit_price").to_d
+    iva_amount  = (iva_base * BigDecimal("0.15")).round(2)
+    update_column(:total, items_total + iva_amount + shipping_cost.to_d)
     sync_payment_status!
   end
 
@@ -44,17 +46,24 @@ class Sale < ApplicationRecord
     (total - paid_amount).to_f
   end
 
+  def requires_payment_verification?
+    payment_method == "transfer" && !payment_paid?
+  end
+
   # Mark the sale as completed and discount stock for each line item.
   # Idempotent: does nothing if the sale is already completed.
   def complete!
     return if completed?
 
+    if requires_payment_verification?
+      errors.add(:base, "La transferencia debe ser verificada antes de completar la venta")
+      raise ActiveRecord::RecordInvalid, self
+    end
+
     transaction do
       loc = location || Location.default
-      sale_items.includes(:product_variant).each do |item|
-        next if item.product_variant.blank?
-
-        StockMovement.apply!(variant: item.product_variant, location: loc, delta: -item.quantity)
+      sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+        move_stock_for_item(item, loc, -item.quantity)
       end
       # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
       self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
@@ -64,16 +73,20 @@ class Sale < ApplicationRecord
   end
 
   # Cancel the sale; restore stock only if it had previously been discounted.
+  # Bloquea la cancelación si la venta tiene una factura autorizada en producción.
   def cancel!
     return if cancelled?
+
+    if invoices.authorized.where(ambiente: "2").exists?
+      errors.add(:base, "No se puede cancelar una venta con factura autorizada en producción")
+      raise ActiveRecord::RecordInvalid, self
+    end
 
     transaction do
       if completed?
         loc = location || Location.default
-        sale_items.includes(:product_variant).each do |item|
-          next if item.product_variant.blank?
-
-          StockMovement.apply!(variant: item.product_variant, location: loc, delta: item.quantity)
+        sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+          move_stock_for_item(item, loc, item.quantity)
         end
       end
       update!(status: :cancelled)
@@ -102,6 +115,19 @@ class Sale < ApplicationRecord
   end
 
   private
+
+  def move_stock_for_item(item, loc, delta)
+    if item.product_bundle.present?
+      item.product_bundle.product_bundle_items.includes(:product_variant).each do |bundle_item|
+        StockMovement.apply!(variant: bundle_item.product_variant, location: loc, delta: delta * bundle_item.quantity)
+      end
+      return
+    end
+
+    return if item.product_variant.blank? || item.product_variant.product&.service?
+
+    StockMovement.apply!(variant: item.product_variant, location: loc, delta: delta)
+  end
 
   def set_sold_at
     self.sold_at ||= Time.current

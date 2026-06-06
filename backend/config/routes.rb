@@ -58,8 +58,10 @@ Rails.application.routes.draw do
         member do
           post :images
           delete "images/:image_id", action: :remove_image, as: :image
+          get :price_history
         end
       end
+      resources :product_bundles
       resources :product_variants, only: [] do
         member do
           post :images
@@ -97,6 +99,12 @@ Rails.application.routes.draw do
         end
         resources :payments, controller: "purchase_payments", only: [:index, :create]
       end
+      resources :stock_transfers, except: [:new, :edit] do
+        member do
+          put :receive
+          put :cancel
+        end
+      end
       resources :expense_categories
       resources :expenses do
         collection do
@@ -122,6 +130,7 @@ Rails.application.routes.draw do
       # Public endpoints (no authentication)
       namespace :public do
         resource :business, only: [:show]
+        get "invoices/verify/:clave_acceso", to: "invoices#verify"
       end
     end
 

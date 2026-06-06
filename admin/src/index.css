@@ -223,14 +223,14 @@ layer(base);
   --chart-4: oklch(0.38 0.10 265);
   --chart-5: oklch(0.80 0.10 222);
 
-  /* Sidebar — navy profundo, como Notion / Linear / Shopify */
-  --sidebar: oklch(0.20 0.07 258);
+  /* Sidebar — near-black oscuro, estilo TZ Studios / Linear */
+  --sidebar: oklch(0.14 0.04 258);
   --sidebar-foreground: oklch(0.94 0.008 248);
   /* Item activo — azul brillante sobre el navy */
   --sidebar-primary: oklch(0.63 0.18 252);
   --sidebar-primary-foreground: oklch(0.99 0.004 248);
-  /* Hover item — navy un tono más claro */
-  --sidebar-accent: oklch(0.28 0.07 258);
+  /* Hover item — un tono más claro */
+  --sidebar-accent: oklch(0.22 0.05 258);
   --sidebar-accent-foreground: oklch(0.94 0.008 248);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.63 0.18 252);

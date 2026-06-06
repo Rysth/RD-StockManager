@@ -1,9 +1,6 @@
 module Api
   module V1
     class BusinessesController < BaseController
-      require "fileutils"
-      require "securerandom"
-
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::VIEW_BUSINESS) }, only: [:current, :show]
       before_action -> { authorize_permission!(Permission::EDIT_BUSINESS) }, only: [:update]
@@ -104,16 +101,16 @@ module Api
           return false
         end
 
-        directory = Rails.root.join("storage", "sri_certs")
-        FileUtils.mkdir_p(directory)
-        stored_path = directory.join("business-#{@business.id}-#{SecureRandom.hex(8)}#{extension}")
         previous_path = @business.sri_cert_path
 
-        File.binwrite(stored_path, certificate.read)
-        File.chmod(0o600, stored_path)
+        @business.sri_certificate.attach(
+          io: certificate.tempfile,
+          filename: filename,
+          content_type: "application/x-pkcs12"
+        )
 
         @business.update!(
-          sri_cert_path: stored_path.to_s,
+          sri_cert_path: nil,
           sri_cert_filename: filename,
           sri_cert_uploaded_at: Time.current
         )

@@ -84,6 +84,7 @@ module Api
       def serialize(category, products_count: nil)
         {
           id: category.id,
+          code: category.code,
           name: category.name,
           description: category.description,
           active: category.active,

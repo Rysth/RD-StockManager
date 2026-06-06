@@ -3,6 +3,7 @@
 
 export interface Category {
   id: number;
+  code: string;
   name: string;
   description?: string | null;
   active: boolean;
@@ -15,6 +16,7 @@ export interface Category {
 
 export interface Brand {
   id: number;
+  code: string;
   name: string;
   description?: string | null;
   active: boolean;
@@ -30,6 +32,7 @@ export interface ProductImage {
 
 export interface Location {
   id: number;
+  code: string;
   name: string;
   address?: string | null;
   phone?: string | null;
@@ -95,6 +98,7 @@ export type IdType = "cedula" | "pasaporte" | "ruc" | "";
 
 export interface Customer {
   id: number;
+  code: string;
   name: string;
   phone?: string | null;
   city?: string | null;
@@ -149,6 +153,7 @@ export interface Invoice {
 export interface SaleItem {
   id: number;
   product_variant_id: number | null;
+  product_bundle_id?: number | null;
   sku?: string | null;
   product_name: string;
   size?: string | null;
@@ -176,6 +181,7 @@ export interface Sale {
   seller?: string | null;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  sri_iva_rate?: number;
   items_count: number;
   items?: SaleItem[];
   profit?: number;
@@ -186,9 +192,84 @@ export interface Sale {
 // Payload para crear una venta
 export interface SaleItemInput {
   product_variant_id: number | null;
+  product_bundle_id?: number | null;
   description?: string;
   quantity: number;
   unit_price: number;
+}
+
+export interface ProductBundleItem {
+  id: number;
+  product_variant_id: number;
+  product_name: string;
+  variant_label: string;
+  sku: string;
+  quantity: number;
+  unit_cost: number;
+}
+
+export interface ProductBundle {
+  id: number;
+  name: string;
+  description?: string | null;
+  base_price: number;
+  total_cost: number;
+  available_stock: number;
+  active: boolean;
+  items_count: number;
+  items: ProductBundleItem[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductBundleInput {
+  name: string;
+  description?: string;
+  base_price: number;
+  active?: boolean;
+  product_bundle_items_attributes: {
+    id?: number;
+    product_variant_id: number;
+    quantity: number;
+    _destroy?: boolean;
+  }[];
+}
+
+export type TransferStatus = "pending" | "received" | "cancelled";
+
+export interface StockTransferItem {
+  id: number;
+  product_variant_id: number;
+  product_name: string;
+  variant_label: string;
+  sku: string;
+  quantity: number;
+}
+
+export interface StockTransfer {
+  id: number;
+  code: string;
+  status: TransferStatus;
+  from_location_id: number;
+  from_location_name: string;
+  to_location_id: number;
+  to_location_name: string;
+  requested_by_id: number;
+  requested_by_name: string;
+  received_by_id: number | null;
+  received_by_name: string | null;
+  received_at: string | null;
+  notes: string | null;
+  items_count: number;
+  items?: StockTransferItem[];
+  created_at: string;
+}
+
+export interface CreateTransferData {
+  from_location_id: number;
+  to_location_id: number;
+  notes?: string | null;
+  items: { product_variant_id: number; quantity: number }[];
 }
 
 export interface CreateSaleData {
@@ -198,6 +279,7 @@ export interface CreateSaleData {
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
   shipping_cost?: number;
+  sri_iva_rate?: number;
   items: SaleItemInput[];
 }
 
@@ -230,7 +312,11 @@ export interface PurchaseItem {
   color?: string | null;
   quantity: number;
   unit_cost: number;
+  discount: number;
+  applies_iva: boolean;
+  tax_amount: number;
   subtotal: number;
+  total: number;
 }
 
 export interface PurchasePayment {
@@ -268,9 +354,24 @@ export interface Purchase {
 }
 
 export interface PurchaseItemInput {
+  id?: number;
   product_variant_id: number;
   quantity: number;
   unit_cost: number;
+  discount?: number;
+  applies_iva?: boolean;
+}
+
+export interface ProductPriceHistory {
+  id: number;
+  old_cost: number | null;
+  new_cost: number | null;
+  old_base_price: number | null;
+  new_base_price: number | null;
+  old_wholesale_price: number | null;
+  new_wholesale_price: number | null;
+  source: string;
+  created_at: string;
 }
 
 export interface CreatePurchaseData {
@@ -284,6 +385,17 @@ export interface CreatePurchaseData {
   reference?: string | null;
   notes?: string | null;
   items: PurchaseItemInput[];
+}
+
+export interface UpdatePurchaseData {
+  customer_id?: number | null;
+  location_id?: number | null;
+  discount?: number;
+  tax?: number;
+  paid_amount?: number;
+  reference?: string | null;
+  notes?: string | null;
+  items?: PurchaseItemInput[];
 }
 
 // ---- Gastos ----

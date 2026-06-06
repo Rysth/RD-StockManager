@@ -30,6 +30,10 @@ class Customer < ApplicationRecord
     receivable - payable
   end
 
+  def code
+    "CON-#{id.to_s.rjust(6, '0')}"
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id name phone city id_type id_number country address email
        is_customer is_supplier credit_limit payment_term_days active created_at updated_at]

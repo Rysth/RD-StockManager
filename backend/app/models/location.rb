@@ -15,6 +15,10 @@ class Location < ApplicationRecord
     active.find_by(is_default: true) || active.order(:id).first || order(:id).first
   end
 
+  def code
+    "SUC-#{id.to_s.rjust(3, '0')}"
+  end
+
   def self.ransackable_attributes(_auth_object = nil)
     %w[id name address phone is_default active created_at updated_at]
   end

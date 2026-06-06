@@ -88,6 +88,7 @@ module Api
       def serialize(location, stock_total: nil)
         {
           id: location.id,
+          code: location.code,
           name: location.name,
           address: location.address,
           phone: location.phone,

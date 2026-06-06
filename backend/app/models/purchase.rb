@@ -20,11 +20,16 @@ class Purchase < ApplicationRecord
   scope :due_soon, -> { received.where.not(payment_status: payment_statuses[:paid]).where(due_date: ..Date.current + 7.days) }
 
   # Recalcula totales a partir de los ítems persistidos.
+  # discount y tax se suman automáticamente desde los ítems.
   def recalculate_total!
-    items_subtotal = purchase_items.sum("quantity * unit_cost")
+    items_subtotal = purchase_items.sum("quantity * (unit_cost - COALESCE(discount, 0))")
+    items_discount = purchase_items.sum("quantity * COALESCE(discount, 0)")
+    items_tax = purchase_items.sum("COALESCE(tax_amount, 0)")
     update_columns(
       subtotal: items_subtotal,
-      total: items_subtotal - discount + tax
+      discount: items_discount,
+      tax: items_tax,
+      total: items_subtotal + items_tax
     )
     sync_payment_status!
   end
@@ -99,10 +104,11 @@ class Purchase < ApplicationRecord
   end
 
   # Actualiza el costo del producto con el último costo de compra (last cost).
+  # Usa `update` en vez de `update_column` para que el callback de historial de precios dispare.
   def update_variant_cost(item)
     product = item.product_variant&.product
     return if product.nil? || item.unit_cost.to_f <= 0
 
-    product.update_column(:cost, item.unit_cost)
+    product.update(cost: item.unit_cost)
   end
 end

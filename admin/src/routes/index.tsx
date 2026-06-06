@@ -5,17 +5,21 @@ import {
 } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
 import DashboardLayout from "../layouts/DashboardLayout";
+import PosLayout from "../layouts/PosLayout";
 import Dashboard from "../pages/dashboard/Dashboard";
 import UsersIndex from "../pages/dashboard/users/UsersIndex";
 import BusinessSettings from "../pages/dashboard/business/BusinessSettings";
 import ProductsIndex from "../pages/dashboard/products/ProductsIndex";
 import CustomersIndex from "../pages/dashboard/customers/CustomersIndex";
 import SalesIndex from "../pages/dashboard/sales/SalesIndex";
-import PosIndex from "../pages/dashboard/sales/PosIndex";
+import SalesPosIndex from "../pages/dashboard/sales/SalesPosIndex";
+import PurchaseEntryIndex from "../pages/dashboard/purchases/PurchaseEntryIndex";
 import QuotationsIndex from "../pages/dashboard/quotations/QuotationsIndex";
 import BrandsIndex from "../pages/dashboard/brands/BrandsIndex";
 import LocationsIndex from "../pages/dashboard/locations/LocationsIndex";
 import PurchasesIndex from "../pages/dashboard/purchases/PurchasesIndex";
+import TransfersIndex from "../pages/dashboard/transfers/TransfersIndex";
+import TransferPosIndex from "../pages/dashboard/transfers/TransferPosIndex";
 import ExpensesIndex from "../pages/dashboard/expenses/ExpensesIndex";
 import InvoicesIndex from "../pages/dashboard/invoices/InvoicesIndex";
 import AdvancedReportsIndex from "../pages/dashboard/reports/AdvancedReportsIndex";
@@ -75,6 +79,37 @@ export const router = createBrowserRouter([
   },
   {
     path: "dashboard",
+    element: <PosLayout />,
+    errorElement: <ErrorBoundary />,
+    children: [
+      {
+        path: "pos",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
+            <SalesPosIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "purchase-entry",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <PurchaseEntryIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "transfer-pos",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <TransferPosIndex />
+          </ProtectedRoute>
+        ),
+      },
+    ],
+  },
+  {
+    path: "dashboard",
     element: <DashboardLayout />,
     errorElement: <ErrorBoundary />,
     children: [
@@ -117,19 +152,6 @@ export const router = createBrowserRouter([
         ),
       },
       {
-        path: "pos",
-        element: (
-          <ProtectedRoute
-            requiredPermission={[
-              Permissions.MANAGE_SALES,
-              Permissions.VIEW_PURCHASES,
-            ]}
-          >
-            <PosIndex />
-          </ProtectedRoute>
-        ),
-      },
-      {
         path: "sales",
         element: (
           <ProtectedRoute requiredPermission={Permissions.MANAGE_SALES}>
@@ -166,6 +188,14 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
             <PurchasesIndex />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "transfers",
+        element: (
+          <ProtectedRoute requiredPermission={Permissions.VIEW_PURCHASES}>
+            <TransfersIndex />
           </ProtectedRoute>
         ),
       },

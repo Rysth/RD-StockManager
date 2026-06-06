@@ -15,4 +15,8 @@ SriFacturacion.configure do |c|
   c.retry_delay   = 2
   c.open_timeout  = 15
   c.read_timeout  = 90
+  if c.respond_to?(:ride_verification_url=)
+    c.ride_verification_url = ENV["SRI_RIDE_VERIFICATION_URL"].presence ||
+                              "#{ENV.fetch("API_PUBLIC_URL", "http://localhost:3000")}/api/v1/public/invoices/verify"
+  end
 end

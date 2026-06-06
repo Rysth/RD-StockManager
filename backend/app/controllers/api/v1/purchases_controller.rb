@@ -62,7 +62,9 @@ module Api
             purchase.purchase_items.create!(
               product_variant_id: item[:product_variant_id],
               quantity: item[:quantity].to_i,
-              unit_cost: item[:unit_cost]
+              unit_cost: item[:unit_cost],
+              discount: item[:discount].to_d,
+              applies_iva: item[:applies_iva] != false
             )
           end
 
@@ -75,23 +77,29 @@ module Api
         render_error("No se pudo registrar la compra", :unprocessable_entity, e.record.errors.full_messages)
       end
 
-      # PUT /api/v1/purchases/:id — recibir/cancelar o actualizar pago
+      # PUT /api/v1/purchases/:id — editar borrador, recibir/cancelar o actualizar pago
       def update
-        case desired_status
-        when "received"  then @purchase.receive!
-        when "cancelled" then @purchase.cancel!
-        end
+        ActiveRecord::Base.transaction do
+          update_draft_details! if editable_payload?
 
-        if params.dig(:purchase, :paid_amount).present?
-          paid_amount = purchase_params[:paid_amount].to_d
-          paid_amount = 0.to_d if paid_amount.negative?
-          @purchase.update!(paid_amount: [paid_amount, @purchase.total].min)
-          @purchase.sync_payment_status!
+          case desired_status
+          when "received"  then @purchase.receive!
+          when "cancelled" then @purchase.cancel!
+          end
+
+          if purchase_params.key?(:paid_amount) && !editable_payload?
+            paid_amount = purchase_params[:paid_amount].to_d
+            paid_amount = 0.to_d if paid_amount.negative?
+            @purchase.update!(paid_amount: [paid_amount, @purchase.total].min)
+            @purchase.sync_payment_status!
+          end
         end
 
         render_success({ purchase: serialize(@purchase.reload, with_items: true) }, "Compra actualizada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo actualizar la compra", :unprocessable_entity, e.record.errors.full_messages)
+      rescue ArgumentError => e
+        render_error(e.message, :unprocessable_entity)
       end
 
       # DELETE /api/v1/purchases/:id — cancela (restaura stock si estaba recibida)
@@ -112,6 +120,46 @@ module Api
 
       def purchase_params
         params.fetch(:purchase, {}).permit(:customer_id, :location_id, :status, :discount, :tax, :paid_amount, :due_date, :reference, :notes)
+      end
+
+      def item_params
+        params.fetch(:items, []).map do |item|
+          item.respond_to?(:permit) ? item.permit(:id, :product_variant_id, :quantity, :unit_cost, :discount, :applies_iva) : item
+        end
+      end
+
+      def editable_payload?
+        detail_keys = %w[customer_id location_id discount tax paid_amount reference notes]
+        params[:items].present? || detail_keys.any? { |key| params.dig(:purchase, key).present? || params.dig(:purchase, key) == "" }
+      end
+
+      def update_draft_details!
+        raise ArgumentError, "Solo se pueden editar compras por recibir" unless @purchase.draft?
+
+        attrs = {}
+        editable_attrs = %i[customer_id location_id discount tax reference notes]
+        editable_attrs.each do |attr|
+          attrs[attr] = purchase_params[attr].presence if purchase_params.key?(attr)
+        end
+        @purchase.update!(attrs) if attrs.any?
+
+        item_params.each do |item|
+          purchase_item = @purchase.purchase_items.find_by(id: item[:id])
+          raise ArgumentError, "Ítem de compra inválido" if purchase_item.nil?
+
+          purchase_item.update!(
+            quantity: item[:quantity].to_i,
+            unit_cost: item[:unit_cost].to_d,
+            discount: item[:discount].to_d,
+            applies_iva: item[:applies_iva] != false
+          )
+        end
+
+        @purchase.recalculate_total!
+        paid_amount = purchase_params.key?(:paid_amount) ? purchase_params[:paid_amount].to_d : @purchase.paid_amount
+        paid_amount = 0.to_d if paid_amount.negative?
+        @purchase.update!(paid_amount: [paid_amount, @purchase.total].min)
+        @purchase.sync_payment_status!
       end
 
       def desired_status
@@ -163,7 +211,11 @@ module Api
               color: item.product_variant.color,
               quantity: item.quantity,
               unit_cost: item.unit_cost,
-              subtotal: item.subtotal
+              discount: item.discount,
+              applies_iva: item.applies_iva,
+              tax_amount: item.tax_amount,
+              subtotal: item.subtotal,
+              total: item.total
             }
           end
           data[:payments] = purchase.purchase_payments.order(created_at: :desc).map do |pp|

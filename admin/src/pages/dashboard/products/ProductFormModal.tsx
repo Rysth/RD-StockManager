@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, ImagePlus, ImageIcon, Layers, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { Plus, X, ImagePlus, ImageIcon, Layers, Trash2, Loader2 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInventoryStore } from "../../../stores/inventoryStore";
 import type {
@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +20,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import FormField from "../../../components/common/FormField";
+import { useFormErrors } from "../../../hooks/useFormErrors";
+
+function SectionTitle({ children }: { children: ReactNode }) {
+  return (
+    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      {children}
+    </p>
+  );
+}
+
+const fieldSelectClass =
+  "h-9 w-full rounded-md border border-input bg-background px-3 text-sm aria-[invalid=true]:border-destructive";
 
 const MAX_IMAGES = 3;
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024;
@@ -82,7 +96,7 @@ function Thumb({ url, size = "h-16 w-16" }: { url?: string; size?: string }) {
     <img
       src={url}
       alt=""
-      className={`${size} rounded-md object-cover border`}
+      className={`${size} aspect-square rounded-md border bg-white object-contain`}
     />
   ) : (
     <div
@@ -203,6 +217,9 @@ export default function ProductFormModal({
 
   const [form, setForm] = useState<ProductForm>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const { errors, validate, clearError, clearAll } = useFormErrors<
+    "name" | "category_id" | "base_price" | "cost"
+  >();
 
   useEffect(() => {
     if (!open) return;
@@ -235,7 +252,8 @@ export default function ProductFormModal({
     } else {
       setForm({ ...EMPTY_FORM, variants: [emptyVariant()] });
     }
-  }, [open, product]);
+    clearAll();
+  }, [open, product, clearAll]);
 
   const categoryOptions = useMemo(() => {
     const byParent = new Map<number | null, (typeof categories)[number][]>();
@@ -307,11 +325,32 @@ export default function ProductFormModal({
   };
 
   const handleSubmit = async () => {
-    if (!form.name.trim()) return toast.error("El nombre es requerido");
-    if (!form.category_id) return toast.error("Selecciona una categoría");
+    const priceNum = parseFloat(form.base_price);
+    const costNum = parseFloat(form.cost);
+    const ok = validate({
+      name: !form.name.trim() ? "El nombre es requerido" : null,
+      category_id: !form.category_id ? "Selecciona una categoría" : null,
+      base_price:
+        form.base_price !== "" && (isNaN(priceNum) || priceNum < 0)
+          ? "El precio no puede ser negativo"
+          : null,
+      cost:
+        form.cost !== "" && (isNaN(costNum) || costNum < 0)
+          ? "El costo no puede ser negativo"
+          : null,
+    });
+    if (!ok) return;
 
     const variantAttributes = form.variants
-      .filter((v) => v.id || (!v._destroy && (v.size || v.color)))
+      .filter(
+        (v) =>
+          v.id ||
+          (!v._destroy &&
+            (v.size.trim() ||
+              v.color.trim() ||
+              Number(v.stock) > 0 ||
+              v.pendingFiles.length > 0)),
+      )
       .map((v) => ({
         id: v.id,
         size: v.size,
@@ -319,6 +358,16 @@ export default function ProductFormModal({
         stock: Number(v.stock) || 0,
         _destroy: v._destroy,
       }));
+
+    if (form.product_type === "good" && variantAttributes.length === 0) {
+      variantAttributes.push({
+        id: undefined,
+        size: "",
+        color: "",
+        stock: 0,
+        _destroy: undefined,
+      });
+    }
 
     if (
       !product &&
@@ -416,158 +465,142 @@ export default function ProductFormModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
-          {/* Basic info */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="p-name">Nombre</Label>
-              <Input
-                id="p-name"
-                value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })}
-              />
+        <div className="space-y-6 py-2">
+          {/* Datos básicos */}
+          <section className="space-y-3">
+            <SectionTitle>Datos básicos</SectionTitle>
+            <div className="grid grid-cols-2 gap-4">
+              <FormField label="Nombre" htmlFor="p-name" required error={errors.name}>
+                <Input
+                  id="p-name"
+                  name="name"
+                  autoFocus
+                  aria-invalid={!!errors.name}
+                  value={form.name}
+                  onChange={(e) => { setForm({ ...form, name: e.target.value }); clearError("name"); }}
+                />
+              </FormField>
+              <FormField label="Marca" htmlFor="p-brand">
+                <select
+                  id="p-brand"
+                  value={form.brand_id}
+                  onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
+                  className={fieldSelectClass}
+                >
+                  <option value="">Sin marca</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+              </FormField>
+              <FormField label="Tipo" htmlFor="p-type">
+                <select
+                  id="p-type"
+                  value={form.product_type}
+                  onChange={(e) =>
+                    setForm({ ...form, product_type: e.target.value as "good" | "service" })
+                  }
+                  className={fieldSelectClass}
+                >
+                  <option value="good">Bien físico</option>
+                  <option value="service">Servicio</option>
+                </select>
+              </FormField>
+              <FormField label="Categoría" htmlFor="p-category" required error={errors.category_id}>
+                <select
+                  id="p-category"
+                  name="category_id"
+                  aria-invalid={!!errors.category_id}
+                  value={form.category_id}
+                  onChange={(e) => { setForm({ ...form, category_id: e.target.value }); clearError("category_id"); }}
+                  className={fieldSelectClass}
+                >
+                  <option value="">Selecciona...</option>
+                  {categoryOptions.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </FormField>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-brand">Marca</Label>
-              <select
-                id="p-brand"
-                value={form.brand_id}
-                onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="">Sin marca</option>
-                {brands.map((b) => (
-                  <option key={b.id} value={b.id}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-type">Tipo</Label>
-              <select
-                id="p-type"
-                value={form.product_type}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    product_type: e.target.value as "good" | "service",
-                  })
-                }
-                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-              >
-                <option value="good">Bien físico</option>
-                <option value="service">Servicio</option>
-              </select>
-            </div>
-          </div>
+          </section>
 
-          {/* Pricing */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="space-y-2">
-              <Label htmlFor="p-price">Precio venta</Label>
-              <Input
-                id="p-price"
-                type="number"
-                step="0.01"
-                value={form.base_price}
-                onChange={(e) =>
-                  setForm({ ...form, base_price: e.target.value })
-                }
-              />
+          {/* Precios y costos */}
+          <section className="space-y-3">
+            <SectionTitle>Precios y costos</SectionTitle>
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <FormField label="Precio venta" htmlFor="p-price" error={errors.base_price}>
+                <Input
+                  id="p-price"
+                  name="base_price"
+                  type="number"
+                  step="0.01"
+                  aria-invalid={!!errors.base_price}
+                  value={form.base_price}
+                  onChange={(e) => { setForm({ ...form, base_price: e.target.value }); clearError("base_price"); }}
+                />
+              </FormField>
+              <FormField label="Costo unitario" htmlFor="p-cost" error={errors.cost}>
+                <Input
+                  id="p-cost"
+                  name="cost"
+                  type="number"
+                  step="0.01"
+                  aria-invalid={!!errors.cost}
+                  value={form.cost}
+                  onChange={(e) => { setForm({ ...form, cost: e.target.value }); clearError("cost"); }}
+                />
+              </FormField>
+              <FormField label="Precio mayoreo" htmlFor="p-wprice">
+                <Input
+                  id="p-wprice"
+                  type="number"
+                  step="0.01"
+                  placeholder="Opcional"
+                  value={form.wholesale_price}
+                  onChange={(e) => setForm({ ...form, wholesale_price: e.target.value })}
+                />
+              </FormField>
+              <FormField label="Mín. mayoreo" htmlFor="p-wmin">
+                <Input
+                  id="p-wmin"
+                  type="number"
+                  min="1"
+                  value={form.wholesale_min_quantity}
+                  onChange={(e) => setForm({ ...form, wholesale_min_quantity: e.target.value })}
+                />
+              </FormField>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-cost">Costo unitario</Label>
-              <Input
-                id="p-cost"
-                type="number"
-                step="0.01"
-                value={form.cost}
-                onChange={(e) => setForm({ ...form, cost: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-wprice">Precio mayoreo</Label>
-              <Input
-                id="p-wprice"
-                type="number"
-                step="0.01"
-                placeholder="Opcional"
-                value={form.wholesale_price}
-                onChange={(e) =>
-                  setForm({ ...form, wholesale_price: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="p-wmin">Mín. mayoreo</Label>
-              <Input
-                id="p-wmin"
-                type="number"
-                min="1"
-                value={form.wholesale_min_quantity}
-                onChange={(e) =>
-                  setForm({ ...form, wholesale_min_quantity: e.target.value })
-                }
-              />
-            </div>
-          </div>
-          {margin != null && (
-            <p className="text-xs text-muted-foreground">
-              Margen estimado por unidad:{" "}
-              <span className="font-medium text-foreground">
-                {new Intl.NumberFormat("es-EC", {
-                  style: "currency",
-                  currency: "USD",
-                }).format(margin)}
-              </span>
-              {form.wholesale_price
-                ? ` · mayoreo desde ${form.wholesale_min_quantity} uds a ${new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(parseFloat(form.wholesale_price))}`
-                : ""}
-            </p>
-          )}
+            {margin != null && (
+              <p className="text-xs text-muted-foreground">
+                Margen estimado por unidad:{" "}
+                <span className="font-medium text-foreground">
+                  {new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(margin)}
+                </span>
+                {form.wholesale_price
+                  ? ` · mayoreo desde ${form.wholesale_min_quantity} uds a ${new Intl.NumberFormat("es-EC", { style: "currency", currency: "USD" }).format(parseFloat(form.wholesale_price))}`
+                  : ""}
+              </p>
+            )}
+          </section>
 
-          {/* Category */}
-          <div className="space-y-2">
-            <Label htmlFor="p-category">Categoría</Label>
-            <select
-              id="p-category"
-              value={form.category_id}
-              onChange={(e) =>
-                setForm({ ...form, category_id: e.target.value })
-              }
-              className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-            >
-              <option value="">Selecciona...</option>
-              {categoryOptions.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Descripción */}
+          <section className="space-y-3">
+            <SectionTitle>Descripción e imágenes</SectionTitle>
+            <FormField label="Descripción" htmlFor="p-desc">
+              <Textarea
+                id="p-desc"
+                value={form.description}
+                onChange={(e) => setForm({ ...form, description: e.target.value })}
+              />
+            </FormField>
 
-          {/* Description */}
-          <div className="space-y-2">
-            <Label htmlFor="p-desc">Descripción</Label>
-            <Textarea
-              id="p-desc"
-              value={form.description}
-              onChange={(e) =>
-                setForm({ ...form, description: e.target.value })
-              }
-            />
-          </div>
-
-          {/* Active */}
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.active}
-              onChange={(e) => setForm({ ...form, active: e.target.checked })}
-            />
-            Producto activo
-          </label>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={form.active}
+                onCheckedChange={(v) => setForm({ ...form, active: v === true })}
+              />
+              Producto activo
+            </label>
 
           {/* Product images */}
           <div className="space-y-2">
@@ -589,7 +622,8 @@ export default function ProductFormModal({
                 }))
               }
             />
-          </div>
+            </div>
+          </section>
 
           {/* Variants */}
           <div className="space-y-3">
@@ -691,7 +725,7 @@ export default function ProductFormModal({
                           </div>
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">
-                              Stock
+                              Stock inicial
                             </Label>
                             <Input
                               type="number"
@@ -748,12 +782,13 @@ export default function ProductFormModal({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
+          <Button type="button" variant="outline" onClick={onClose}>
             Cancelar
           </Button>
           <Button onClick={handleSubmit} disabled={saving}>
+            {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {saving
-              ? "Guardando..."
+              ? "Guardando…"
               : product
                 ? "Guardar cambios"
                 : "Crear producto"}

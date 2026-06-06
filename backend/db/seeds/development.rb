@@ -12,14 +12,22 @@ puts "🌱 Seeding development database..."
 # Clear existing data
 puts "Clearing existing data..."
 Audited::Audit.delete_all if defined?(Audited::Audit)
+Invoice.delete_all if defined?(Invoice)
+QuotationItem.delete_all if defined?(QuotationItem)
+Quotation.delete_all if defined?(Quotation)
 PurchaseItem.delete_all
+PurchasePayment.delete_all if defined?(PurchasePayment)
 Purchase.delete_all
 Expense.delete_all
 ExpenseCategory.delete_all
 SaleItem.delete_all
 Sale.delete_all
 Customer.delete_all
+StockTransferItem.delete_all if defined?(StockTransferItem)
+StockTransfer.delete_all if defined?(StockTransfer)
 StockLevel.delete_all
+ProductBundleItem.delete_all if defined?(ProductBundleItem)
+ProductBundle.delete_all if defined?(ProductBundle)
 ProductVariant.delete_all
 Product.delete_all
 Brand.delete_all

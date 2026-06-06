@@ -104,7 +104,8 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
     downloadInvoiceRide,
   } = useSaleStore();
   const { business, publicBusiness } = useBusinessStore();
-  const { hasPermission } = useAuthStore();
+  const { hasPermission, user } = useAuthStore();
+  const isBusinessEmployee = user?.roles?.includes("business_employee") ?? false;
 
   const [editSaleOpen, setEditSaleOpen] = useState(false);
   const [editItemsOpen, setEditItemsOpen] = useState(false);
@@ -278,7 +279,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
               </div>
 
               {/* Edit sale info */}
-              {selectedSale.status !== "cancelled" && !selectedSale.invoice?.authorized && (
+              {selectedSale.status !== "cancelled" && !selectedSale.invoice?.authorized && !(isBusinessEmployee && selectedSale.status === "completed") && (
                 <Button variant="outline" className="w-full gap-2" onClick={() => setEditSaleOpen(true)}>
                   <Pencil className="h-4 w-4" /> Editar datos de venta
                 </Button>
@@ -313,9 +314,11 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                         <TableCell>
                           <p className="font-medium">{it.product_name}</p>
                           <p className="text-xs text-muted-foreground">
-                            {it.product_variant_id
-                              ? `${it.size || "-"}/${it.color || "-"} · ${it.sku}`
-                              : "Servicio"}
+                            {it.product_bundle_id
+                              ? "Combo"
+                              : it.product_variant_id
+                                ? `${it.size || "-"}/${it.color || "-"} · ${it.sku}`
+                                : "Servicio"}
                           </p>
                         </TableCell>
                         <TableCell className="text-center">{it.quantity}</TableCell>
@@ -344,6 +347,10 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Total</span>
                   <span className="text-lg font-bold">{money(selectedSale.total)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">IVA SRI</span>
+                  <span>{selectedSale.sri_iva_rate ?? 0}%</span>
                 </div>
                 {selectedSale.profit != null && (
                   <div className="flex justify-between">
@@ -480,7 +487,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                 </Button>
               )}
 
-              {selectedSale.status !== "cancelled" && (
+              {selectedSale.status !== "cancelled" && !(selectedSale.invoice?.authorized && selectedSale.invoice?.ambiente === "2") && !(isBusinessEmployee && selectedSale.status === "completed") && (
                 <Button
                   variant="outline"
                   className="w-full text-destructive"

@@ -5,206 +5,240 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Factura Electrónica — <%= @business.name_or_default %></title>
 </head>
-<body style="margin:0;padding:0;background:#f1f5f9;font-family:'Helvetica Neue',Arial,sans-serif;color:#0f172a;">
+<body style="margin:0;padding:0;background:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#0f172a;">
 
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;padding:32px 16px;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f1f5f9;padding:40px 16px;">
     <tr>
       <td align="center">
         <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
 
-          <!-- ENCABEZADO: logo + nombre del negocio -->
+          <!-- Logo + Marca -->
           <tr>
-            <td style="background:linear-gradient(135deg,#0f2742 0%,#1e40af 100%);border-radius:16px 16px 0 0;padding:36px 40px 28px;text-align:center;">
+            <td style="padding:0 0 24px;text-align:left;">
               <% if @logo_cid %>
                 <img src="<%= @logo_cid %>" alt="<%= @business.name_or_default %>"
-                     style="height:60px;max-width:180px;object-fit:contain;display:block;margin:0 auto 16px;">
-              <% end %>
-              <h1 style="margin:0;color:#ffffff;font-size:24px;font-weight:800;letter-spacing:-0.5px;">
-                <%= @business.name_or_default %>
-              </h1>
-              <% if @business.slogan.present? %>
-                <p style="margin:6px 0 0;color:rgba(255,255,255,0.72);font-size:13px;font-style:italic;">
-                  "<%= @business.slogan %>"
-                </p>
+                     style="height:44px;max-width:200px;object-fit:contain;display:block;">
               <% end %>
             </td>
           </tr>
 
-          <!-- BANNER: factura autorizada -->
+          <!-- Tarjeta principal -->
           <tr>
-            <td style="background:#15803d;padding:12px 40px;text-align:center;">
-              <p style="margin:0;color:#ffffff;font-size:13px;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;">
-                ✔ &nbsp; Factura Electrónica Autorizada por el SRI
-              </p>
-            </td>
-          </tr>
+            <td style="background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.04),0 4px 16px rgba(0,0,0,0.04);">
 
-          <!-- CUERPO PRINCIPAL -->
-          <tr>
-            <td style="background:#ffffff;padding:36px 40px;">
-
-              <!-- Saludo al cliente -->
-              <p style="margin:0 0 6px;font-size:18px;font-weight:700;color:#0f172a;">
-                Hola, <%= @customer_name %> 👋
-              </p>
-              <p style="margin:0 0 28px;font-size:14px;color:#475569;line-height:1.7;">
-                Gracias por tu compra en <strong><%= @business.name_or_default %></strong>.
-                Tu factura electrónica ha sido <strong style="color:#15803d;">autorizada por el SRI</strong>.
-                Encontrarás el <strong>XML autorizado</strong> y el <strong>RIDE en PDF</strong> adjuntos a este correo.
-              </p>
-
-              <!-- Tarjeta resumen de factura -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                     style="border-radius:12px;overflow:hidden;border:1px solid #e2e8f0;margin-bottom:24px;">
+              <!-- Cabecera con gradiente -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
                 <tr>
-                  <td colspan="2" style="background:#0f2742;padding:12px 20px;">
-                    <p style="margin:0;color:#ffffff;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">
-                      Resumen de Factura
+                  <td style="background:linear-gradient(135deg,#0f2742 0%,#1a3a5c 50%,#1e40af 100%);padding:40px 40px 32px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td>
+                          <p style="margin:0 0 4px;color:rgba(255,255,255,0.6);font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;">
+                            Factura electrónica
+                          </p>
+                          <h1 style="margin:0 0 4px;color:#ffffff;font-size:22px;font-weight:700;letter-spacing:-0.3px;">
+                            <%= @business.name_or_default %>
+                          </h1>
+                          <% if @business.slogan.present? %>
+                            <p style="margin:0;color:rgba(255,255,255,0.55);font-size:13px;">
+                              <%= @business.slogan %>
+                            </p>
+                          <% end %>
+                        </td>
+                        <td align="right" valign="top">
+                          <div style="background:#15803d;border-radius:50px;display:inline-block;padding:6px 18px;">
+                            <p style="margin:0;color:#ffffff;font-size:12px;font-weight:700;letter-spacing:0.3px;">
+                              AUTORIZADA
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Cuerpo -->
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:32px 40px 0;">
+
+                    <!-- Saludo -->
+                    <p style="margin:0 0 4px;font-size:20px;font-weight:700;color:#0f172a;">
+                      Hola, <%= @customer_name %>
                     </p>
+                    <p style="margin:0 0 28px;font-size:14px;color:#475569;line-height:1.7;">
+                      Tu comprobante electrónico ha sido <strong style="color:#15803d;">autorizado por el SRI</strong>.
+                      Adjuntamos el <strong>XML</strong> para tu contabilidad y el <strong>RIDE</strong> en PDF para tu revisión.
+                    </p>
+
+                    <!-- Tabla de resumen -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="border:1px solid #e2e8f0;border-radius:12px;overflow:hidden;margin-bottom:24px;">
+                      <tr>
+                        <td colspan="2" style="background:#f8fafc;padding:14px 20px;border-bottom:1px solid #e2e8f0;">
+                          <p style="margin:0;font-size:12px;font-weight:700;color:#64748b;letter-spacing:0.5px;text-transform:uppercase;">
+                            Resumen del comprobante
+                          </p>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:12px 20px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;width:160px;">Comprobante</td>
+                        <td style="padding:12px 20px;font-size:13px;font-weight:700;color:#0f172a;font-family:monospace;border-bottom:1px solid #f1f5f9;">
+                          <%= @invoice.numero_comprobante %>
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding:10px 20px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">Autorización</td>
+                        <td style="padding:10px 20px;font-size:11px;font-weight:600;color:#374151;font-family:monospace;word-break:break-all;border-bottom:1px solid #f1f5f9;">
+                          <%= @invoice.numero_autorizacion %>
+                        </td>
+                      </tr>
+                      <% if @invoice.fecha_autorizacion %>
+                      <tr>
+                        <td style="padding:10px 20px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">Fecha</td>
+                        <td style="padding:10px 20px;font-size:13px;color:#374151;border-bottom:1px solid #f1f5f9;">
+                          <%= @invoice.fecha_autorizacion.strftime("%d/%m/%Y %H:%M") %>
+                        </td>
+                      </tr>
+                      <% end %>
+                      <tr>
+                        <td style="padding:16px 20px;font-size:14px;font-weight:700;color:#0f172a;background:#fafbfc;">
+                          TOTAL
+                        </td>
+                        <td style="padding:16px 20px;font-size:22px;font-weight:800;color:#15803d;background:#fafbfc;">
+                          $<%= format('%.2f', @invoice.importe_total.to_f) %>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Archivos adjuntos -->
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:28px;">
+                      <tr>
+                        <td style="padding:18px 20px;">
+                          <p style="margin:0 0 12px;font-size:12px;font-weight:700;color:#64748b;letter-spacing:0.5px;text-transform:uppercase;">
+                            Archivos adjuntos
+                          </p>
+                          <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="width:32px;padding-bottom:10px;vertical-align:top;">
+                                <div style="background:#fef3c7;border-radius:6px;width:24px;height:24px;text-align:center;line-height:24px;font-size:12px;">📄</div>
+                              </td>
+                              <td style="padding-bottom:10px;">
+                                <p style="margin:0;font-size:13px;font-weight:600;color:#0f172a;">RIDE (PDF)</p>
+                                <p style="margin:0;font-size:11px;color:#94a3b8;">
+                                  Representación impresa del documento electrónico —
+                                  <span style="background:#e2e8f0;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:11px;">RIDE_<%= @invoice.numero_comprobante %>.pdf</span>
+                                </p>
+                              </td>
+                            </tr>
+                            <tr>
+                              <td style="width:32px;padding-bottom:4px;vertical-align:top;">
+                                <div style="background:#dbeafe;border-radius:6px;width:24px;height:24px;text-align:center;line-height:24px;font-size:12px;">📋</div>
+                              </td>
+                              <td style="padding-bottom:4px;">
+                                <p style="margin:0;font-size:13px;font-weight:600;color:#0f172a;">XML Autorizado</p>
+                                <p style="margin:0;font-size:11px;color:#94a3b8;">
+                                  Para tu contabilidad —
+                                  <span style="background:#e2e8f0;padding:1px 6px;border-radius:3px;font-family:monospace;font-size:11px;">Factura_<%= @invoice.numero_comprobante %>.xml</span>
+                                </p>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
                   </td>
                 </tr>
+
+                <!-- Verificación SRI -->
                 <tr>
-                  <td style="padding:12px 20px 10px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">Comprobante</td>
-                  <td style="padding:12px 20px 10px;text-align:right;font-size:13px;font-weight:700;color:#0f172a;font-family:monospace;border-bottom:1px solid #f1f5f9;">
-                    <%= @invoice.numero_comprobante %>
+                  <td style="padding:0 40px 28px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0"
+                           style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;">
+                      <tr>
+                        <td style="padding:14px 18px;">
+                          <p style="margin:0;font-size:12px;color:#1e40af;line-height:1.6;">
+                            <strong>Verificación SRI:</strong> Puedes validar este comprobante en
+                            <a href="https://srienlinea.sri.gob.ec/comprobantes-electronicos-internet/publico/validezComprobantes.jsf" target="_blank" style="color:#1d4ed8;font-weight:700;text-decoration:none;">srienlinea.sri.gob.ec</a>
+                            con la clave de acceso o el número de autorización indicados arriba.
+                          </p>
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
+
+                <!-- Separador sutil -->
                 <tr>
-                  <td style="padding:10px 20px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">N° de Autorización</td>
-                  <td style="padding:10px 20px;text-align:right;font-size:11px;font-weight:600;color:#374151;font-family:monospace;word-break:break-all;border-bottom:1px solid #f1f5f9;">
-                    <%= @invoice.numero_autorizacion %>
+                  <td style="padding:0 40px;">
+                    <div style="height:1px;background:#f1f5f9;"></div>
                   </td>
                 </tr>
-                <% if @invoice.fecha_autorizacion %>
+
+                <!-- Contacto -->
+                <% if @business.whatsapp.present? || @business.email.present? %>
                 <tr>
-                  <td style="padding:10px 20px;font-size:13px;color:#64748b;border-bottom:1px solid #f1f5f9;">Fecha de Autorización</td>
-                  <td style="padding:10px 20px;text-align:right;font-size:13px;color:#374151;border-bottom:1px solid #f1f5f9;">
-                    <%= @invoice.fecha_autorizacion.strftime("%d/%m/%Y %H:%M") %>
+                  <td style="padding:28px 40px 32px;">
+                    <p style="margin:0 0 16px;font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.8px;text-transform:uppercase;">
+                      Contacto
+                    </p>
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                      <% if @business.whatsapp.present? %>
+                      <tr>
+                        <td style="padding-bottom:12px;font-size:13px;color:#475569;">
+                          <a href="https://wa.me/<%= @business.whatsapp.gsub(/\D/,'') %>?text=Hola, consulta sobre mi factura <%= @invoice.numero_comprobante %>"
+                             style="color:#15803d;font-weight:600;text-decoration:none;">
+                            WhatsApp: <%= @business.whatsapp %>
+                          </a>
+                        </td>
+                      </tr>
+                      <% end %>
+                      <% if @business.email.present? %>
+                      <tr>
+                        <td style="padding-bottom:4px;font-size:13px;color:#475569;">
+                          <a href="mailto:<%= @business.email %>" style="color:#1e40af;font-weight:600;text-decoration:none;">
+                            <%= @business.email %>
+                          </a>
+                        </td>
+                      </tr>
+                      <% end %>
+                    </table>
                   </td>
                 </tr>
                 <% end %>
-                <tr>
-                  <td style="padding:16px 20px;font-size:15px;font-weight:700;color:#0f172a;background:#f8fafc;">
-                    TOTAL PAGADO
-                  </td>
-                  <td style="padding:16px 20px;text-align:right;font-size:22px;font-weight:800;color:#15803d;background:#f8fafc;">
-                    $<%= format('%.2f', @invoice.importe_total.to_f) %>
-                  </td>
-                </tr>
-              </table>
 
-              <!-- Nota sobre archivos adjuntos -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                     style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;margin-bottom:28px;">
-                <tr>
-                  <td style="padding:16px 18px;">
-                    <p style="margin:0 0 8px;font-size:13px;font-weight:700;color:#1e40af;">
-                      📎 Archivos adjuntos en este correo:
-                    </p>
-                    <p style="margin:0 0 4px;font-size:12px;color:#1e40af;">
-                      &nbsp;&nbsp;•&nbsp;
-                      <span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:monospace;">
-                        RIDE_<%= @invoice.numero_comprobante %>.pdf
-                      </span>
-                      — Representación impresa del documento electrónico
-                    </p>
-                    <p style="margin:0;font-size:12px;color:#1e40af;">
-                      &nbsp;&nbsp;•&nbsp;
-                      <span style="background:#dbeafe;padding:2px 6px;border-radius:4px;font-family:monospace;">
-                        Factura_<%= @invoice.numero_comprobante %>.xml
-                      </span>
-                      — XML autorizado por el SRI (para tu contabilidad)
-                    </p>
-                  </td>
-                </tr>
               </table>
-
-              <!-- Información de contacto del negocio -->
-              <% if @business.whatsapp.present? || @business.email.present? || @business.location.present? %>
-              <table width="100%" cellpadding="0" cellspacing="0" border="0"
-                     style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:4px;">
-                <tr>
-                  <td style="padding:18px 20px;">
-                    <p style="margin:0 0 12px;font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:0.8px;text-transform:uppercase;">
-                      Contáctanos
-                    </p>
-                    <% if @business.whatsapp.present? %>
-                    <p style="margin:0 0 8px;font-size:13px;color:#0f172a;">
-                      💬 <strong>WhatsApp:</strong>&nbsp;
-                      <a href="https://wa.me/<%= @business.whatsapp.gsub(/\D/,'') %>?text=Hola, tengo una consulta sobre mi factura <%= @invoice.numero_comprobante %>"
-                         style="color:#15803d;font-weight:700;text-decoration:none;">
-                        <%= @business.whatsapp %>
-                      </a>
-                    </p>
-                    <% end %>
-                    <% if @business.email.present? %>
-                    <p style="margin:0 0 8px;font-size:13px;color:#0f172a;">
-                      ✉️ <strong>Email:</strong>&nbsp;
-                      <a href="mailto:<%= @business.email %>" style="color:#1e40af;font-weight:700;text-decoration:none;">
-                        <%= @business.email %>
-                      </a>
-                    </p>
-                    <% end %>
-                    <% if @business.location.present? %>
-                    <p style="margin:0;font-size:13px;color:#475569;">
-                      📍 <strong>Ubicación:</strong>&nbsp;<%= @business.location %>
-                    </p>
-                    <% end %>
-                  </td>
-                </tr>
-              </table>
-              <% end %>
 
             </td>
           </tr>
 
-          <!-- REDES SOCIALES -->
-          <% has_social = @business.instagram.present? || @business.facebook.present? || @business.tiktok.present? %>
-          <% if has_social %>
+          <!-- Footer externo -->
           <tr>
-            <td style="background:#0f2742;padding:22px 40px;text-align:center;">
-              <p style="margin:0 0 14px;color:rgba(255,255,255,0.55);font-size:11px;letter-spacing:0.8px;text-transform:uppercase;">
-                Síguenos en redes sociales
+            <td style="padding:20px 0 0;text-align:center;">
+              <% if @business.instagram.present? || @business.tiktok.present? || @business.facebook.present? %>
+                <p style="margin:0 0 12px;font-size:11px;color:#94a3b8;letter-spacing:0.5px;">
+                  <% if @business.instagram.present? %>
+                    <a href="https://instagram.com/<%= @business.instagram %>" style="color:#94a3b8;text-decoration:none;margin:0 6px;">@<%= @business.instagram %></a>
+                  <% end %>
+                  <% if @business.tiktok.present? %>
+                    <a href="https://tiktok.com/@<%= @business.tiktok %>" style="color:#94a3b8;text-decoration:none;margin:0 6px;">@<%= @business.tiktok %></a>
+                  <% end %>
+                  <% if @business.facebook.present? %>
+                    <a href="https://facebook.com/<%= @business.facebook %>" style="color:#94a3b8;text-decoration:none;margin:0 6px;"><%= @business.facebook %></a>
+                  <% end %>
+                </p>
+              <% end %>
+              <p style="margin:0 0 6px;font-size:11px;color:#cbd5e1;line-height:1.6;">
+                Correo generado automáticamente — no respondas a este mensaje.
               </p>
-              <% if @business.instagram.present? %>
-                <a href="https://instagram.com/<%= @business.instagram %>"
-                   style="display:inline-block;margin:4px 5px;background:linear-gradient(135deg,#833ab4,#fd1d1d,#fcb045);border-radius:8px;padding:8px 16px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;">
-                  📸&nbsp; @<%= @business.instagram %>
-                </a>
-              <% end %>
-              <% if @business.tiktok.present? %>
-                <a href="https://tiktok.com/@<%= @business.tiktok %>"
-                   style="display:inline-block;margin:4px 5px;background:#010101;border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:8px 16px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;">
-                  🎵&nbsp; @<%= @business.tiktok %>
-                </a>
-              <% end %>
-              <% if @business.facebook.present? %>
-                <a href="https://facebook.com/<%= @business.facebook %>"
-                   style="display:inline-block;margin:4px 5px;background:#1877f2;border-radius:8px;padding:8px 16px;color:#ffffff;text-decoration:none;font-size:12px;font-weight:700;">
-                  👍&nbsp; <%= @business.facebook %>
-                </a>
-              <% end %>
-            </td>
-          </tr>
-          <% end %>
-
-          <!-- FOOTER -->
-          <tr>
-            <td style="background:#0c1f36;border-radius:0 0 16px 16px;padding:20px 40px;text-align:center;">
-              <p style="margin:0 0 6px;color:rgba(255,255,255,0.4);font-size:11px;line-height:1.6;">
-                Este correo fue generado automáticamente. Por favor no respondas a este mensaje.
-              </p>
-              <p style="margin:0 0 4px;color:rgba(255,255,255,0.25);font-size:10px;">
+              <p style="margin:0;font-size:10px;color:#cbd5e1;">
                 Powered by
                 <a href="https://www.rysthdesign.com" target="_blank"
-                   style="color:rgba(255,255,255,0.5);font-weight:700;text-decoration:none;">
-                  RysthDesign
-                </a>
-                &nbsp;·&nbsp;
-                <a href="https://www.rysthdesign.com" target="_blank"
-                   style="color:rgba(255,255,255,0.35);text-decoration:none;font-size:10px;">
-                  www.rysthdesign.com
-                </a>
+                   style="color:#94a3b8;font-weight:600;text-decoration:none;">RysthDesign</a>
+                &nbsp;·&nbsp; www.rysthdesign.com
               </p>
             </td>
           </tr>

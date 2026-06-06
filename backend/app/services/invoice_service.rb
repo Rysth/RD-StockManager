@@ -15,14 +15,11 @@ class InvoiceService
   class MissingEmisorError < InvoiceError; end
   class InvoicingDisabledError < InvoiceError; end
 
-  # true  => unit_price YA incluye IVA (precio al público) -> base = price / 1.15
-  # false => unit_price es base sin IVA, el IVA se SUMA encima (el total facturado sube ~15%)
-  # Decisión del negocio (EDLU): precios cargados netos -> false.
-  PRICES_INCLUDE_IVA = false
-
-  IVA_TARIFA      = 15
-  IVA_CODIGO_PORC = "4".freeze
-  IVA_DIVISOR     = BigDecimal("1.15")
+  IVA_CODIGO_PORCENTAJE = {
+    0 => "0",
+    12 => "2",
+    15 => "4"
+  }.freeze
 
   # id_type de Customer -> tipoIdentificacion del SRI.
   ID_TYPE_MAP = { "cedula" => "05", "ruc" => "04", "pasaporte" => "06" }.freeze
@@ -30,6 +27,7 @@ class InvoiceService
   FORMA_PAGO  = { "cash" => "01", "transfer" => "20" }.freeze
   DUPLICATE_SECUENCIAL_IDENTIFIER = "45".freeze
   MAX_DUPLICATE_SECUENCIAL_RETRIES = 25
+  SUPPORTED_RIDE_LOGO_TYPES = %w[image/png image/jpeg image/jpg].freeze
 
   def self.generate(sale:)
     new(sale).generate
@@ -102,6 +100,7 @@ class InvoiceService
   end
 
   def build_factura(business, comprador, secuencial, est, pe)
+    logo = ride_logo_for(business)
     emisor = SriFacturacion::Emisor.new(
       ruc: business.ruc,
       razon_social: business.razon_social,
@@ -112,7 +111,9 @@ class InvoiceService
       punto_emision: pe,
       obligado_contabilidad: business.obligado_contabilidad,
       contribuyente_especial: business.contribuyente_especial.presence,
-      contribuyente_rimpe: business.contribuyente_rimpe.presence
+      contribuyente_rimpe: business.contribuyente_rimpe.presence,
+      logo_data: logo&.fetch(:data),
+      logo_content_type: logo&.fetch(:content_type)
     )
 
     detalles = build_detalles
@@ -154,22 +155,23 @@ class InvoiceService
 
   def build_detalles
     @sale.sale_items.map do |item|
-      base_unit = base_unit_price(item.unit_price)
+      base_unit = sri_unit_price(item.unit_price)
       line_base = (BigDecimal(item.quantity.to_s) * base_unit).round(2)
+      impuesto = item.applies_iva? ? sri_iva_15(line_base) : SriFacturacion::Impuesto.iva_cero(line_base)
       SriFacturacion::Detalle.new(
-        descripcion: item.product_variant&.product&.name || item.description,
-        codigo_principal: item.product_variant&.sku || "SERV-#{item.id}",
+        descripcion: item.product_bundle&.name || item.product_variant&.product&.name || item.description,
+        codigo_principal: item.product_bundle.present? ? "COMBO-#{item.product_bundle_id}" : item.product_variant&.sku || "SERV-#{item.id}",
         cantidad: item.quantity,
         precio_unitario: base_unit,
         descuento: 0,
         unidad_medida: "UNIDAD",
-        impuestos: [SriFacturacion::Impuesto.iva(line_base, tarifa: IVA_TARIFA, codigo_porcentaje: IVA_CODIGO_PORC)]
+        impuestos: [impuesto]
       )
     end
   end
 
   def build_shipping_detalle
-    base = base_unit_price(@sale.shipping_cost)
+    base = BigDecimal(@sale.shipping_cost.to_s).round(6)
     line_base = base.round(2)
     SriFacturacion::Detalle.new(
       descripcion: "Costo de envío",
@@ -178,14 +180,31 @@ class InvoiceService
       precio_unitario: base,
       descuento: 0,
       unidad_medida: "SERVICIO",
-      impuestos: [SriFacturacion::Impuesto.iva(line_base, tarifa: IVA_TARIFA, codigo_porcentaje: IVA_CODIGO_PORC)]
+      impuestos: [SriFacturacion::Impuesto.iva_cero(line_base)]
     )
   end
 
-  # Base sin IVA por unidad (6 decimales, según permite el SRI).
-  def base_unit_price(price)
-    d = BigDecimal(price.to_s)
-    PRICES_INCLUDE_IVA ? (d / IVA_DIVISOR).round(6) : d.round(6)
+  # Los precios en sale_items son precios base (sin IVA); el IVA se añade encima.
+  def sri_unit_price(price)
+    BigDecimal(price.to_s).round(6)
+  end
+
+  def sri_iva_15(line_base)
+    SriFacturacion::Impuesto.iva(
+      line_base,
+      tarifa: 15,
+      codigo_porcentaje: IVA_CODIGO_PORCENTAJE.fetch(15, "4")
+    )
+  end
+
+  def ride_logo_for(business)
+    return unless business.logo.attached?
+    return unless SUPPORTED_RIDE_LOGO_TYPES.include?(business.logo.blob.content_type.to_s.downcase)
+
+    { data: business.logo.download, content_type: business.logo.blob.content_type }
+  rescue StandardError => e
+    Rails.logger.warn("[InvoiceService] No se pudo cargar logo para RIDE: #{e.class} #{e.message}")
+    nil
   end
 
   def emitir(factura)

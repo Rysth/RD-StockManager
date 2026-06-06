@@ -13,8 +13,13 @@ module Api
 
       # POST /api/v1/purchases/:purchase_id/payments
       def create
+        amount = payment_params[:amount].to_d
+        if amount > @purchase.balance_due.to_d
+          return render_error("El pago no puede exceder el saldo pendiente", :unprocessable_entity)
+        end
+
         pp = @purchase.purchase_payments.new(
-          amount: payment_params[:amount].to_d,
+          amount: amount,
           payment_method: payment_params[:payment_method].presence || "cash"
         )
 
