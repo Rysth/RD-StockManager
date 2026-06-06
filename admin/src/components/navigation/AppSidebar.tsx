@@ -330,7 +330,7 @@ export default function AppSidebar({
 
       <SidebarSeparator />
 
-      <SidebarContent>
+      <SidebarContent className="custom-scrollbar">
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
@@ -358,6 +358,25 @@ export default function AppSidebar({
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: hsl(var(--sidebar-border));
+          border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: hsl(var(--sidebar-foreground) / 0.3);
+        }
+        .custom-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: hsl(var(--sidebar-border)) transparent;
+        }
+      `}</style>
 
       <SidebarFooter>
         <SidebarMenu>
