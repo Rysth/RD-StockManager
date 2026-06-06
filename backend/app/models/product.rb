@@ -8,11 +8,14 @@ class Product < ApplicationRecord
   belongs_to :category
   belongs_to :brand, optional: true
   has_many :product_variants, dependent: :destroy
+  has_many :price_histories, class_name: "ProductPriceHistory", dependent: :destroy
   has_many_attached :images
 
   accepts_nested_attributes_for :product_variants, allow_destroy: true
 
   before_validation :ensure_base_variant
+
+  after_update :record_price_history, if: :cost_or_price_changed?
 
   validates :name, presence: { message: "El nombre es requerido" }
   validates :base_price, numericality: { greater_than_or_equal_to: 0, message: "El precio debe ser mayor o igual a 0" }
@@ -74,5 +77,24 @@ class Product < ApplicationRecord
     return if product_variants.reject(&:marked_for_destruction?).any?
 
     product_variants.build(stock: 0)
+  end
+
+  def cost_or_price_changed?
+    saved_change_to_cost? || saved_change_to_base_price? || saved_change_to_wholesale_price?
+  end
+
+  def record_price_history
+    # Solo registrar si al menos un campo cambió de valor real
+    return unless saved_change_to_cost? || saved_change_to_base_price? || saved_change_to_wholesale_price?
+
+    price_histories.create!(
+      old_cost: saved_change_to_cost? ? cost_before_last_save : nil,
+      new_cost: saved_change_to_cost? ? cost : nil,
+      old_base_price: saved_change_to_base_price? ? base_price_before_last_save : nil,
+      new_base_price: saved_change_to_base_price? ? base_price : nil,
+      old_wholesale_price: saved_change_to_wholesale_price? ? wholesale_price_before_last_save : nil,
+      new_wholesale_price: saved_change_to_wholesale_price? ? wholesale_price : nil,
+      source: "manual"
+    )
   end
 end

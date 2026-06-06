@@ -58,6 +58,7 @@ Rails.application.routes.draw do
         member do
           post :images
           delete "images/:image_id", action: :remove_image, as: :image
+          get :price_history
         end
       end
       resources :product_bundles

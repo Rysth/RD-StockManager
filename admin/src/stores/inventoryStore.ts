@@ -7,6 +7,7 @@ import type {
   LowStockVariant,
   InventoryStats,
   Pagination,
+  ProductPriceHistory,
 } from "../types/inventory";
 
 interface ProductFilters {
@@ -124,6 +125,7 @@ interface InventoryState {
   deleteBrand: (id: number) => Promise<void>;
   restoreBrand: (id: number) => Promise<void>;
 
+  fetchPriceHistory: (productId: number) => Promise<ProductPriceHistory[]>;
   fetchStats: () => Promise<void>;
 }
 
@@ -443,6 +445,15 @@ export const useInventoryStore = create<InventoryState>((set, get) => ({
       const msg = toMessage(error, "Error al restaurar la marca");
       set({ error: msg, isLoading: false });
       throw new Error(msg);
+    }
+  },
+
+  fetchPriceHistory: async (productId) => {
+    try {
+      const response = await api.get(`/api/v1/products/${productId}/price_history`);
+      return response.data.price_history as ProductPriceHistory[];
+    } catch (error) {
+      throw new Error(toMessage(error, "Error al obtener el historial de precios"));
     }
   },
 

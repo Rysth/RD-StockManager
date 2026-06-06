@@ -308,6 +308,7 @@ export interface PurchaseItem {
   color?: string | null;
   quantity: number;
   unit_cost: number;
+  discount: number;
   subtotal: number;
 }
 
@@ -350,6 +351,19 @@ export interface PurchaseItemInput {
   product_variant_id: number;
   quantity: number;
   unit_cost: number;
+  discount?: number;
+}
+
+export interface ProductPriceHistory {
+  id: number;
+  old_cost: number | null;
+  new_cost: number | null;
+  old_base_price: number | null;
+  new_base_price: number | null;
+  old_wholesale_price: number | null;
+  new_wholesale_price: number | null;
+  source: string;
+  created_at: string;
 }
 
 export interface CreatePurchaseData {

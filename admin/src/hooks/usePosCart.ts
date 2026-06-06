@@ -44,6 +44,7 @@ export interface CartItem {
   max: number;
   unit_value: number;
   value_edited: boolean;
+  discount: number;
 }
 
 export interface VariantOption {
@@ -162,6 +163,7 @@ export function usePosCart(mode: "sale" | "purchase") {
         max: v.is_service ? Number.MAX_SAFE_INTEGER : v.stock,
         unit_value: mode === "sale" ? v.base_price : v.cost,
         value_edited: false,
+        discount: 0,
       };
       return [...prev, withQuantity(base, 1)];
     });
@@ -198,6 +200,7 @@ export function usePosCart(mode: "sale" | "purchase") {
           max: bundle.available_stock ?? 0,
           unit_value: bundle.base_price,
           value_edited: false,
+          discount: 0,
         },
       ];
     });
@@ -250,6 +253,15 @@ export function usePosCart(mode: "sale" | "purchase") {
       ),
     );
 
+  const setItemDiscount = (key: string, value: number) =>
+    setCart((prev) =>
+      prev.map((i) =>
+        i.cart_key === key
+          ? { ...i, discount: Math.max(0, value) }
+          : i,
+      ),
+    );
+
   const removeItem = (key: string) =>
     setCart((prev) => prev.filter((i) => i.cart_key !== key));
 
@@ -259,7 +271,7 @@ export function usePosCart(mode: "sale" | "purchase") {
   };
 
   const itemsTotal = cart.reduce(
-    (sum, i) => sum + i.unit_value * i.quantity,
+    (sum, i) => sum + (i.unit_value - i.discount) * i.quantity,
     0,
   );
   const itemCount = cart.reduce((sum, i) => sum + i.quantity, 0);
@@ -273,6 +285,7 @@ export function usePosCart(mode: "sale" | "purchase") {
     setQuantity,
     setUnitValue,
     resetUnitValue,
+    setItemDiscount,
     removeItem,
     clearCart,
     itemsTotal,

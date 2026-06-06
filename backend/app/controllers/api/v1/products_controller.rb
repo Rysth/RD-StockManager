@@ -4,7 +4,7 @@ module Api
       before_action :authenticate_rodauth_user!
       before_action -> { authorize_permission!(Permission::VIEW_INVENTORY) }, only: [:index, :show, :low_stock, :import_template, :export]
       before_action -> { authorize_permission!(Permission::MANAGE_PRODUCTS) }, only: [:create, :update, :destroy, :images, :remove_image, :import]
-      before_action :set_product, only: [:show, :update, :destroy, :images, :remove_image]
+      before_action :set_product, only: [:show, :update, :destroy, :images, :remove_image, :price_history]
       after_action :clear_inventory_cache, only: [:create, :update, :destroy, :images, :remove_image, :import]
 
       # GET /api/v1/products
@@ -128,6 +128,26 @@ module Api
       def remove_image
         ProductImageStorageService.remove(@product, params[:image_id])
         render_success({ product: serialize(@product.reload) }, "Imagen eliminada")
+      end
+
+      # GET /api/v1/products/:id/price_history
+      def price_history
+        histories = @product.price_histories.order(created_at: :desc).limit(50)
+        render_success(
+          price_history: histories.map do |h|
+            {
+              id: h.id,
+              old_cost: h.old_cost,
+              new_cost: h.new_cost,
+              old_base_price: h.old_base_price,
+              new_base_price: h.new_base_price,
+              old_wholesale_price: h.old_wholesale_price,
+              new_wholesale_price: h.new_wholesale_price,
+              source: h.source,
+              created_at: h.created_at
+            }
+          end
+        )
       end
 
       private

@@ -62,7 +62,8 @@ module Api
             purchase.purchase_items.create!(
               product_variant_id: item[:product_variant_id],
               quantity: item[:quantity].to_i,
-              unit_cost: item[:unit_cost]
+              unit_cost: item[:unit_cost],
+              discount: item[:discount].to_d
             )
           end
 
@@ -122,7 +123,7 @@ module Api
 
       def item_params
         params.fetch(:items, []).map do |item|
-          item.respond_to?(:permit) ? item.permit(:id, :product_variant_id, :quantity, :unit_cost) : item
+          item.respond_to?(:permit) ? item.permit(:id, :product_variant_id, :quantity, :unit_cost, :discount) : item
         end
       end
 
@@ -147,7 +148,8 @@ module Api
 
           purchase_item.update!(
             quantity: item[:quantity].to_i,
-            unit_cost: item[:unit_cost].to_d
+            unit_cost: item[:unit_cost].to_d,
+            discount: item[:discount].to_d
           )
         end
 
@@ -207,6 +209,7 @@ module Api
               color: item.product_variant.color,
               quantity: item.quantity,
               unit_cost: item.unit_cost,
+              discount: item.discount,
               subtotal: item.subtotal
             }
           end

@@ -8,9 +8,10 @@ class PurchaseItem < ApplicationRecord
 
   validates :quantity, numericality: { greater_than: 0, only_integer: true, message: "La cantidad debe ser mayor a 0" }
   validates :unit_cost, numericality: { greater_than_or_equal_to: 0 }
+  validates :discount, numericality: { greater_than_or_equal_to: 0 }
 
   def subtotal
-    quantity * unit_cost
+    quantity * (unit_cost - discount)
   end
 
   def self.ransackable_attributes(_auth_object = nil)

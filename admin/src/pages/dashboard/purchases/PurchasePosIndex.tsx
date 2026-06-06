@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBlocker } from "react-router-dom";
 import {
   Plus,
   Minus,
@@ -80,6 +81,7 @@ export default function PurchasePosIndex() {
     addToCart,
     setQuantity,
     setUnitValue,
+    setItemDiscount,
     removeItem,
     clearCart,
     itemsTotal,
@@ -159,6 +161,11 @@ export default function PurchasePosIndex() {
       setLocationId(String(fallback.id));
     }
   }, [locations, restrictedToBranch, user, locationId]);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      cart.length > 0 && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   const handleLocationChange = (value: string) => {
     setLocationId(value);
@@ -391,6 +398,7 @@ export default function PurchasePosIndex() {
                   product_variant_id: i.product_variant_id,
                   quantity: i.quantity,
                   unit_cost: i.unit_value,
+                  discount: i.discount,
                 },
               ],
         ),
@@ -603,9 +611,16 @@ export default function PurchasePosIndex() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="text-sm font-bold tabular-nums">
-                        {money(i.unit_value * i.quantity)}
-                      </span>
+                      <div className="text-right">
+                        <span className="text-sm font-bold tabular-nums">
+                          {money((i.unit_value - i.discount) * i.quantity)}
+                        </span>
+                        {i.discount > 0 && (
+                          <p className="text-[10px] text-emerald-600">
+                            -{money(i.discount)} desc/u
+                          </p>
+                        )}
+                      </div>
                       <Button
                         variant="ghost"
                         size="icon"
@@ -653,6 +668,24 @@ export default function PurchasePosIndex() {
                         value={i.unit_value}
                         onChange={(e) =>
                           setUnitValue(
+                            i.cart_key,
+                            Math.max(0, Number(e.target.value) || 0),
+                          )
+                        }
+                        className="h-7 flex-1 min-w-0 px-2 text-sm"
+                      />
+                    </div>
+                    <div className="flex flex-1 items-center gap-1.5">
+                      <span className="text-[11px] font-medium text-muted-foreground shrink-0">
+                        Desc
+                      </span>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={i.discount}
+                        onChange={(e) =>
+                          setItemDiscount(
                             i.cart_key,
                             Math.max(0, Number(e.target.value) || 0),
                           )
@@ -888,6 +921,35 @@ export default function PurchasePosIndex() {
         </SheetContent>
       </Sheet>
 
+      {/* ── Bloqueo de navegación con orden activa ── */}
+      <Dialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.();
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Salir de la orden de compra?</DialogTitle>
+            <DialogDescription>
+              Tienes {itemCount} ítem{itemCount !== 1 ? "s" : ""} en la orden.
+              Si sales ahora perderás el progreso.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => blocker.reset?.()}>
+              Volver a la orden
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => blocker.proceed?.()}
+            >
+              Salir de todas formas
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ── Nuevo proveedor rápido ── */}
       <Dialog open={supplierQuickOpen} onOpenChange={setSupplierQuickOpen}>
         <DialogContent className="sm:max-w-sm">
@@ -1025,10 +1087,15 @@ export default function PurchasePosIndex() {
                   </div>
                   <div className="shrink-0 text-right">
                     <p>
-                      {i.quantity} × {money(i.unit_value)}
+                      {i.quantity} × {money(i.unit_value - i.discount)}
+                      {i.discount > 0 && (
+                        <span className="ml-1 text-xs text-emerald-600">
+                          (-{money(i.discount)})
+                        </span>
+                      )}
                     </p>
                     <p className="font-medium">
-                      {money(i.unit_value * i.quantity)}
+                      {money((i.unit_value - i.discount) * i.quantity)}
                     </p>
                   </div>
                 </div>

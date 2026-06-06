@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_05_170000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_06_010100) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -277,6 +277,25 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_05_170000) do
     t.index ["name"], name: "index_product_bundles_on_name"
   end
 
+  create_table "product_price_histories", force: :cascade do |t|
+    t.bigint "product_id", null: false
+    t.decimal "old_cost", precision: 10, scale: 2
+    t.decimal "new_cost", precision: 10, scale: 2
+    t.decimal "old_base_price", precision: 10, scale: 2
+    t.decimal "new_base_price", precision: 10, scale: 2
+    t.decimal "old_wholesale_price", precision: 10, scale: 2
+    t.decimal "new_wholesale_price", precision: 10, scale: 2
+    t.bigint "user_id"
+    t.string "source", default: "manual", null: false
+    t.bigint "purchase_id"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["product_id", "created_at"], name: "index_product_price_histories_on_product_id_and_created_at"
+    t.index ["product_id"], name: "index_product_price_histories_on_product_id"
+    t.index ["purchase_id"], name: "index_product_price_histories_on_purchase_id"
+    t.index ["user_id"], name: "index_product_price_histories_on_user_id"
+  end
+
   create_table "product_variants", force: :cascade do |t|
     t.bigint "product_id", null: false
     t.string "size"
@@ -314,6 +333,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_05_170000) do
     t.decimal "unit_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.decimal "discount", precision: 10, scale: 2, default: "0.0", null: false
     t.index ["product_variant_id"], name: "index_purchase_items_on_product_variant_id"
     t.index ["purchase_id"], name: "index_purchase_items_on_purchase_id"
   end
@@ -522,6 +542,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_05_170000) do
   add_foreign_key "otp_codes", "accounts"
   add_foreign_key "product_bundle_items", "product_bundles"
   add_foreign_key "product_bundle_items", "product_variants"
+  add_foreign_key "product_price_histories", "accounts", column: "user_id"
+  add_foreign_key "product_price_histories", "products"
   add_foreign_key "product_variants", "products"
   add_foreign_key "products", "brands"
   add_foreign_key "products", "categories"
