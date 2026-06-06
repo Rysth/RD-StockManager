@@ -608,7 +608,7 @@ export default function SalesPosIndex() {
         {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-4">
           {productGroups.length ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
               {productGroups.map((p) => {
                 const inCartCount = cart
                   .filter((c) => {
