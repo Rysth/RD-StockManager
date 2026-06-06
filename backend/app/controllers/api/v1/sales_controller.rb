@@ -75,7 +75,7 @@ module Api
           end
 
           sale.recalculate_total!
-          sale.complete! if desired_status == "completed"
+          sale.complete! if desired_status == "completed" && sale.payment_method != "transfer"
         end
 
         Rails.cache.delete("inventory:stats")

@@ -44,10 +44,19 @@ class Sale < ApplicationRecord
     (total - paid_amount).to_f
   end
 
+  def requires_payment_verification?
+    payment_method == "transfer" && !payment_paid?
+  end
+
   # Mark the sale as completed and discount stock for each line item.
   # Idempotent: does nothing if the sale is already completed.
   def complete!
     return if completed?
+
+    if requires_payment_verification?
+      errors.add(:base, "La transferencia debe ser verificada antes de completar la venta")
+      raise ActiveRecord::RecordInvalid, self
+    end
 
     transaction do
       loc = location || Location.default

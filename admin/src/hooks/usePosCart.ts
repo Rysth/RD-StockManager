@@ -222,6 +222,15 @@ export function usePosCart(mode: "sale" | "purchase") {
       ),
     );
 
+  const resetUnitValue = (key: string) =>
+    setCart((prev) =>
+      prev.map((i) =>
+        i.cart_key === key
+          ? { ...i, unit_value: suggestedPrice(i), value_edited: false }
+          : i,
+      ),
+    );
+
   const removeItem = (key: string) =>
     setCart((prev) => prev.filter((i) => i.cart_key !== key));
 
@@ -241,6 +250,7 @@ export function usePosCart(mode: "sale" | "purchase") {
     addServiceWithoutVariant,
     setQuantity,
     setUnitValue,
+    resetUnitValue,
     removeItem,
     clearCart,
     itemsTotal,
