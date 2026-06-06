@@ -158,9 +158,9 @@ export default function PurchasesIndex() {
 
       {/* Resumen */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatsCard variant="minimal" title="Total compras" value={pagination.total_count} icon={Truck} />
-        <StatsCard variant="minimal" title="Por recibir" value={receivableCount} description="en esta vista" icon={Clock} />
-        <StatsCard variant="minimal" title="Por pagar" value={payableCount} description="en esta vista" icon={CircleDollarSign} />
+        <StatsCard variant="colored" title="Total compras" value={pagination.total_count} icon={Truck} iconColor="text-blue-600" iconBgColor="bg-blue-50" />
+        <StatsCard variant="colored" title="Por recibir" value={receivableCount} description="en esta vista" icon={Clock} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
+        <StatsCard variant="colored" title="Por pagar" value={payableCount} description="en esta vista" icon={CircleDollarSign} iconColor="text-emerald-600" iconBgColor="bg-emerald-50" />
       </div>
 
       {/* Filters */}

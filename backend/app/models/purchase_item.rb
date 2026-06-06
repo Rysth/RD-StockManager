@@ -5,13 +5,19 @@ class PurchaseItem < ApplicationRecord
   belongs_to :product_variant
 
   before_validation :set_unit_cost, on: :create
+  before_validation :calculate_tax_amount
 
   validates :quantity, numericality: { greater_than: 0, only_integer: true, message: "La cantidad debe ser mayor a 0" }
   validates :unit_cost, numericality: { greater_than_or_equal_to: 0 }
   validates :discount, numericality: { greater_than_or_equal_to: 0 }
+  validates :tax_amount, numericality: { greater_than_or_equal_to: 0 }
 
   def subtotal
     quantity * (unit_cost - discount)
+  end
+
+  def total
+    subtotal + tax_amount
   end
 
   def self.ransackable_attributes(_auth_object = nil)
@@ -27,5 +33,12 @@ class PurchaseItem < ApplicationRecord
   # Por defecto usa el costo actual del producto cuando no se especifica.
   def set_unit_cost
     self.unit_cost = product_variant&.product&.cost || 0 unless unit_cost.present? && unit_cost.positive?
+  end
+
+  # IVA 15% sobre el valor neto (después de descuento por línea) cuando aplica.
+  def calculate_tax_amount
+    return unless quantity && unit_cost && discount
+    net = [(unit_cost - discount), 0].max
+    self.tax_amount = applies_iva ? (quantity * net * 0.15).round(2) : 0.0
   end
 end

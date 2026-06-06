@@ -222,9 +222,9 @@ export default function TransfersIndex() {
 
       {/* Resumen */}
       <div className="grid gap-3 sm:grid-cols-3">
-        <StatsCard variant="minimal" title="Total transferencias" value={pagination.total_count} icon={ArrowRightLeft} />
-        <StatsCard variant="minimal" title="Pendientes" value={pendingCount} description="en esta vista" icon={Clock} />
-        <StatsCard variant="minimal" title="Recibidas" value={receivedCount} description="en esta vista" icon={CheckCircle2} />
+        <StatsCard variant="colored" title="Total transferencias" value={pagination.total_count} icon={ArrowRightLeft} iconColor="text-blue-600" iconBgColor="bg-blue-50" />
+        <StatsCard variant="colored" title="Pendientes" value={pendingCount} description="en esta vista" icon={Clock} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
+        <StatsCard variant="colored" title="Recibidas" value={receivedCount} description="en esta vista" icon={CheckCircle2} iconColor="text-emerald-600" iconBgColor="bg-emerald-50" />
       </div>
 
       {/* Filters */}

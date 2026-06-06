@@ -19,12 +19,17 @@ class Purchase < ApplicationRecord
 
   scope :due_soon, -> { received.where.not(payment_status: payment_statuses[:paid]).where(due_date: ..Date.current + 7.days) }
 
-  # Recalcula totales a partir de los ítems persistidos (considera descuento por línea).
+  # Recalcula totales a partir de los ítems persistidos.
+  # discount y tax se suman automáticamente desde los ítems.
   def recalculate_total!
     items_subtotal = purchase_items.sum("quantity * (unit_cost - COALESCE(discount, 0))")
+    items_discount = purchase_items.sum("quantity * COALESCE(discount, 0)")
+    items_tax = purchase_items.sum("COALESCE(tax_amount, 0)")
     update_columns(
       subtotal: items_subtotal,
-      total: items_subtotal - discount + tax
+      discount: items_discount,
+      tax: items_tax,
+      total: items_subtotal + items_tax
     )
     sync_payment_status!
   end

@@ -147,12 +147,12 @@ function SalesList() {
       <div className="grid gap-3 sm:grid-cols-3">
         {canViewReports && report ? (
           <>
-            <StatsCard variant="minimal" title="Ingresos hoy" value={money0(report.summary.revenue_today)} icon={DollarSign} />
-            <StatsCard variant="minimal" title="Ingresos del mes" value={money0(report.summary.revenue_month)} icon={CalendarRange} />
-            <StatsCard variant="minimal" title="Ventas hoy" value={report.summary.sales_today} icon={ShoppingCart} />
+            <StatsCard variant="colored" title="Ingresos hoy" value={money0(report.summary.revenue_today)} icon={DollarSign} iconColor="text-emerald-600" iconBgColor="bg-emerald-50" />
+            <StatsCard variant="colored" title="Ingresos del mes" value={money0(report.summary.revenue_month)} icon={CalendarRange} iconColor="text-blue-600" iconBgColor="bg-blue-50" />
+            <StatsCard variant="colored" title="Ventas hoy" value={report.summary.sales_today} icon={ShoppingCart} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
           </>
         ) : (
-          <StatsCard variant="minimal" title="Total ventas" value={pagination.total_count} icon={ShoppingCart} />
+          <StatsCard variant="colored" title="Total ventas" value={pagination.total_count} icon={ShoppingCart} iconColor="text-amber-600" iconBgColor="bg-amber-50" />
         )}
       </div>
 

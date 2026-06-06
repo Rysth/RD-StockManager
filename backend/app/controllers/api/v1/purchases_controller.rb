@@ -63,7 +63,8 @@ module Api
               product_variant_id: item[:product_variant_id],
               quantity: item[:quantity].to_i,
               unit_cost: item[:unit_cost],
-              discount: item[:discount].to_d
+              discount: item[:discount].to_d,
+              applies_iva: item[:applies_iva] != false
             )
           end
 
@@ -123,7 +124,7 @@ module Api
 
       def item_params
         params.fetch(:items, []).map do |item|
-          item.respond_to?(:permit) ? item.permit(:id, :product_variant_id, :quantity, :unit_cost, :discount) : item
+          item.respond_to?(:permit) ? item.permit(:id, :product_variant_id, :quantity, :unit_cost, :discount, :applies_iva) : item
         end
       end
 
@@ -149,7 +150,8 @@ module Api
           purchase_item.update!(
             quantity: item[:quantity].to_i,
             unit_cost: item[:unit_cost].to_d,
-            discount: item[:discount].to_d
+            discount: item[:discount].to_d,
+            applies_iva: item[:applies_iva] != false
           )
         end
 
@@ -210,7 +212,10 @@ module Api
               quantity: item.quantity,
               unit_cost: item.unit_cost,
               discount: item.discount,
-              subtotal: item.subtotal
+              applies_iva: item.applies_iva,
+              tax_amount: item.tax_amount,
+              subtotal: item.subtotal,
+              total: item.total
             }
           end
           data[:payments] = purchase.purchase_payments.order(created_at: :desc).map do |pp|

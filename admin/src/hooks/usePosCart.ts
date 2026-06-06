@@ -45,6 +45,7 @@ export interface CartItem {
   unit_value: number;
   value_edited: boolean;
   discount: number;
+  applies_iva: boolean;
 }
 
 export interface VariantOption {
@@ -164,6 +165,7 @@ export function usePosCart(mode: "sale" | "purchase") {
         unit_value: mode === "sale" ? v.base_price : v.cost,
         value_edited: false,
         discount: 0,
+        applies_iva: true,
       };
       return [...prev, withQuantity(base, 1)];
     });
@@ -201,6 +203,7 @@ export function usePosCart(mode: "sale" | "purchase") {
           unit_value: bundle.base_price,
           value_edited: false,
           discount: 0,
+          applies_iva: true,
         },
       ];
     });
@@ -257,8 +260,15 @@ export function usePosCart(mode: "sale" | "purchase") {
     setCart((prev) =>
       prev.map((i) =>
         i.cart_key === key
-          ? { ...i, discount: Math.max(0, value) }
+          ? { ...i, discount: Math.max(0, Math.min(value, i.unit_value)) }
           : i,
+      ),
+    );
+
+  const toggleItemIva = (key: string) =>
+    setCart((prev) =>
+      prev.map((i) =>
+        i.cart_key === key ? { ...i, applies_iva: !i.applies_iva } : i,
       ),
     );
 
@@ -286,6 +296,7 @@ export function usePosCart(mode: "sale" | "purchase") {
     setUnitValue,
     resetUnitValue,
     setItemDiscount,
+    toggleItemIva,
     removeItem,
     clearCart,
     itemsTotal,

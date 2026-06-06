@@ -82,6 +82,7 @@ export default function PurchasePosIndex() {
     setQuantity,
     setUnitValue,
     setItemDiscount,
+    toggleItemIva,
     removeItem,
     clearCart,
     itemsTotal,
@@ -94,8 +95,6 @@ export default function PurchasePosIndex() {
 
   const [supplierId, setSupplierId] = useState("");
   const [reference, setReference] = useState("");
-  const [discount, setDiscount] = useState("0");
-  const [tax, setTax] = useState("0");
   const [paid, setPaid] = useState("0");
 
   const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(
@@ -122,9 +121,23 @@ export default function PurchasePosIndex() {
     city: "",
   });
 
-  const discountNum = Number(discount || 0);
-  const taxNum = Number(tax || 0);
-  const total = itemsTotal - discountNum + taxNum;
+  const itemsSubtotal = cart.reduce(
+    (sum, i) => sum + i.unit_value * i.quantity,
+    0,
+  );
+  const itemsDiscount = cart.reduce(
+    (sum, i) => sum + i.discount * i.quantity,
+    0,
+  );
+  const itemsTax = cart.reduce(
+    (sum, i) =>
+      sum +
+      (i.applies_iva
+        ? (i.unit_value - i.discount) * i.quantity * 0.15
+        : 0),
+    0,
+  );
+  const total = itemsTotal + itemsTax;
 
   const suppliers = useMemo(
     () => customers.filter((c) => c.is_supplier),
@@ -364,8 +377,6 @@ export default function PurchasePosIndex() {
     setVariantQuery("");
     setSupplierId("");
     setReference("");
-    setDiscount("0");
-    setTax("0");
     setPaid("0");
   };
 
@@ -384,8 +395,6 @@ export default function PurchasePosIndex() {
         customer_id: supplierId ? Number(supplierId) : null,
         location_id: locationId ? Number(locationId) : null,
         status: confirmStatus,
-        discount: discountNum,
-        tax: taxNum,
         paid_amount: Math.min(Number(paid || 0), Math.max(total, 0)),
         due_date: null,
         reference: reference || null,
@@ -399,6 +408,7 @@ export default function PurchasePosIndex() {
                   quantity: i.quantity,
                   unit_cost: i.unit_value,
                   discount: i.discount,
+                  applies_iva: i.applies_iva,
                 },
               ],
         ),
@@ -682,17 +692,31 @@ export default function PurchasePosIndex() {
                       <Input
                         type="number"
                         min={0}
+                        max={i.unit_value}
                         step="0.01"
                         value={i.discount}
                         onChange={(e) =>
                           setItemDiscount(
                             i.cart_key,
-                            Math.max(0, Number(e.target.value) || 0),
+                            Math.max(
+                              0,
+                              Math.min(
+                                Number(e.target.value) || 0,
+                                i.unit_value,
+                              ),
+                            ),
                           )
                         }
                         className="h-7 flex-1 min-w-0 px-2 text-sm"
                       />
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleItemIva(i.cart_key)}
+                      className={`shrink-0 rounded-md border px-2 py-1 text-[11px] font-medium transition-colors ${i.applies_iva ? "border-primary bg-primary/10 text-primary" : "border-muted text-muted-foreground hover:bg-muted"}`}
+                    >
+                      IVA 15%
+                    </button>
                   </div>
                 </div>
               ))}
@@ -704,66 +728,46 @@ export default function PurchasePosIndex() {
           )}
         </div>
 
-        {/* Descuento / IVA / Pagado + Total + CTAs */}
+        {/* Totales desglosados + CTAs */}
         <div className="shrink-0 border-t bg-background px-4 py-3 space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            {[
-              { label: "Descuento", value: discount, setter: setDiscount },
-              { label: "IVA", value: tax, setter: setTax },
-            ].map(({ label, value, setter }) => (
-              <div key={label} className="space-y-1">
-                <Label className="text-[11px] text-muted-foreground">
-                  {label}
-                </Label>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={value}
-                  onChange={(e) => setter(e.target.value)}
-                  className="h-8 text-sm"
-                />
-              </div>
-            ))}
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">
-                Pagado
-              </Label>
-              <Input
-                type="number"
-                min={0}
-                max={Math.max(total, 0)}
-                step="0.01"
-                value={paid}
-                onChange={(e) => setPaidAmount(e.target.value)}
-                className="h-8 text-sm"
-              />
+          <div className="space-y-0.5 text-sm text-muted-foreground">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{money(itemsSubtotal)}</span>
             </div>
-          </div>
-
-          {(discountNum > 0 || taxNum > 0) && (
-            <div className="space-y-0.5 text-sm text-muted-foreground">
+            {itemsDiscount > 0 && (
+              <div className="flex justify-between text-emerald-600">
+                <span>Descuento</span>
+                <span>-{money(itemsDiscount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span>Neto</span>
+              <span>{money(itemsTotal)}</span>
+            </div>
+            {itemsTax > 0 && (
               <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>{money(itemsTotal)}</span>
+                <span>IVA 15%</span>
+                <span>{money(itemsTax)}</span>
               </div>
-              {discountNum > 0 && (
-                <div className="flex justify-between">
-                  <span>Descuento</span>
-                  <span>-{money(discountNum)}</span>
-                </div>
-              )}
-              {taxNum > 0 && (
-                <div className="flex justify-between">
-                  <span>IVA</span>
-                  <span>{money(taxNum)}</span>
-                </div>
-              )}
-            </div>
-          )}
+            )}
+          </div>
           <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2">
             <span className="text-sm font-medium text-muted-foreground">Total</span>
             <span className="text-2xl font-bold tabular-nums">{money(total)}</span>
+          </div>
+
+          <div className="space-y-1">
+            <Label className="text-[11px] text-muted-foreground">Pagado</Label>
+            <Input
+              type="number"
+              min={0}
+              max={Math.max(total, 0)}
+              step="0.01"
+              value={paid}
+              onChange={(e) => setPaidAmount(e.target.value)}
+              className="h-8 text-sm"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-2">
@@ -1093,35 +1097,49 @@ export default function PurchasePosIndex() {
                           (-{money(i.discount)})
                         </span>
                       )}
+                      {i.applies_iva && (
+                        <span className="ml-1 text-[10px] text-primary">
+                          +IVA
+                        </span>
+                      )}
                     </p>
                     <p className="font-medium">
-                      {money((i.unit_value - i.discount) * i.quantity)}
+                      {money(
+                        (i.unit_value - i.discount) * i.quantity +
+                          (i.applies_iva
+                            ? (i.unit_value - i.discount) *
+                              i.quantity *
+                              0.15
+                            : 0),
+                      )}
                     </p>
                   </div>
                 </div>
               ))}
             </div>
             <Separator />
-            {(discountNum > 0 || taxNum > 0) && (
-              <div className="space-y-1">
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Subtotal</span>
-                  <span>{money(itemsTotal)}</span>
-                </div>
-                {discountNum > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>Descuento</span>
-                    <span>-{money(discountNum)}</span>
-                  </div>
-                )}
-                {taxNum > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>IVA</span>
-                    <span>{money(taxNum)}</span>
-                  </div>
-                )}
+            <div className="space-y-1 text-sm text-muted-foreground">
+              <div className="flex justify-between">
+                <span>Subtotal</span>
+                <span>{money(itemsSubtotal)}</span>
               </div>
-            )}
+              {itemsDiscount > 0 && (
+                <div className="flex justify-between">
+                  <span>Descuento</span>
+                  <span>-{money(itemsDiscount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span>Neto</span>
+                <span>{money(itemsTotal)}</span>
+              </div>
+              {itemsTax > 0 && (
+                <div className="flex justify-between">
+                  <span>IVA 15%</span>
+                  <span>{money(itemsTax)}</span>
+                </div>
+              )}
+            </div>
             <div className="flex justify-between text-base font-bold">
               <span>Total</span>
               <span>{money(total)}</span>

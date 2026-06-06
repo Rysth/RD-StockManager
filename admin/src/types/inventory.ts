@@ -309,7 +309,10 @@ export interface PurchaseItem {
   quantity: number;
   unit_cost: number;
   discount: number;
+  applies_iva: boolean;
+  tax_amount: number;
   subtotal: number;
+  total: number;
 }
 
 export interface PurchasePayment {
@@ -352,6 +355,7 @@ export interface PurchaseItemInput {
   quantity: number;
   unit_cost: number;
   discount?: number;
+  applies_iva?: boolean;
 }
 
 export interface ProductPriceHistory {
