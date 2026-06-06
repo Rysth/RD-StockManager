@@ -62,7 +62,13 @@ export default function PosLayout() {
   });
 
   const isPos = location.pathname.startsWith("/dashboard/pos");
-  const breadcrumbPage = isPos ? "Punto de Venta" : "Ingreso de Mercadería";
+  const isTransferPos = location.pathname.startsWith("/dashboard/transfer-pos");
+  const isPurchaseEntry = location.pathname.startsWith("/dashboard/purchase-entry");
+  const breadcrumbPage = isPos
+    ? "Punto de Venta"
+    : isTransferPos
+      ? "Transferencia Rápida"
+      : "Ingreso de Mercadería";
 
   if (!user) return <Navigate to="/auth/signin" />;
   if (!hasAccess) return <Navigate to={defaultRoute} replace />;

@@ -166,7 +166,7 @@ export default function AppSidebar({
     },
   ].filter((i) => i.visible);
 
-  const operationsItems: NavItemConfig[] = [
+  const comprasItems: NavItemConfig[] = [
     {
       label: "Ingreso de Mercadería",
       to: "/dashboard/purchase-entry",
@@ -181,13 +181,9 @@ export default function AppSidebar({
       active: isActiveRoute("/dashboard/purchases"),
       visible: canViewPurchases && !isBusinessEmployee,
     },
-    {
-      label: "Transferencias",
-      to: "/dashboard/transfers",
-      icon: ArrowRightLeft,
-      active: isActiveRoute("/dashboard/transfers"),
-      visible: canViewPurchases,
-    },
+  ].filter((i) => i.visible);
+
+  const ventasItems: NavItemConfig[] = [
     {
       label: "Punto de Venta",
       to: "/dashboard/pos",
@@ -201,6 +197,23 @@ export default function AppSidebar({
       icon: ShoppingCart,
       active: isActiveRoute("/dashboard/sales"),
       visible: canManageSales,
+    },
+  ].filter((i) => i.visible);
+
+  const transferenciasItems: NavItemConfig[] = [
+    {
+      label: "Transferencias",
+      to: "/dashboard/transfers",
+      icon: ArrowRightLeft,
+      active: isActiveRoute("/dashboard/transfers"),
+      visible: canViewPurchases,
+    },
+    {
+      label: "Transferencia POS",
+      to: "/dashboard/transfer-pos",
+      icon: ArrowRightLeft,
+      active: isActiveRoute("/dashboard/transfer-pos"),
+      visible: canViewPurchases,
     },
   ].filter((i) => i.visible);
 
@@ -252,7 +265,16 @@ export default function AppSidebar({
     },
   ].filter((i) => i.visible);
 
-  const groups = [catalogItems, operationsItems, adminItems, settingsItems];
+  const groups = [catalogItems, comprasItems, ventasItems, transferenciasItems, adminItems, settingsItems];
+
+  const groupLabels = [
+    "Catálogo",
+    "Compras",
+    "Ventas",
+    "Transferencias",
+    "Administración",
+    "Sistema",
+  ];
 
   const renderItems = (items: NavItemConfig[]) =>
     items.map((item) => {
@@ -325,6 +347,9 @@ export default function AppSidebar({
                     {prevGroupsHaveItems && (
                       <SidebarSeparator className="my-1" />
                     )}
+                    <p className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                      {groupLabels[index]}
+                    </p>
                     {renderItems(group)}
                   </div>
                 );
