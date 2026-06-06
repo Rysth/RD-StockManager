@@ -985,16 +985,16 @@ export default function SalesPosIndex() {
                 <span>Subtotal</span>
                 <span>{money(itemsTotal)}</span>
               </div>
-              {ivaAmount > 0 && (
-                <div className="flex justify-between">
-                  <span>IVA {sriIvaRate}%</span>
-                  <span>{money(ivaAmount)}</span>
-                </div>
-              )}
               {shippingCost > 0 && (
                 <div className="flex justify-between">
                   <span>Envío</span>
                   <span>{money(shippingCost)}</span>
+                </div>
+              )}
+              {ivaAmount > 0 && (
+                <div className="flex justify-between">
+                  <span>IVA {sriIvaRate}%</span>
+                  <span>{money(ivaAmount)}</span>
                 </div>
               )}
             </div>
@@ -1032,28 +1032,28 @@ export default function SalesPosIndex() {
           }
         }}
       >
-        <SheetContent side="bottom" className="max-h-[75vh] px-0 pb-0 pt-4">
-          <div className="flex h-full max-h-[75vh] flex-col">
+        <SheetContent side="right" className="w-full px-0 pb-0 pt-3 sm:max-w-xs">
+          <div className="flex h-full flex-col">
             <SheetHeader className="px-4 pb-2">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
                   {selectedProduct && (
-                    <Thumb url={selectedProduct.thumb} size="h-12 w-12" />
+                    <Thumb url={selectedProduct.thumb} size="h-9 w-9" />
                   )}
                   <div className="min-w-0">
-                    <SheetTitle className="truncate text-left text-base">
+                    <SheetTitle className="truncate text-left text-sm font-bold">
                       {selectedProduct?.name}
                     </SheetTitle>
-                    <SheetDescription className="text-left text-xs">
+                    <SheetDescription className="text-left text-[11px]">
                       {selectedProduct?.brand && `${selectedProduct.brand} · `}
-                      {`${money(selectedProduct?.base_price ?? 0)} · toca una card para agregar`}
+                      {money(selectedProduct?.base_price ?? 0)} · {selectedProduct?.variants.length ?? 0} opciones
                     </SheetDescription>
                   </div>
                 </div>
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  className="shrink-0 rounded-lg"
+                  className="h-8 shrink-0"
                   onClick={() => {
                     setSelectedProduct(null);
                     focusSearch();
@@ -1063,89 +1063,100 @@ export default function SalesPosIndex() {
                 </Button>
               </div>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto px-4 py-3">
-              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
+            <div className="flex-1 overflow-y-auto px-3 py-2">
+              <div className="grid grid-cols-2 gap-2">
                 {selectedProduct?.variants.map((v) => {
                   const sizeLabel =
                     [v.size, v.color].filter(Boolean).join(" / ") ||
                     (v.is_service ? "Servicio" : "Prod. base");
                   const inCart = cart.find((c) => c.cart_key === v.cart_key);
                   const disabled = !v.is_service && v.stock <= 0;
+
+                  const handleAdd = () => {
+                    if (disabled || !selectedProduct) return;
+                    addToCart({
+                      cart_key: v.cart_key,
+                      id: v.id,
+                      is_service: v.is_service,
+                      label: `${selectedProduct.name} — ${sizeLabel}`,
+                      sku: v.sku,
+                      thumb: v.thumb,
+                      stock: v.stock,
+                      base_price: selectedProduct.base_price,
+                      wholesale_price: selectedProduct.wholesale_price,
+                      wholesale_min_quantity: selectedProduct.wholesale_min_quantity,
+                      cost: selectedProduct.cost,
+                    });
+                  };
+
                   return (
                     <div
                       key={v.id}
-                      className={`relative flex flex-col overflow-hidden rounded-xl border transition-all ${inCart ? "border-primary ring-1 ring-primary" : ""} ${disabled ? "opacity-40" : ""}`}
+                      className={`relative flex flex-col overflow-hidden rounded-lg border transition-all ${inCart ? "border-primary/60 bg-primary/5" : ""} ${disabled ? "opacity-35" : "cursor-pointer active:scale-[0.97] hover:border-primary/30"}`}
                     >
-                      <button
-                        type="button"
-                        disabled={disabled}
-                        onClick={() => {
-                          addToCart({
-                            cart_key: v.cart_key,
-                            id: v.id,
-                            is_service: v.is_service,
-                            label: `${selectedProduct.name} — ${sizeLabel}`,
-                            sku: v.sku,
-                            thumb: v.thumb,
-                            stock: v.stock,
-                            base_price: selectedProduct.base_price,
-                            wholesale_price: selectedProduct.wholesale_price,
-                            wholesale_min_quantity:
-                              selectedProduct.wholesale_min_quantity,
-                            cost: selectedProduct.cost,
-                          });
-                        }}
-                        className="flex flex-col gap-1.5 p-2 text-left active:bg-primary/10 touch-manipulation"
-                      >
-                        <div className="relative">
-                          <Thumb url={v.thumb} size="h-full w-full aspect-square" />
-                          {inCart && (
-                            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow">
-                              {inCart.quantity}
+                      {!inCart ? (
+                        <button
+                          type="button"
+                          disabled={disabled}
+                          onClick={handleAdd}
+                          className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
+                        >
+                          <Thumb url={v.thumb} size="w-full aspect-square rounded-md" />
+                          <p className="text-[11px] font-semibold leading-tight line-clamp-1">
+                            {sizeLabel}
+                          </p>
+                          {v.is_service ? (
+                            <span className="text-[9px] text-muted-foreground">Servicio</span>
+                          ) : (
+                            <span className={`text-[9px] font-medium ${stockTone(v.stock)}`}>
+                              {v.stock} disp.
                             </span>
                           )}
-                        </div>
-                        <p className="text-xs font-semibold leading-tight">
-                          {sizeLabel}
-                        </p>
-                        {v.is_service ? (
-                          <span className="text-[10px] text-muted-foreground">
-                            Servicio
-                          </span>
-                        ) : (
-                          <span
-                            className={`text-[10px] font-medium ${stockTone(v.stock)}`}
-                          >
-                            {v.stock} en stock
-                          </span>
-                        )}
-                      </button>
-                      {inCart && (
-                        <div className="flex items-center justify-between border-t bg-primary/5 px-1.5 py-1">
+                        </button>
+                      ) : (
+                        <div className="flex flex-col">
                           <button
                             type="button"
-                            onClick={() =>
-                              setQuantity(v.cart_key, inCart.quantity - 1)
-                            }
-                            className="rounded p-1 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                            onClick={handleAdd}
+                            className="flex flex-col items-center gap-1 p-1.5 text-center touch-manipulation"
                           >
-                            <Minus className="h-3 w-3" />
+                            <div className="relative w-full aspect-square">
+                              <Thumb url={v.thumb} size="w-full aspect-square rounded-md" />
+                              <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground shadow">
+                                {inCart.quantity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] font-semibold leading-tight line-clamp-1">
+                              {sizeLabel}
+                            </p>
+                            {v.is_service ? (
+                              <span className="text-[9px] text-muted-foreground">Servicio</span>
+                            ) : (
+                              <span className={`text-[9px] font-medium ${stockTone(v.stock)}`}>
+                                {v.stock} disp.
+                              </span>
+                            )}
                           </button>
-                          <span className="text-xs font-bold tabular-nums">
-                            {inCart.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            disabled={
-                              !v.is_service && inCart.quantity >= inCart.max
-                            }
-                            onClick={() =>
-                              setQuantity(v.cart_key, inCart.quantity + 1)
-                            }
-                            className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 active:scale-90 transition-transform"
-                          >
-                            <Plus className="h-3 w-3" />
-                          </button>
+                          <div className="flex items-center justify-around border-t bg-primary/5 px-1 py-1">
+                            <button
+                              type="button"
+                              onClick={() => setQuantity(v.cart_key, inCart.quantity - 1)}
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
+                            >
+                              <Minus className="h-3 w-3" />
+                            </button>
+                            <span className="text-[10px] font-bold tabular-nums">
+                              {inCart.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              disabled={!v.is_service && inCart.quantity >= inCart.max}
+                              onClick={() => setQuantity(v.cart_key, inCart.quantity + 1)}
+                              className="rounded p-0.5 text-muted-foreground hover:text-foreground disabled:opacity-30 active:scale-90 transition-transform"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </button>
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1331,16 +1342,16 @@ export default function SalesPosIndex() {
                   <span>Subtotal</span>
                   <span>{money(itemsTotal)}</span>
                 </div>
-                {ivaAmount > 0 && (
-                  <div className="flex justify-between text-muted-foreground">
-                    <span>IVA {sriIvaRate}%</span>
-                    <span>{money(ivaAmount)}</span>
-                  </div>
-                )}
                 {shippingCost > 0 && (
                   <div className="flex justify-between text-muted-foreground">
                     <span>Envío</span>
                     <span>{money(shippingCost)}</span>
+                  </div>
+                )}
+                {ivaAmount > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA {sriIvaRate}%</span>
+                    <span>{money(ivaAmount)}</span>
                   </div>
                 )}
               </div>
