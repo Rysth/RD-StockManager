@@ -7,7 +7,6 @@ import {
   FileDown,
   Boxes,
   Package2,
-  PackageX,
   SearchX,
 } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -351,7 +350,13 @@ export default function ProductsIndex() {
     }
   };
 
-  const handleExport = async (locationId?: number) => {
+  const clearFilters = () => {
+    setSearch("");
+    setCategoryFilter("");
+    setShowArchived(false);
+  };
+
+  const hasFilters = !!(search.trim() || categoryFilter || showArchived);
     try {
       await exportProducts(locationId);
     } catch (e) {
@@ -451,6 +456,11 @@ export default function ProductsIndex() {
               ))}
             </select>
             <ArchivedToggle checked={showArchived} onChange={setShowArchived} />
+            {hasFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters} className="h-9 text-xs">
+                Limpiar filtros
+              </Button>
+            )}
           </div>
 
           {!isLoading && products.length > 0 && (
@@ -636,7 +646,7 @@ export default function ProductsIndex() {
                   ) : (
                     <TableRow className="hover:bg-transparent">
                       <TableCell colSpan={canManage ? 9 : isBusinessEmployee ? 7 : 8} className="p-0">
-                        {search.trim() || categoryFilter ? (
+                        {hasFilters ? (
                           <EmptyState
                             variant="no-results"
                             icon={SearchX}
@@ -644,15 +654,8 @@ export default function ProductsIndex() {
                             description="No hay productos que coincidan con los filtros aplicados."
                             action={{
                               label: "Limpiar filtros",
-                              onClick: () => { setSearch(""); setCategoryFilter(""); },
+                              onClick: clearFilters,
                             }}
-                          />
-                        ) : showArchived ? (
-                          <EmptyState
-                            variant="no-results"
-                            icon={PackageX}
-                            title="No hay productos archivados"
-                            description="Los productos que archives aparecerán aquí."
                           />
                         ) : (
                           <EmptyState
