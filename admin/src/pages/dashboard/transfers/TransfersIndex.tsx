@@ -415,7 +415,7 @@ export default function TransfersIndex() {
         open={!!toReceive}
         onOpenChange={(o) => !o && setToReceive(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar recepción</AlertDialogTitle>
             <AlertDialogDescription>
@@ -443,7 +443,7 @@ export default function TransfersIndex() {
         open={!!toCancel}
         onOpenChange={(o) => !o && setToCancel(null)}
       >
-        <AlertDialogContent>
+        <AlertDialogContent className="sm:max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar transferencia</AlertDialogTitle>
             <AlertDialogDescription>
