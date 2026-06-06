@@ -85,6 +85,16 @@ function Thumb({ url, size = "h-9 w-9" }: { url?: string; size?: string }) {
   );
 }
 
+function parseVariantLabel(label: string): { name: string; variant: string | null } {
+  const sep = " — ";
+  const idx = label.indexOf(sep);
+  if (idx === -1) return { name: label, variant: null };
+  return {
+    name: label.slice(0, idx),
+    variant: label.slice(idx + sep.length),
+  };
+}
+
 interface CatalogItem {
   item_type: "product" | "bundle";
   id: number;
@@ -638,7 +648,7 @@ export default function SalesPosIndex() {
         {/* Grid de productos */}
         <div className="flex-1 overflow-y-auto p-4">
           {productGroups.length ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
               {productGroups.map((p) => {
                 const inCartCount = cart
                   .filter((c) => {
@@ -724,7 +734,7 @@ export default function SalesPosIndex() {
       </div>
 
       {/* ── Carrito (derecha) ── */}
-      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-96">
+      <div className="flex w-80 shrink-0 flex-col overflow-hidden bg-background xl:w-[420px] 2xl:w-[480px]">
         {/* Cliente */}
         <div className="shrink-0 border-b px-4 py-3">
           <p className="mb-2 text-xs font-medium text-muted-foreground">
@@ -786,7 +796,14 @@ export default function SalesPosIndex() {
                     <div className="flex items-center gap-3">
                       <Thumb url={i.thumb} size="h-10 w-10" />
                       <div className="min-w-0 flex-1">
-                        <p className="truncate text-sm font-semibold leading-tight">{i.label}</p>
+                        <p className="truncate text-sm font-semibold leading-tight">
+                          {parseVariantLabel(i.label).name}
+                        </p>
+                        {parseVariantLabel(i.label).variant && (
+                          <p className="text-[11px] font-medium text-primary">
+                            {parseVariantLabel(i.label).variant}
+                          </p>
+                        )}
                         <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                           {i.value_edited && (
                             <Badge
@@ -806,17 +823,19 @@ export default function SalesPosIndex() {
                           )}
                         </div>
                       </div>
-                      <span className="text-sm font-bold tabular-nums">
-                        {money(i.unit_value * i.quantity)}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 shrink-0 text-destructive hover:text-destructive"
-                        onClick={() => removeItem(i.cart_key)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm font-bold tabular-nums">
+                          {money(i.unit_value * i.quantity)}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => removeItem(i.cart_key)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="flex items-center rounded-lg border bg-background">
