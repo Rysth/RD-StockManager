@@ -88,6 +88,9 @@ module Api
           end
 
           sale.recalculate_total!
+          # Reserva el stock al crear (pendiente o completada) para evitar que dos
+          # vendedores comprometan el mismo último ítem. complete! es idempotente.
+          sale.reserve_stock!
           sale.complete! if desired_status == "completed" && sale.payment_method != "transfer"
         end
 
@@ -139,6 +142,9 @@ module Api
         end
 
         ActiveRecord::Base.transaction do
+          # Libera la reserva previa antes de reemplazar los items, luego vuelve a
+          # reservar con las cantidades nuevas dentro de la misma transacción.
+          @sale.release_stock!
           @sale.sale_items.destroy_all
           items.each do |item|
             @sale.sale_items.create!(
@@ -151,6 +157,7 @@ module Api
             )
           end
           @sale.recalculate_total!
+          @sale.reserve_stock!
         end
 
         Rails.cache.delete("inventory:stats")

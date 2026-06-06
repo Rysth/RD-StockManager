@@ -646,6 +646,8 @@ export default function SalesPosIndex() {
             : "Venta completada correctamente",
       );
       resetAfterSubmit();
+      // Refrescar el catálogo: la venta reservó stock y debe reflejarse de inmediato.
+      fetchProducts(1, 200, {}).catch(() => {});
       // Refrescar la caja para reflejar la nueva venta al contado.
       if (sendCash && locationId) fetchCashSession(locationId).catch(() => {});
     } catch (e) {

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_06_150100) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_06_160000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -485,6 +485,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_150100) do
     t.decimal "cash_received", precision: 10, scale: 2
     t.decimal "cash_change", precision: 10, scale: 2
     t.bigint "cash_session_id"
+    t.boolean "stock_reserved", default: false, null: false
     t.index ["cash_session_id"], name: "index_sales_on_cash_session_id"
     t.index ["customer_id"], name: "index_sales_on_customer_id"
     t.index ["due_date"], name: "index_sales_on_due_date"

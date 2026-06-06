@@ -55,7 +55,38 @@ class Sale < ApplicationRecord
     payment_method == "transfer" && !payment_paid?
   end
 
-  # Mark the sale as completed and discount stock for each line item.
+  # Reserva (descuenta) el stock de cada línea. Se llama al crear la venta — tanto
+  # pendientes como completadas — para que el inventario refleje el compromiso de
+  # inmediato y dos vendedores no puedan vender el mismo último ítem.
+  # Idempotente: la bandera `stock_reserved` evita doble descuento.
+  def reserve_stock!
+    return if stock_reserved?
+
+    transaction do
+      loc = location || Location.default
+      sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+        move_stock_for_item(item, loc, -item.quantity)
+      end
+      update_column(:stock_reserved, true)
+    end
+  end
+
+  # Devuelve el stock reservado. Idempotente: no-op si no había reserva (p. ej.
+  # filas pendientes legacy creadas antes de esta funcionalidad).
+  def release_stock!
+    return unless stock_reserved?
+
+    transaction do
+      loc = location || Location.default
+      sale_items.includes(:product_bundle, product_variant: :product).each do |item|
+        move_stock_for_item(item, loc, item.quantity)
+      end
+      update_column(:stock_reserved, false)
+    end
+  end
+
+  # Mark the sale as completed. El stock ya se reservó al crear la venta; aquí solo
+  # se asegura la reserva (no-op salvo filas legacy) y se actualiza estado/pago.
   # Idempotent: does nothing if the sale is already completed.
   def complete!
     return if completed?
@@ -66,10 +97,7 @@ class Sale < ApplicationRecord
     end
 
     transaction do
-      loc = location || Location.default
-      sale_items.includes(:product_bundle, product_variant: :product).each do |item|
-        move_stock_for_item(item, loc, -item.quantity)
-      end
+      reserve_stock!
       # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
       self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
       update!(status: :completed)
@@ -77,7 +105,7 @@ class Sale < ApplicationRecord
     end
   end
 
-  # Cancel the sale; restore stock only if it had previously been discounted.
+  # Cancel the sale; restore stock reserved at creation (pendiente o completada).
   # Bloquea la cancelación si la venta tiene una factura autorizada en producción.
   def cancel!
     return if cancelled?
@@ -88,12 +116,7 @@ class Sale < ApplicationRecord
     end
 
     transaction do
-      if completed?
-        loc = location || Location.default
-        sale_items.includes(:product_bundle, product_variant: :product).each do |item|
-          move_stock_for_item(item, loc, item.quantity)
-        end
-      end
+      release_stock!
       update!(status: :cancelled)
     end
   end
