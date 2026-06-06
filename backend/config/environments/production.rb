@@ -103,11 +103,12 @@ Rails.application.configure do
     user_name: ENV.fetch("SMTP_USER"),
     password: ENV.fetch("SMTP_PASSWORD"),
     authentication: :plain,
-    enable_starttls_auto: smtp_port != 465, # if 465 usually implicit TLS
+    enable_starttls_auto: smtp_port != 465,
     ssl: smtp_port == 465,
     tls: smtp_port == 465,
-    open_timeout: 5,
-    read_timeout: 5
+    open_timeout: 10,
+    read_timeout: 10,
+    openssl_verify_mode: ENV.fetch("SMTP_VERIFY_MODE", "peer")
   }
 
   # Enable locale fallbacks for I18n (makes lookups for any locale fall back to

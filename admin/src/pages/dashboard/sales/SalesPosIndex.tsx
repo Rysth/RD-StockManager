@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useBlocker } from "react-router-dom";
 import {
   Plus,
   Minus,
@@ -53,7 +54,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -176,7 +176,9 @@ export default function SalesPosIndex() {
     email: "",
   });
 
-  const total = itemsTotal + shippingCost;
+  const ivaAmount =
+    sriIvaRate > 0 ? Math.round(itemsTotal * (sriIvaRate / 100) * 100) / 100 : 0;
+  const total = itemsTotal + ivaAmount + shippingCost;
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
   const customerOptions = useMemo<ComboboxOption[]>(
     () => [
@@ -239,6 +241,11 @@ export default function SalesPosIndex() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [cart.length]);
+
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) =>
+      cart.length > 0 && currentLocation.pathname !== nextLocation.pathname,
+  );
 
   const handleLocationChange = (value: string) => {
     setLocationId(value);
@@ -933,7 +940,7 @@ export default function SalesPosIndex() {
               </button>
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              Solo afecta el desglose del XML/RIDE; no cambia el total cobrado.
+              Se suma al total cobrado al cliente y define el desglose del XML/RIDE.
             </p>
           </div>
 
@@ -972,16 +979,24 @@ export default function SalesPosIndex() {
           </div>
 
           {/* Total */}
-          {shippingCost > 0 && (
+          {(shippingCost > 0 || ivaAmount > 0) && (
             <div className="space-y-0.5 text-sm text-muted-foreground">
               <div className="flex justify-between">
                 <span>Subtotal</span>
                 <span>{money(itemsTotal)}</span>
               </div>
-              <div className="flex justify-between">
-                <span>Envío</span>
-                <span>{money(shippingCost)}</span>
-              </div>
+              {ivaAmount > 0 && (
+                <div className="flex justify-between">
+                  <span>IVA {sriIvaRate}%</span>
+                  <span>{money(ivaAmount)}</span>
+                </div>
+              )}
+              {shippingCost > 0 && (
+                <div className="flex justify-between">
+                  <span>Envío</span>
+                  <span>{money(shippingCost)}</span>
+                </div>
+              )}
             </div>
           )}
           <div className="flex items-center justify-between rounded-lg bg-primary/5 px-3 py-2">
@@ -1017,123 +1032,127 @@ export default function SalesPosIndex() {
           }
         }}
       >
-        <SheetContent side="bottom" className="max-h-[70vh] px-0 pb-0 pt-4">
-          <div className="flex flex-col h-full max-h-[70vh]">
-            <SheetHeader className="px-4">
-              <SheetTitle className="text-left">
-                <div className="flex items-center gap-3">
+        <SheetContent side="bottom" className="max-h-[75vh] px-0 pb-0 pt-4">
+          <div className="flex h-full max-h-[75vh] flex-col">
+            <SheetHeader className="px-4 pb-2">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                   {selectedProduct && (
                     <Thumb url={selectedProduct.thumb} size="h-12 w-12" />
                   )}
                   <div className="min-w-0">
-                    <p className="truncate text-lg">{selectedProduct?.name}</p>
-                    <p className="text-sm font-normal text-muted-foreground">
+                    <SheetTitle className="truncate text-left text-base">
+                      {selectedProduct?.name}
+                    </SheetTitle>
+                    <SheetDescription className="text-left text-xs">
                       {selectedProduct?.brand && `${selectedProduct.brand} · `}
-                      {`${money(selectedProduct?.base_price ?? 0)} · ${selectedProduct?.variants.length ?? 0} ${(selectedProduct?.variants.length ?? 0) === 1 ? "variante" : "variantes"}`}
-                    </p>
+                      {`${money(selectedProduct?.base_price ?? 0)} · toca una card para agregar`}
+                    </SheetDescription>
                   </div>
                 </div>
-              </SheetTitle>
-              <SheetDescription className="text-left">
-                Selecciona talla y/o color para agregar al carrito
-              </SheetDescription>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="shrink-0 rounded-lg"
+                  onClick={() => {
+                    setSelectedProduct(null);
+                    focusSearch();
+                  }}
+                >
+                  Cerrar
+                </Button>
+              </div>
             </SheetHeader>
-            <div className="flex-1 overflow-y-auto px-4 py-2">
-              <div className="space-y-2">
+            <div className="flex-1 overflow-y-auto px-4 py-3">
+              <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 {selectedProduct?.variants.map((v) => {
                   const sizeLabel =
                     [v.size, v.color].filter(Boolean).join(" / ") ||
-                    (v.is_service ? "Servicio" : "Producto base");
+                    (v.is_service ? "Servicio" : "Prod. base");
                   const inCart = cart.find((c) => c.cart_key === v.cart_key);
+                  const disabled = !v.is_service && v.stock <= 0;
                   return (
                     <div
                       key={v.id}
-                      className={`flex items-center gap-3 rounded-xl border p-4 transition-all active:scale-[0.99] ${inCart ? "border-primary/60 bg-primary/5 shadow-sm" : "hover:bg-muted/50"}`}
+                      className={`relative flex flex-col overflow-hidden rounded-xl border transition-all ${inCart ? "border-primary ring-1 ring-primary" : ""} ${disabled ? "opacity-40" : ""}`}
                     >
-                      <Thumb url={v.thumb} size="h-12 w-12" />
-                      <div className="min-w-0 flex-1">
-                        <p className="font-semibold">{sizeLabel}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          {v.is_service ? (
-                            <span>Servicio</span>
-                          ) : (
-                            <Badge
-                              variant="secondary"
-                              className={`px-1.5 py-0 text-[10px] ${stockTone(v.stock)}`}
-                            >
-                              {v.stock} en stock
-                            </Badge>
+                      <button
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          addToCart({
+                            cart_key: v.cart_key,
+                            id: v.id,
+                            is_service: v.is_service,
+                            label: `${selectedProduct.name} — ${sizeLabel}`,
+                            sku: v.sku,
+                            thumb: v.thumb,
+                            stock: v.stock,
+                            base_price: selectedProduct.base_price,
+                            wholesale_price: selectedProduct.wholesale_price,
+                            wholesale_min_quantity:
+                              selectedProduct.wholesale_min_quantity,
+                            cost: selectedProduct.cost,
+                          });
+                        }}
+                        className="flex flex-col gap-1.5 p-2 text-left active:bg-primary/10 touch-manipulation"
+                      >
+                        <div className="relative">
+                          <Thumb url={v.thumb} size="h-full w-full aspect-square" />
+                          {inCart && (
+                            <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground shadow">
+                              {inCart.quantity}
+                            </span>
                           )}
-                          <span className="font-mono text-xs">{v.sku}</span>
                         </div>
-                      </div>
-                      {inCart ? (
-                        <div className="flex items-center gap-1 rounded-lg border bg-background">
+                        <p className="text-xs font-semibold leading-tight">
+                          {sizeLabel}
+                        </p>
+                        {v.is_service ? (
+                          <span className="text-[10px] text-muted-foreground">
+                            Servicio
+                          </span>
+                        ) : (
+                          <span
+                            className={`text-[10px] font-medium ${stockTone(v.stock)}`}
+                          >
+                            {v.stock} en stock
+                          </span>
+                        )}
+                      </button>
+                      {inCart && (
+                        <div className="flex items-center justify-between border-t bg-primary/5 px-1.5 py-1">
                           <button
                             type="button"
-                            className="px-2.5 py-2 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
                             onClick={() =>
                               setQuantity(v.cart_key, inCart.quantity - 1)
                             }
+                            className="rounded p-1 text-muted-foreground hover:text-foreground active:scale-90 transition-transform"
                           >
-                            <Minus className="h-4 w-4" />
+                            <Minus className="h-3 w-3" />
                           </button>
-                          <span className="w-10 text-center text-base font-bold tabular-nums">
+                          <span className="text-xs font-bold tabular-nums">
                             {inCart.quantity}
                           </span>
                           <button
                             type="button"
-                            className="px-2.5 py-2 text-muted-foreground hover:text-foreground disabled:opacity-30 active:scale-90 transition-transform"
+                            disabled={
+                              !v.is_service && inCart.quantity >= inCart.max
+                            }
                             onClick={() =>
                               setQuantity(v.cart_key, inCart.quantity + 1)
                             }
-                            disabled={!v.is_service && inCart.quantity >= inCart.max}
+                            className="rounded p-1 text-muted-foreground hover:text-foreground disabled:opacity-30 active:scale-90 transition-transform"
                           >
-                            <Plus className="h-4 w-4" />
+                            <Plus className="h-3 w-3" />
                           </button>
                         </div>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="shrink-0 rounded-lg font-semibold"
-                          disabled={!v.is_service && v.stock <= 0}
-                          onClick={() => {
-                            addToCart({
-                              cart_key: v.cart_key,
-                              id: v.id,
-                              is_service: v.is_service,
-                              label: `${selectedProduct.name} — ${sizeLabel}`,
-                              sku: v.sku,
-                              thumb: v.thumb,
-                              stock: v.stock,
-                              base_price: selectedProduct.base_price,
-                              wholesale_price:
-                                selectedProduct.wholesale_price,
-                              wholesale_min_quantity:
-                                selectedProduct.wholesale_min_quantity,
-                              cost: selectedProduct.cost,
-                            });
-                            focusSearch();
-                          }}
-                        >
-                          <Plus className="mr-1.5 h-4 w-4" />
-                          Agregar
-                        </Button>
                       )}
                     </div>
                   );
                 })}
               </div>
             </div>
-            <SheetFooter className="px-4 pb-4 pt-2">
-              <Button
-                variant="outline"
-                className="w-full rounded-xl"
-                onClick={() => setSelectedProduct(null)}
-              >
-                Cerrar
-              </Button>
-            </SheetFooter>
           </div>
         </SheetContent>
       </Sheet>
@@ -1306,16 +1325,24 @@ export default function SalesPosIndex() {
               ))}
             </div>
             <Separator />
-            {shippingCost > 0 && (
+            {(shippingCost > 0 || ivaAmount > 0) && (
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between text-muted-foreground">
                   <span>Subtotal</span>
                   <span>{money(itemsTotal)}</span>
                 </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Envío</span>
-                  <span>{money(shippingCost)}</span>
-                </div>
+                {ivaAmount > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>IVA {sriIvaRate}%</span>
+                    <span>{money(ivaAmount)}</span>
+                  </div>
+                )}
+                {shippingCost > 0 && (
+                  <div className="flex justify-between text-muted-foreground">
+                    <span>Envío</span>
+                    <span>{money(shippingCost)}</span>
+                  </div>
+                )}
               </div>
             )}
             <div className="flex justify-between text-base font-bold">
@@ -1391,6 +1418,35 @@ export default function SalesPosIndex() {
                 {isSubmitting ? "Procesando..." : "Confirmar y registrar"}
               </Button>
             </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Bloqueo de navegación con carrito activo ── */}
+      <Dialog
+        open={blocker.state === "blocked"}
+        onOpenChange={(open) => {
+          if (!open) blocker.reset?.();
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>¿Salir del punto de venta?</DialogTitle>
+            <DialogDescription>
+              Tienes {itemCount} ítem{itemCount !== 1 ? "s" : ""} en el
+              carrito. El carrito se guardará y podrás continuar al volver.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => blocker.reset?.()}>
+              Volver al POS
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => blocker.proceed?.()}
+            >
+              Salir de todas formas
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

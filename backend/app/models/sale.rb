@@ -23,7 +23,8 @@ class Sale < ApplicationRecord
   # Recalculate the total from the persisted line items (+ shipping)
   def recalculate_total!
     items_total = sale_items.sum("quantity * unit_price")
-    update_column(:total, items_total + shipping_cost.to_d)
+    iva_amount = items_total * (sri_iva_rate.to_f / 100)
+    update_column(:total, items_total + iva_amount + shipping_cost.to_d)
     sync_payment_status!
   end
 
