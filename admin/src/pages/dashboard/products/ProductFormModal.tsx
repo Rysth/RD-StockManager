@@ -43,6 +43,7 @@ interface VariantForm {
   id?: number;
   size: string;
   color: string;
+  barcode: string;
   stock: number;
   existingImages: ProductImage[];
   pendingFiles: File[];
@@ -68,6 +69,7 @@ interface ProductForm {
 const emptyVariant = (): VariantForm => ({
   size: "",
   color: "",
+  barcode: "",
   stock: 0,
   existingImages: [],
   pendingFiles: [],
@@ -244,6 +246,7 @@ export default function ProductFormModal({
           id: v.id,
           size: v.size ?? "",
           color: v.color ?? "",
+          barcode: v.barcode ?? "",
           stock: v.stock,
           existingImages: v.images ?? [],
           pendingFiles: [],
@@ -348,6 +351,7 @@ export default function ProductFormModal({
           (!v._destroy &&
             (v.size.trim() ||
               v.color.trim() ||
+              v.barcode.trim() ||
               Number(v.stock) > 0 ||
               v.pendingFiles.length > 0)),
       )
@@ -355,6 +359,7 @@ export default function ProductFormModal({
         id: v.id,
         size: v.size,
         color: v.color,
+        barcode: v.barcode.trim() || null,
         stock: Number(v.stock) || 0,
         _destroy: v._destroy,
       }));
@@ -364,6 +369,7 @@ export default function ProductFormModal({
         id: undefined,
         size: "",
         color: "",
+        barcode: null,
         stock: 0,
         _destroy: undefined,
       });
@@ -378,6 +384,7 @@ export default function ProductFormModal({
         id: undefined,
         size: "Servicio",
         color: "",
+        barcode: null,
         stock: 0,
         _destroy: undefined,
       });
@@ -740,6 +747,21 @@ export default function ProductFormModal({
                               className="h-9"
                             />
                           </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Código de barras (EAN/UPC)
+                          </Label>
+                          <Input
+                            inputMode="numeric"
+                            placeholder="Ej. 7501234567890 (opcional)"
+                            value={v.barcode}
+                            onChange={(e) =>
+                              patchVariant(index, { barcode: e.target.value })
+                            }
+                            className="h-9"
+                          />
                         </div>
 
                         <div className="space-y-1.5">

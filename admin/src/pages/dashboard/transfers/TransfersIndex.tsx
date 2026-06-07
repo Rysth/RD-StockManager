@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import {
@@ -45,7 +46,6 @@ import { StatsCard } from "@/components/ui/stats-card";
 import Pagination from "../../../components/common/Pagination";
 import EmptyState from "../../../components/common/EmptyState";
 import { ActionIconButton } from "../../../components/common/RowActions";
-import CreateTransferModal from "./CreateTransferModal";
 import TransferDetailSheet from "./TransferDetailSheet";
 
 const STATUS_LABEL: Record<TransferStatus, string> = {
@@ -111,13 +111,13 @@ export default function TransfersIndex() {
   const { fetchProducts } = useInventoryStore();
   const { hasPermission } = useAuthStore();
   const canManage = hasPermission(Permissions.MANAGE_PURCHASES);
+  const navigate = useNavigate();
 
   const [firstLoad, setFirstLoad] = useState(true);
   const [statusFilter, setStatusFilter] = useState<TransferStatus | "">("");
   const [fromFilter, setFromFilter] = useState<string>("");
   const [toFilter, setToFilter] = useState<string>("");
 
-  const [createOpen, setCreateOpen] = useState(false);
   const [detailTransfer, setDetailTransfer] = useState<StockTransfer | null>(
     null,
   );
@@ -214,7 +214,7 @@ export default function TransfersIndex() {
           </p>
         </div>
         {canManage && (
-          <Button onClick={() => setCreateOpen(true)} size="sm">
+          <Button onClick={() => navigate("/dashboard/transfer-pos")} size="sm">
             <Plus className="mr-2 h-4 w-4" /> Nueva Transferencia
           </Button>
         )}
@@ -370,7 +370,7 @@ export default function TransfersIndex() {
                         description="Mueve stock entre tus bodegas creando una transferencia."
                         action={
                           canManage
-                            ? { label: "Nueva transferencia", onClick: () => setCreateOpen(true), icon: Plus }
+                            ? { label: "Nueva transferencia", onClick: () => navigate("/dashboard/transfer-pos"), icon: Plus }
                             : undefined
                         }
                       />
@@ -398,12 +398,7 @@ export default function TransfersIndex() {
         }
       />
 
-      {/* Modals */}
-      <CreateTransferModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-      />
-
+      {/* Detail sheet */}
       <TransferDetailSheet
         transfer={syncedDetailTransfer}
         open={!!detailTransfer}

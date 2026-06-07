@@ -166,7 +166,7 @@ module Api
         params.require(:product).permit(
           :name, :brand_id, :base_price, :cost, :wholesale_price, :wholesale_min_quantity,
           :description, :active, :category_id, :product_type,
-          product_variants_attributes: [:id, :size, :color, :stock, :sku, :_destroy]
+          product_variants_attributes: [:id, :size, :color, :stock, :sku, :barcode, :_destroy]
         )
       end
 
@@ -220,6 +220,7 @@ module Api
               color: v.color,
               stock: v.stock,
               sku: v.sku,
+              barcode: v.barcode,
               low_stock: v.low_stock?,
               out_of_stock: v.out_of_stock?,
               stock_by_location: v.stock_levels.map { |sl| { location_id: sl.location_id, location_name: sl.location.name, quantity: sl.quantity } },

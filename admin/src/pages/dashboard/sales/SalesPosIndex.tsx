@@ -756,7 +756,7 @@ export default function SalesPosIndex() {
             <Input
               ref={searchInputRef}
               className="pl-9"
-              placeholder="Buscar o escanear SKU…  (Enter agrega)"
+              placeholder="Buscar o escanear SKU/código…  (Enter agrega)"
               value={variantQuery}
               onChange={(e) => setVariantQuery(e.target.value)}
               onKeyDown={(e) => {

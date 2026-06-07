@@ -55,6 +55,7 @@ export interface ProductVariant {
   color?: string | null;
   stock: number;
   sku: string;
+  barcode?: string | null;
   low_stock?: boolean;
   out_of_stock?: boolean;
   stock_by_location?: VariantStockLevel[];
@@ -579,6 +580,28 @@ export interface InventoryValuationReport {
     sku_count: number;
   };
   rows: InventoryValuationRow[];
+}
+
+export interface BestSellerPeriodTotals {
+  revenue: number;
+  sales_count: number;
+  units: number;
+  profit: number;
+}
+
+export interface BestSellersReport {
+  summary: {
+    current: BestSellerPeriodTotals;
+    previous: BestSellerPeriodTotals;
+    // delta_pct null cuando el período anterior no tiene base de comparación
+    deltas: {
+      revenue: number | null;
+      units: number | null;
+      sales_count: number | null;
+      profit: number | null;
+    };
+  };
+  top_products: { name: string; brand?: string | null; units_sold: number; revenue: number }[];
 }
 
 export interface InventoryStats {

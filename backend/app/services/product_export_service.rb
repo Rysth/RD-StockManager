@@ -4,7 +4,7 @@
 # la existencia en esa ubicación; si no, el stock total denormalizado.
 class ProductExportService
   HEADERS = [
-    "Producto", "Marca", "Categoria", "SKU", "Talla", "Color",
+    "Producto", "Marca", "Categoria", "SKU", "CodigoBarras", "Talla", "Color",
     "Precio", "Costo", "PrecioMayoreo", "Stock"
   ].freeze
 
@@ -39,6 +39,7 @@ class ProductExportService
             product.brand&.name,
             product.category&.name,
             variant.sku,
+            variant.barcode,
             variant.size,
             variant.color,
             product.base_price,
@@ -49,7 +50,7 @@ class ProductExportService
         end
       end
 
-      sheet.column_widths(24, 14, 14, 16, 8, 12, 10, 10, 14, 8)
+      sheet.column_widths(24, 14, 14, 16, 16, 8, 12, 10, 10, 14, 8)
     end
 
     package.to_stream.read

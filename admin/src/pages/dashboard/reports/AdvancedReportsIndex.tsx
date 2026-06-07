@@ -36,6 +36,8 @@ import {
   CalendarRange,
   Boxes,
   Coins,
+  Flame,
+  Minus,
 } from "lucide-react";
 
 const AreaChart = lazy(() =>
@@ -53,6 +55,20 @@ const money = (n: number) =>
 
 const fmtDate = (d: string | null) =>
   d ? new Date(d).toLocaleDateString("es-EC") : "—";
+
+const units = (n: number) => new Intl.NumberFormat("es-EC").format(n || 0);
+
+// Texto e ícono de variación contra el período anterior. delta null => sin base.
+const deltaText = (d: number | null) =>
+  d === null ? "Sin base anterior" : `${d >= 0 ? "▲" : "▼"} ${Math.abs(d)}% vs. anterior`;
+const deltaIcon = (d: number | null) =>
+  d === null ? Minus : d >= 0 ? TrendingUp : TrendingDown;
+const deltaColor = (d: number | null) =>
+  d === null
+    ? { c: "text-muted-foreground", bg: "bg-muted" }
+    : d >= 0
+      ? { c: "text-emerald-600", bg: "bg-emerald-50" }
+      : { c: "text-amber-600", bg: "bg-amber-50" };
 
 function ChartFallback() {
   return (
@@ -92,6 +108,7 @@ export default function AdvancedReportsIndex() {
     cashRegisterReport,
     salesRepReport,
     inventoryValuationReport,
+    bestSellersReport,
     filters,
     isLoading,
     setFilters,
@@ -136,7 +153,8 @@ export default function AdvancedReportsIndex() {
     !expenseReport &&
     !cashRegisterReport &&
     !salesRepReport &&
-    !inventoryValuationReport;
+    !inventoryValuationReport &&
+    !bestSellersReport;
   if (firstLoad) return <ReportsSkeleton />;
 
   // Totales agregados para Contactos.
@@ -157,7 +175,7 @@ export default function AdvancedReportsIndex() {
               <div>
                 <h1 className="text-xl font-bold tracking-tight">Informes</h1>
                 <p className="mt-1 text-sm text-primary-foreground/80">
-                  Compras, impuestos, contactos, gastos, caja, vendedores y valuación de stock
+                  Más vendidos, compras, impuestos, contactos, gastos, caja, vendedores y valuación de stock
                 </p>
               </div>
             </div>
@@ -227,8 +245,9 @@ export default function AdvancedReportsIndex() {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="purchases">
+      <Tabs defaultValue="best_sellers">
         <TabsList className="flex flex-wrap">
+          <TabsTrigger value="best_sellers"><Flame className="mr-1.5 size-4" />Más vendidos</TabsTrigger>
           <TabsTrigger value="purchases"><Truck className="mr-1.5 size-4" />Compras</TabsTrigger>
           <TabsTrigger value="taxes"><Landmark className="mr-1.5 size-4" />Fiscal</TabsTrigger>
           <TabsTrigger value="contacts"><Users className="mr-1.5 size-4" />Contactos</TabsTrigger>
@@ -237,6 +256,120 @@ export default function AdvancedReportsIndex() {
           <TabsTrigger value="reps"><DollarSign className="mr-1.5 size-4" />Vendedores</TabsTrigger>
           <TabsTrigger value="valuation"><Boxes className="mr-1.5 size-4" />Valuación</TabsTrigger>
         </TabsList>
+
+        {/* Más vendidos */}
+        <TabsContent value="best_sellers" className="space-y-4">
+          {bestSellersReport && (
+            <>
+              <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+                <StatsCard
+                  title="Ingresos del período"
+                  value={money(bestSellersReport.summary.current.revenue)}
+                  icon={deltaIcon(bestSellersReport.summary.deltas.revenue)}
+                  iconColor={deltaColor(bestSellersReport.summary.deltas.revenue).c}
+                  iconBgColor={deltaColor(bestSellersReport.summary.deltas.revenue).bg}
+                  variant="colored"
+                  description={`${money(bestSellersReport.summary.previous.revenue)} · ${deltaText(bestSellersReport.summary.deltas.revenue)}`}
+                />
+                <StatsCard
+                  title="Unidades vendidas"
+                  value={units(bestSellersReport.summary.current.units)}
+                  icon={deltaIcon(bestSellersReport.summary.deltas.units)}
+                  iconColor={deltaColor(bestSellersReport.summary.deltas.units).c}
+                  iconBgColor={deltaColor(bestSellersReport.summary.deltas.units).bg}
+                  variant="colored"
+                  description={`${units(bestSellersReport.summary.previous.units)} · ${deltaText(bestSellersReport.summary.deltas.units)}`}
+                />
+                <StatsCard
+                  title="N° de ventas"
+                  value={units(bestSellersReport.summary.current.sales_count)}
+                  icon={deltaIcon(bestSellersReport.summary.deltas.sales_count)}
+                  iconColor={deltaColor(bestSellersReport.summary.deltas.sales_count).c}
+                  iconBgColor={deltaColor(bestSellersReport.summary.deltas.sales_count).bg}
+                  variant="colored"
+                  description={`${units(bestSellersReport.summary.previous.sales_count)} · ${deltaText(bestSellersReport.summary.deltas.sales_count)}`}
+                />
+                <StatsCard
+                  title="Ganancia del período"
+                  value={money(bestSellersReport.summary.current.profit)}
+                  icon={deltaIcon(bestSellersReport.summary.deltas.profit)}
+                  iconColor={deltaColor(bestSellersReport.summary.deltas.profit).c}
+                  iconBgColor={deltaColor(bestSellersReport.summary.deltas.profit).bg}
+                  variant="colored"
+                  description={`${money(bestSellersReport.summary.previous.profit)} · ${deltaText(bestSellersReport.summary.deltas.profit)}`}
+                />
+              </div>
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle>Top productos por unidades</CardTitle>
+                    <CardDescription>Los 10 más vendidos del período</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {bestSellersReport.top_products.length ? (
+                      <Suspense fallback={<ChartFallback />}>
+                        <DonutChart
+                          className="h-72"
+                          data={bestSellersReport.top_products as unknown as Record<string, unknown>[]}
+                          category="name"
+                          value="units_sold"
+                          colors={["blue", "emerald", "violet", "amber", "teal", "pink"]}
+                          valueFormatter={(n: number) => units(n)}
+                        />
+                      </Suspense>
+                    ) : (
+                      <div className="flex h-72 items-center justify-center text-muted-foreground">
+                        Sin ventas en el período.
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle>Productos más vendidos</CardTitle>
+                    <CardDescription>Unidades e ingresos por producto</CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Producto</TableHead>
+                          <TableHead className="text-right">Unidades</TableHead>
+                          <TableHead className="text-right">Ingresos</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {bestSellersReport.top_products.length ? (
+                          bestSellersReport.top_products.map((p) => (
+                            <TableRow key={`${p.name}-${p.brand ?? ""}`}>
+                              <TableCell className="font-medium">
+                                {p.name}
+                                {p.brand && (
+                                  <span className="ml-1 text-xs text-muted-foreground">· {p.brand}</span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">{units(p.units_sold)}</TableCell>
+                              <TableCell className="text-right font-medium">{money(p.revenue)}</TableCell>
+                            </TableRow>
+                          ))
+                        ) : (
+                          <TableRow>
+                            <TableCell colSpan={3} className="h-20 text-center text-muted-foreground">
+                              Sin ventas en el período.
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                  <CardFooter className="text-sm text-muted-foreground">
+                    Comparativa contra el período inmediatamente anterior de igual duración.
+                  </CardFooter>
+                </Card>
+              </div>
+            </>
+          )}
+        </TabsContent>
 
         {/* Compras */}
         <TabsContent value="purchases" className="space-y-4">

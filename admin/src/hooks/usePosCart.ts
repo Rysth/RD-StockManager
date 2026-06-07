@@ -3,18 +3,21 @@ import toast from "react-hot-toast";
 import type { Product, ProductVariant } from "../types/inventory";
 
 /**
- * Busca una variante por SKU exacto (trim, case-insensitive) entre los
- * productos. Útil para lectores de código de barras / tecleo rápido en el POS.
+ * Busca una variante por SKU o código de barras exacto (trim, case-insensitive)
+ * entre los productos. Útil para lectores de código de barras EAN/UPC o tecleo
+ * rápido del SKU en el POS.
  */
 export function findVariantBySku(
   products: Product[],
-  sku: string,
+  code: string,
 ): { product: Product; variant: ProductVariant } | null {
-  const q = sku.trim().toLowerCase();
+  const q = code.trim().toLowerCase();
   if (!q) return null;
   for (const product of products) {
     const variant = product.variants.find(
-      (v) => (v.sku ?? "").toLowerCase() === q,
+      (v) =>
+        (v.sku ?? "").toLowerCase() === q ||
+        (v.barcode ?? "").toLowerCase() === q,
     );
     if (variant) return { product, variant };
   }
