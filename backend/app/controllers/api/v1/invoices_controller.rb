@@ -9,7 +9,7 @@ module Api
 
       # GET /api/v1/invoices
       def index
-        @q = Invoice.includes(:sale).ransack(search_params)
+        @q = Invoice.includes(sale: [:customer, { payment_proof_attachment: :blob }]).ransack(search_params)
         @q.sorts = "created_at desc" if @q.sorts.empty?
 
         @pagy, invoices = pagy(@q.result, page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -84,6 +84,14 @@ module Api
           sold_at: inv.sale&.sold_at,
           has_xml: inv.xml_autorizado.present?,
           has_ride: inv.ride_pdf.present?,
+          # Estado de cobro de la venta asociada (para marcar pagada después de facturar).
+          sale_status: inv.sale&.status,
+          payment_status: inv.sale&.payment_status,
+          payment_method: inv.sale&.payment_method,
+          paid_amount: inv.sale&.paid_amount,
+          balance: inv.sale&.balance_due,
+          due_date: inv.sale&.due_date,
+          payment_proof_url: inv.sale&.payment_proof&.attached? ? url_for(inv.sale.payment_proof) : nil,
           created_at: inv.created_at
         }
         data[:mensajes] = inv.mensajes if detailed

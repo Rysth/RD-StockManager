@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Eye, ShoppingCart, DollarSign, CalendarRange, SearchX, Paperclip } from "lucide-react";
+import { Eye, ShoppingCart, DollarSign, CalendarRange, SearchX, Paperclip, BadgeDollarSign } from "lucide-react";
+import MarkPaidDialog from "../../../components/sales/MarkPaidDialog";
 import toast from "react-hot-toast";
 import Pagination from "../../../components/common/Pagination";
 import EmptyState from "../../../components/common/EmptyState";
@@ -33,6 +34,12 @@ const STATUS_META: Record<SaleStatus, { label: string; className: string }> = {
   completed: { label: "Completada", className: "bg-green-100 text-green-800 hover:bg-green-100" },
   pending: { label: "Pendiente", className: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
   cancelled: { label: "Cancelada", className: "bg-red-100 text-red-800 hover:bg-red-100" },
+};
+
+const PAYMENT_META: Record<string, { label: string; className: string }> = {
+  paid: { label: "Pagada", className: "bg-green-100 text-green-800 hover:bg-green-100" },
+  partial: { label: "Parcial", className: "bg-amber-100 text-amber-800 hover:bg-amber-100" },
+  due: { label: "Por pagar", className: "bg-red-100 text-red-800 hover:bg-red-100" },
 };
 
 const INVOICE_META: Record<InvoiceStatus, { label: string; className: string }> = {
@@ -88,6 +95,12 @@ function SalesList() {
   const [permissionsRefreshed, setPermissionsRefreshed] = useState(false);
 
   const canManageInvoicing = hasPermission(Permissions.MANAGE_INVOICING);
+  const canManageSales = hasPermission(Permissions.MANAGE_SALES);
+  // Venta seleccionada para marcar como pagada desde la lista.
+  const [payTarget, setPayTarget] = useState<{
+    saleId: number;
+    paymentMethod?: "cash" | "transfer" | null;
+  } | null>(null);
   const restrictedToBranch =
     !!user?.restricted_to_location && !!user?.location_id;
 
@@ -238,6 +251,7 @@ function SalesList() {
                 <TableHead>Items</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead>Factura</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
@@ -245,7 +259,7 @@ function SalesList() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="h-24 text-center">
+                  <TableCell colSpan={10} className="h-24 text-center">
                     Cargando ventas...
                   </TableCell>
                 </TableRow>
@@ -272,6 +286,18 @@ function SalesList() {
                       </Badge>
                     </TableCell>
                     <TableCell>
+                      {s.payment_status && s.status !== "cancelled" ? (
+                        <Badge
+                          variant="secondary"
+                          className={PAYMENT_META[s.payment_status].className}
+                        >
+                          {PAYMENT_META[s.payment_status].label}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
                       {s.invoice ? (
                         <Badge variant="secondary" className={INVOICE_META[s.invoice.estado].className}>
                           {INVOICE_META[s.invoice.estado].label}
@@ -281,6 +307,17 @@ function SalesList() {
                       )}
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      {canManageSales &&
+                        s.status === "completed" &&
+                        s.payment_status !== "paid" && (
+                          <ActionIconButton
+                            icon={BadgeDollarSign}
+                            label="Marcar como pagada"
+                            onClick={() =>
+                              setPayTarget({ saleId: s.id, paymentMethod: s.payment_method })
+                            }
+                          />
+                        )}
                       {s.payment_proof_url && (
                         <ActionIconButton
                           icon={Paperclip}
@@ -294,7 +331,7 @@ function SalesList() {
                 ))
               ) : (
                 <TableRow className="hover:bg-transparent">
-                  <TableCell colSpan={9} className="p-0">
+                  <TableCell colSpan={10} className="p-0">
                     {hasFilters ? (
                       <EmptyState
                         variant="no-results"
@@ -335,6 +372,20 @@ function SalesList() {
 
       {/* Detail sheet (self-contained) */}
       <SaleDetailSheet open={drawerOpen} onClose={() => setDrawerOpen(false)} />
+
+      <MarkPaidDialog
+        open={payTarget !== null}
+        saleId={payTarget?.saleId ?? null}
+        paymentMethod={payTarget?.paymentMethod}
+        onClose={() => setPayTarget(null)}
+        onPaid={() =>
+          fetchSales(pagination.current_page, pagination.per_page, {
+            status,
+            location_id: locationFilter ? Number(locationFilter) : "",
+            user_id: sellerFilter ? Number(sellerFilter) : "",
+          }).catch(() => {})
+        }
+      />
     </div>
   );
 }

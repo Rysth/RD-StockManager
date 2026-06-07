@@ -184,6 +184,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
           cash_change: data.cash_change ?? null,
           shipping_cost: data.shipping_cost ?? 0,
           sri_iva_rate: data.sri_iva_rate ?? 0,
+          credit: data.credit ?? false,
         },
         items: data.items,
       });

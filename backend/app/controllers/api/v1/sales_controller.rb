@@ -91,7 +91,12 @@ module Api
           # Reserva el stock al crear (pendiente o completada) para evitar que dos
           # vendedores comprometan el mismo último ítem. complete! es idempotente.
           sale.reserve_stock!
-          sale.complete! if desired_status == "completed" && sale.payment_method != "transfer"
+          # "credit" = cobro pendiente: completa la venta dejándola por pagar (efectivo o
+          # transferencia), para poder facturarla y cobrar después.
+          credit = ActiveModel::Type::Boolean.new.cast(sale_params[:credit]) || false
+          if desired_status == "completed" && (sale.payment_method != "transfer" || credit)
+            sale.complete!(allow_unpaid: credit)
+          end
         end
 
         Rails.cache.delete("inventory:stats")
@@ -104,7 +109,7 @@ module Api
       def update
         case desired_status
         when "completed"
-          @sale.complete!
+          @sale.complete!(allow_unpaid: ActiveModel::Type::Boolean.new.cast(params.dig(:sale, :credit)))
         when "cancelled"
           @sale.cancel!
         else
@@ -166,12 +171,16 @@ module Api
         render_error("No se pudieron actualizar los items", :unprocessable_entity, e.record.errors.full_messages)
       end
 
-      # PUT /api/v1/sales/:id/confirm_payment — verifica el pago (marca pagada),
-      # adjunta el comprobante (obligatorio en transferencias: foto/PDF) y completa
-      # la venta pendiente. Usado por el botón "Confirmar entrega y pago".
+      # PUT /api/v1/sales/:id/confirm_payment — registra el pago completo (marca pagada)
+      # y adjunta el comprobante (obligatorio en transferencias: foto/PDF). Funciona sobre
+      # ventas pendientes (las completa) y sobre ventas ya completadas/facturadas que
+      # quedaron "por pagar" (cobro pendiente / a crédito). Usado por "Marcar como pagada".
       def confirm_payment
-        unless @sale.pending?
-          return render_error("Solo se pueden confirmar ventas pendientes", :unprocessable_entity)
+        if @sale.cancelled?
+          return render_error("No se puede registrar el pago de una venta cancelada", :unprocessable_entity)
+        end
+        if @sale.payment_paid?
+          return render_error("La venta ya está pagada", :unprocessable_entity)
         end
 
         # El comprobante es obligatorio para las transferencias.
@@ -183,13 +192,13 @@ module Api
           @sale.payment_proof.attach(params[:payment_proof]) if params[:payment_proof].present?
           @sale.update!(paid_amount: @sale.total)
           @sale.sync_payment_status!
-          @sale.complete!
+          @sale.complete! if @sale.pending? # las completadas se quedan completadas
         end
 
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale, with_items: true) }, "Pago confirmado y venta completada")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Pago registrado correctamente")
       rescue ActiveRecord::RecordInvalid => e
-        render_error("No se pudo confirmar el pago", :unprocessable_entity, e.record.errors.full_messages)
+        render_error("No se pudo registrar el pago", :unprocessable_entity, e.record.errors.full_messages)
       end
 
       # POST /api/v1/sales/:id/invoice — emite la factura electrónica SRI de la venta.
@@ -292,7 +301,7 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change, :credit)
       end
 
       def sale_update_params
@@ -341,6 +350,8 @@ module Api
           sri_iva_rate: sale.sri_iva_rate,
           payment_status: sale.payment_status,
           paid_amount: sale.paid_amount,
+          balance: sale.balance_due,
+          due_date: sale.due_date,
           payment_proof_url: sale.payment_proof.attached? ? url_for(sale.payment_proof) : nil,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,

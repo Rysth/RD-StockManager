@@ -187,6 +187,8 @@ export interface Sale {
   sri_iva_rate?: number;
   payment_status?: "due" | "partial" | "paid";
   paid_amount?: number;
+  balance?: number;
+  due_date?: string | null;
   payment_proof_url?: string | null;
   items_count: number;
   items?: SaleItem[];
@@ -288,6 +290,7 @@ export interface CreateSaleData {
   cash_change?: number | null;
   shipping_cost?: number;
   sri_iva_rate?: number;
+  credit?: boolean;
   items: SaleItemInput[];
 }
 
@@ -567,6 +570,13 @@ export interface InvoiceListItem {
   sold_at: string | null;
   has_xml: boolean;
   has_ride: boolean;
+  sale_status?: "pending" | "completed" | "cancelled" | null;
+  payment_status?: "due" | "partial" | "paid" | null;
+  payment_method?: "cash" | "transfer" | null;
+  paid_amount?: number | null;
+  balance?: number | null;
+  due_date?: string | null;
+  payment_proof_url?: string | null;
   created_at: string;
   mensajes?: { tipo?: string; identificador?: string; mensaje?: string; informacion_adicional?: string }[];
 }

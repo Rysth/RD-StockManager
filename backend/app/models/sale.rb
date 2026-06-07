@@ -88,18 +88,22 @@ class Sale < ApplicationRecord
   # Mark the sale as completed. El stock ya se reservó al crear la venta; aquí solo
   # se asegura la reserva (no-op salvo filas legacy) y se actualiza estado/pago.
   # Idempotent: does nothing if the sale is already completed.
-  def complete!
+  # `allow_unpaid: true` permite completar (y luego facturar) una venta dejándola
+  # "por pagar" (a crédito) — tanto efectivo como transferencia. El pago se registra
+  # después con confirm_payment.
+  def complete!(allow_unpaid: false)
     return if completed?
 
-    if requires_payment_verification?
+    if requires_payment_verification? && !allow_unpaid
       errors.add(:base, "La transferencia debe ser verificada antes de completar la venta")
       raise ActiveRecord::RecordInvalid, self
     end
 
     transaction do
       reserve_stock!
-      # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar.
-      self.paid_amount = total if !cash_on_delivery && paid_amount.to_d.zero?
+      # Las ventas POS al contado (no contra entrega) se consideran pagadas al completar,
+      # salvo que se complete explícitamente como cobro pendiente (a crédito).
+      self.paid_amount = total if !cash_on_delivery && !allow_unpaid && paid_amount.to_d.zero?
       update!(status: :completed)
       sync_payment_status!
     end

@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { FileText, FileCode2, FileDown, Search } from "lucide-react";
+import { FileText, FileCode2, FileDown, Search, Paperclip, BadgeDollarSign } from "lucide-react";
 import toast from "react-hot-toast";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
+import { useAuthStore } from "../../../stores/authStore";
+import { Permissions } from "../../../types/auth";
+import MarkPaidDialog from "../../../components/sales/MarkPaidDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -41,11 +44,27 @@ const estadoVariant = (estado: string): "default" | "secondary" | "destructive" 
 
 const ESTADOS = ["AUTORIZADO", "NO AUTORIZADO", "DEVUELTA", "EN PROCESO", "RECIBIDA", "ERROR"];
 
+// Estado de cobro de la venta asociada (igual que en Compras).
+const PAYMENT_LABEL: Record<string, string> = {
+  due: "Por pagar",
+  partial: "Parcial",
+  paid: "Pagada",
+};
+const paymentVariant = (s?: string | null): "default" | "secondary" | "destructive" =>
+  s === "paid" ? "default" : s === "partial" ? "secondary" : "destructive";
+
 export default function InvoicesIndex() {
   const { invoices, pagination, isLoading, fetchInvoices } = useInvoiceStore();
+  const { hasPermission } = useAuthStore();
+  const canManageSales = hasPermission(Permissions.MANAGE_SALES);
   const [estado, setEstado] = useState("");
   const [search, setSearch] = useState("");
   const [firstLoad, setFirstLoad] = useState(true);
+  // Venta seleccionada para marcar como pagada desde la lista de facturas.
+  const [payTarget, setPayTarget] = useState<{
+    saleId: number;
+    paymentMethod?: "cash" | "transfer" | null;
+  } | null>(null);
 
   useEffect(() => {
     fetchInvoices(1, 12, {})
@@ -133,13 +152,14 @@ export default function InvoicesIndex() {
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead>Ambiente</TableHead>
                 <TableHead>Estado</TableHead>
+                <TableHead>Pago</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {firstLoad || isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center">
+                  <TableCell colSpan={8} className="h-24 text-center">
                     Cargando facturas...
                   </TableCell>
                 </TableRow>
@@ -170,7 +190,47 @@ export default function InvoicesIndex() {
                     <TableCell>
                       <Badge variant={estadoVariant(inv.estado)}>{inv.estado}</Badge>
                     </TableCell>
+                    <TableCell>
+                      {inv.payment_status ? (
+                        <Badge variant={paymentVariant(inv.payment_status)}>
+                          {PAYMENT_LABEL[inv.payment_status] ?? inv.payment_status}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
+                      {canManageSales &&
+                        inv.payment_status !== "paid" &&
+                        inv.sale_status !== "cancelled" && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-emerald-600"
+                            title="Marcar como pagada"
+                            onClick={() =>
+                              setPayTarget({
+                                saleId: inv.sale_id,
+                                paymentMethod: inv.payment_method,
+                              })
+                            }
+                          >
+                            <BadgeDollarSign className="h-4 w-4" />
+                          </Button>
+                        )}
+                      {inv.payment_proof_url && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Ver comprobante de pago"
+                          onClick={() =>
+                            window.open(inv.payment_proof_url!, "_blank", "noopener,noreferrer")
+                          }
+                        >
+                          <Paperclip className="h-4 w-4" />
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -196,7 +256,7 @@ export default function InvoicesIndex() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                  <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                     No se encontraron facturas emitidas.
                   </TableCell>
                 </TableRow>
@@ -214,6 +274,18 @@ export default function InvoicesIndex() {
         onPageChange={({ selected }) =>
           fetchInvoices(selected + 1, pagination.per_page, { estado, search }).catch((e) =>
             toast.error(e?.message || "Error al cambiar de página"),
+          )
+        }
+      />
+
+      <MarkPaidDialog
+        open={payTarget !== null}
+        saleId={payTarget?.saleId ?? null}
+        paymentMethod={payTarget?.paymentMethod}
+        onClose={() => setPayTarget(null)}
+        onPaid={() =>
+          fetchInvoices(pagination.current_page, pagination.per_page, { estado, search }).catch(
+            (e) => toast.error(e?.message || "Error al actualizar las facturas"),
           )
         }
       />

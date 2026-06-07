@@ -18,6 +18,7 @@ import {
   Lock,
   AlertTriangle,
   Loader2,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -116,6 +117,9 @@ export default function SalesPosIndex() {
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
+  // Cobro pendiente (a crédito): completa la venta dejándola "por pagar" para facturarla
+  // ahora y cobrar después (efectivo o transferencia).
+  const [creditPending, setCreditPending] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
   const [cashReceived, setCashReceived] = useState("");
 
@@ -549,6 +553,7 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
+    setCreditPending(false);
     setShippingCost(0);
     setCashReceived("");
   };
@@ -559,6 +564,7 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
+    setCreditPending(false);
     setShippingCost(0);
     setCashReceived("");
     setClearConfirmOpen(false);
@@ -617,8 +623,13 @@ export default function SalesPosIndex() {
       return;
     }
     const isTransfer = paymentMethod === "transfer";
-    const finalStatus = cashOnDelivery || isTransfer ? "pending" : "completed";
-    const sendCash = isCashPayment && cashReceived !== "";
+    // Con cobro pendiente la venta se completa (facturable) aunque quede por pagar.
+    const finalStatus = creditPending
+      ? "completed"
+      : cashOnDelivery || isTransfer
+        ? "pending"
+        : "completed";
+    const sendCash = isCashPayment && !creditPending && cashReceived !== "";
     try {
       await createSale({
         customer_id: customerId ? Number(customerId) : null,
@@ -626,6 +637,7 @@ export default function SalesPosIndex() {
         status: finalStatus,
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
+        credit: creditPending,
         cash_received: sendCash ? cashReceivedNum : null,
         cash_change: sendCash ? Math.max(0, changeDue) : null,
         shipping_cost: shippingCost,
@@ -639,11 +651,13 @@ export default function SalesPosIndex() {
         })),
       });
       toast.success(
-        isTransfer
-          ? "Venta por transferencia registrada — pendiente de verificación"
-          : cashOnDelivery
-            ? "Pedido registrado — pendiente de entrega y pago"
-            : "Venta completada correctamente",
+        creditPending
+          ? "Venta registrada a crédito — por cobrar. Ya puedes facturarla."
+          : isTransfer
+            ? "Venta por transferencia registrada — pendiente de verificación"
+            : cashOnDelivery
+              ? "Pedido registrado — pendiente de entrega y pago"
+              : "Venta completada correctamente",
       );
       resetAfterSubmit();
       // Refrescar el catálogo: la venta reservó stock y debe reflejarse de inmediato.
@@ -1178,6 +1192,14 @@ export default function SalesPosIndex() {
               />
               <Truck className="h-4 w-4 text-muted-foreground" />
               Pago contra entrega
+            </label>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
+              <Checkbox
+                checked={creditPending}
+                onCheckedChange={(c) => setCreditPending(c === true)}
+              />
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Cobro pendiente (a crédito) — facturar y cobrar después
             </label>
           </div>
 
