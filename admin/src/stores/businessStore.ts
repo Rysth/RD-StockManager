@@ -27,6 +27,8 @@ interface Business {
   sri_cert_configured?: boolean;
   sri_cert_filename?: string | null;
   sri_cert_uploaded_at?: string | null;
+  user_limit?: number;
+  user_limit_used?: number;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +53,7 @@ interface BusinessData {
   sri_ambiente?: string;
   sri_next_factura_secuencial?: number;
   sri_cert_password?: string;
+  user_limit?: number;
 }
 
 interface BusinessState {

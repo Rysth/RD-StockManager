@@ -48,6 +48,8 @@ module Api
             user_data
           end
           
+          seats_used = User.business_seats_used
+          limit = Business.current.user_limit
           {
             users: users,
             pagination: {
@@ -55,14 +57,20 @@ module Api
               total_pages: @pagy.pages,
               total_count: @pagy.count,
               per_page: @pagy.limit
-            }
+            },
+            user_limit: limit,
+            user_limit_used: seats_used,
+            user_limit_reached: seats_used >= limit
           }
         end
 
         render json: {
           status: :success,
           users: users_with_pagination[:users],
-          pagination: users_with_pagination[:pagination]
+          pagination: users_with_pagination[:pagination],
+          user_limit: users_with_pagination[:user_limit],
+          user_limit_used: users_with_pagination[:user_limit_used],
+          user_limit_reached: users_with_pagination[:user_limit_reached]
         }
       end
 
@@ -84,6 +92,8 @@ module Api
 
       # POST /api/v1/users
       def create
+        return unless enforce_user_limit!
+
         # Create account with VERIFIED status (admin-created users are pre-verified)
         account_params = {
           email: user_params[:email],
@@ -331,6 +341,23 @@ module Api
         end
         
         return false
+      end
+
+      # Guard del plan: rechaza la creación cuando se alcanzó el tope de usuarios
+      # del negocio. Crear un admin de plataforma (otra cuenta admin) no consume
+      # asiento, así que omite el chequeo. Devuelve true si se puede continuar.
+      def enforce_user_limit!
+        intended_roles = (params[:roles] || "").to_s.split(",").map(&:strip)
+        return true if intended_roles.include?("admin")
+
+        limit = Business.current.user_limit
+        return true if User.business_seats_used < limit
+
+        render json: {
+          status: :error,
+          errors: ["Has alcanzado el límite de #{limit} usuarios de tu plan. Contacta a RysthDesign para ampliarlo."]
+        }, status: :unprocessable_entity
+        false
       end
 
       def assign_roles

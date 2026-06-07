@@ -45,6 +45,13 @@ class User < ApplicationRecord
       .where(role_permissions: { role_id: role_ids })
       .exists?(key: key)
   end
+
+  # Asientos del plan ocupados: todos los usuarios que NO son admin de la
+  # plataforma (el admin/desarrollador nunca cuenta contra el límite del plan).
+  def self.business_seats_used
+    admin_ids = joins(:roles).where(roles: { name: "admin" }).distinct.ids
+    where.not(id: admin_ids).count
+  end
   
   private
   

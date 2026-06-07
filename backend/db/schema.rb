@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_07_000000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_07_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -134,6 +134,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_07_000000) do
     t.datetime "sri_cert_uploaded_at"
     t.text "sri_cert_password_ciphertext"
     t.integer "sri_next_factura_secuencial", default: 1, null: false
+    t.integer "user_limit", default: 5, null: false
     t.index ["ruc"], name: "index_businesses_on_ruc", unique: true
   end
 

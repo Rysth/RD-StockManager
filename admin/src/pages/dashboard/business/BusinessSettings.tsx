@@ -19,6 +19,7 @@ import {
   Shield,
   Upload,
   User,
+  Users,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
@@ -51,6 +52,7 @@ interface BusinessFormData {
   sri_cert_password: string;
   sri_certificate?: FileList;
   logo?: FileList;
+  user_limit: number;
 }
 
 interface ProfileFormData {
@@ -149,6 +151,7 @@ export default function BusinessSettings() {
               sri_ambiente: business.sri_ambiente || "1",
               sri_next_factura_secuencial: business.sri_next_factura_secuencial || 1,
               sri_cert_password: "",
+              user_limit: business.user_limit ?? 5,
             };
           })()
         : undefined,
@@ -239,6 +242,7 @@ export default function BusinessSettings() {
         formData.append("sri_ambiente", data.sri_ambiente || "1");
         formData.append("sri_next_factura_secuencial", String(data.sri_next_factura_secuencial || 1));
         if (data.sri_cert_password) formData.append("sri_cert_password", data.sri_cert_password);
+        formData.append("user_limit", String(data.user_limit || 1));
         if (data.sri_certificate && data.sri_certificate[0]) {
           formData.append("sri_certificate", data.sri_certificate[0]);
         }
@@ -809,6 +813,62 @@ export default function BusinessSettings() {
                           </div>
                         </div>
                       </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Plan / User Limit Card */}
+                  <Card className="border-border/60">
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className="flex items-center justify-center w-10 h-10 rounded-full bg-primary/10 text-primary shrink-0">
+                          <Users className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h2 className="font-semibold text-base">
+                            Plan y usuarios
+                          </h2>
+                          <p className="text-xs text-muted-foreground">
+                            Límite de usuarios según el plan contratado
+                          </p>
+                        </div>
+                      </div>
+
+                      {canManageSriConfig ? (
+                        <div className="space-y-1.5 max-w-xs">
+                          <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                            Límite de usuarios (plan)
+                          </Label>
+                          <Input
+                            type="number"
+                            min={1}
+                            className="h-9"
+                            {...businessForm.register("user_limit", {
+                              valueAsNumber: true,
+                              min: { value: 1, message: "Mínimo 1 usuario" },
+                            })}
+                          />
+                          {businessForm.formState.errors.user_limit && (
+                            <p className="text-xs text-destructive">
+                              {businessForm.formState.errors.user_limit.message}
+                            </p>
+                          )}
+                          <p className="text-xs text-muted-foreground">
+                            En uso: {business?.user_limit_used ?? 0} de{" "}
+                            {business?.user_limit ?? 5}. Tu cuenta de administrador
+                            no cuenta para este límite.
+                          </p>
+                        </div>
+                      ) : (
+                        <Alert className="border-blue-500/30 bg-blue-500/5">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription className="text-xs">
+                            Tu plan permite hasta{" "}
+                            <strong>{business?.user_limit ?? 5}</strong> usuarios (en
+                            uso: {business?.user_limit_used ?? 0}). Solo el
+                            administrador puede cambiar este límite.
+                          </AlertDescription>
+                        </Alert>
+                      )}
                     </CardContent>
                   </Card>
 

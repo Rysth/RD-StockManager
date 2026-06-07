@@ -99,6 +99,14 @@ class RodauthMain < Rodauth::Rails::Auth
     
     # Custom field validation errors (handled in hooks)
     before_create_account do
+      # Respeta el límite de usuarios del plan también en el registro público:
+      # las cuentas auto-registradas (rol 'user') cuentan como asientos, así que
+      # no deben poder saltarse el tope que el admin configuró.
+      business = Business.current
+      if User.business_seats_used >= business.user_limit
+        throw_error_status(422, "login", "Has alcanzado el límite de #{business.user_limit} usuarios de tu plan. Contacta a RysthDesign para ampliarlo.")
+      end
+
       # Validate fullname
       if param_or_nil("fullname").to_s.strip.empty?
         throw_error_status(422, "fullname", "El nombre completo es requerido")

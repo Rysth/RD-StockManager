@@ -65,6 +65,9 @@ interface UserState {
   isExporting: boolean;
   error: string | null;
   pagination: Pagination;
+  userLimit: number | null;
+  userLimitUsed: number;
+  userLimitReached: boolean;
   fetchUsers: (
     page?: number,
     perPage?: number,
@@ -100,6 +103,9 @@ export const useUserStore = create<UserState>((set, get) => ({
     total_count: 0,
     per_page: 12,
   },
+  userLimit: null,
+  userLimitUsed: 0,
+  userLimitReached: false,
   currentFilters: null, // Inicializar como null
 
   fetchUsers: async (page = 1, perPage = 12, filters = {}, sort?: string) => {
@@ -140,6 +146,9 @@ export const useUserStore = create<UserState>((set, get) => ({
         set({
           users: response.data.users,
           pagination: response.data.pagination,
+          userLimit: response.data.user_limit ?? null,
+          userLimitUsed: response.data.user_limit_used ?? 0,
+          userLimitReached: response.data.user_limit_reached ?? false,
           isLoading: false,
         });
         return;

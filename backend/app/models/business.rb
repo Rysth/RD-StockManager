@@ -15,6 +15,8 @@ class Business < ApplicationRecord
   validates :sri_ambiente, inclusion: { in: SRI_AMBIENTES, message: "debe ser 1 (pruebas) o 2 (producción)" }
   validates :sri_next_factura_secuencial,
             numericality: { only_integer: true, greater_than_or_equal_to: 1 }
+  validates :user_limit,
+            numericality: { only_integer: true, greater_than_or_equal_to: 1 }
 
   # Indica si el negocio tiene todos los datos necesarios para emitir facturas electrónicas.
   def sri_ready?

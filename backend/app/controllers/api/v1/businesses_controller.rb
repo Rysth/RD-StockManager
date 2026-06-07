@@ -29,7 +29,7 @@ module Api
         return render_error("Solo el administrador puede configurar la facturación SRI", :forbidden) if sri_admin_params_present? && !admin_user?
 
         update_params = business_params.except(:logo, :sri_certificate)
-        update_params.merge!(sri_admin_params) if admin_user?
+        update_params.merge!(sri_admin_params, plan_admin_params) if admin_user?
 
         if @business.update(update_params)
           if params[:logo].present?
@@ -69,6 +69,12 @@ module Api
         ).permit(
           :sri_enabled, :sri_ambiente, :sri_cert_password, :sri_next_factura_secuencial
         )
+      end
+
+      # Campo del plan que solo el admin puede modificar. Si lo envía el dueño,
+      # no se mergea (queda fuera de business_params) y se ignora silenciosamente.
+      def plan_admin_params
+        params.slice(:user_limit).permit(:user_limit)
       end
 
       def sri_admin_params_present?
@@ -159,6 +165,8 @@ module Api
           sri_cert_configured: business.sri_cert_configured?,
           sri_cert_filename: business.sri_cert_filename,
           sri_cert_uploaded_at: business.sri_cert_uploaded_at,
+          user_limit: business.user_limit,
+          user_limit_used: User.business_seats_used,
           created_at: business.created_at,
           updated_at: business.updated_at
         }
@@ -167,6 +175,9 @@ module Api
       def clear_cache
         Rails.cache.delete("business:current")
         Rails.cache.delete("public:business:current")
+        # El indicador "X de N usuarios" de la página de usuarios depende del límite,
+        # así que invalidamos su cache cuando el admin cambia el plan.
+        Rails.cache.delete_matched("users:index*")
       end
     end
   end
