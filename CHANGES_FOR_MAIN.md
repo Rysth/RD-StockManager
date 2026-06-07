@@ -345,6 +345,113 @@ introduced and reverted — net effect is the final scrollbar/grouping design.
 
 ---
 
+## Batch 3 — commits since `549224a` (2026-06-05 → 2026-06-07)
+
+A third wave of generic platform work. The entire `549224a..HEAD` range is
+**client-agnostic** — it touches no branding/asset files (`rysth_logo`,
+`index.html`, `favicon`), no `seeds/production`, and no `docker-compose.prod`.
+It adds **4 new migrations**, so run `rails db:migrate` on `main` after porting.
+Grouped by theme:
+
+### A. POS cash register (arqueo) & safety controls
+
+Cash session lifecycle (open/close with counted vs. expected amount and
+variance), below-cost sale block for `business_employee`, and cash
+received/change capture in the POS.
+
+- Commit: `291d2ea`. *Migrations:* `add_cash_fields_to_sales`, `create_cash_sessions`.
+- Backend: `cash_sessions_controller.rb` *(new)*, `cash_session.rb` *(new)*,
+  `sale.rb`, `sale_item.rb`, `sales_controller.rb`, `config/routes.rb`.
+- Frontend: `cashSessionStore.ts` *(new)*, `SalesPosIndex.tsx`, `saleStore.ts`,
+  `lib/ticket.ts`, `types/inventory.ts`.
+
+> This commit also edited `CHANGES_FOR_MAIN.md` and `ROADMAP.md` — drop those
+> docs hunks when porting.
+
+### B. Reserve stock at sale creation
+
+Reserves (deducts) stock when a sale is created (pending or completed) to
+prevent two sellers from overselling the same last unit. Idempotent via a
+`stock_reserved` flag; released on cancel.
+
+- Commit: `9585f5f`. *Migration:* `add_stock_reserved_to_sales`.
+- Backend: `sale.rb`, `sales_controller.rb`, `db/schema.rb`.
+- Frontend: `SalesPosIndex.tsx`.
+
+### C. Transfer payment verification flow
+
+`confirm_payment` endpoint that records payment, requires a `payment_proof`
+attachment (photo/PDF) for transfers, and completes the pending sale. Paperclip
+icon to view the proof in the sales list; eager-loading fixes.
+
+- Commits: `0a9a78b`, `29975ee`, `763f2d2`.
+- Backend: `sales_controller.rb`, `sale.rb`, `config/routes.rb`.
+- Frontend: `SaleDetailSheet.tsx`, `SalesIndex.tsx`, `saleStore.ts`, `types/inventory.ts`.
+
+### D. Sale detail sheet
+
+Side-sheet detail view for sales (items, totals, invoice/payment actions).
+
+- Commit: `45d86fe`. Frontend: `SaleDetailSheet.tsx`, `SalesPosIndex.tsx`.
+
+### E. Transfers polish
+
+Wider AlertDialog modals in `TransfersIndex`; small `stock_transfers_controller`
+update.
+
+- Commits: `2b55e98`, `145732e`.
+- Backend: `stock_transfers_controller.rb`. Frontend: `TransfersIndex.tsx`.
+
+### F. Best-sellers report + period comparison
+
+`reports#best_sellers` endpoint returning the current period's totals (revenue,
+units, sales count, profit) vs. the previous equal-length period with delta %,
+plus the top-10 products. New "Más vendidos" tab.
+
+- Commit: `b2bacdc` *(part)*.
+- Backend: `reports_controller.rb`, `config/routes.rb`.
+- Frontend: `AdvancedReportsIndex.tsx`, `reportStore.ts`, `types/inventory.ts`.
+
+### G. Barcode (EAN-13 / UPC-A) support
+
+Dedicated `barcode` column on `product_variants` (partial unique index), POS
+scan matches by SKU **or** barcode, and a `CodigoBarras` column in the Excel
+import/export.
+
+- Commit: `b2bacdc` *(part)*. *Migration:* `add_barcode_to_product_variants`.
+- Backend: `product_variant.rb`, `products_controller.rb`,
+  `product_import_service.rb`, `product_export_service.rb`, `db/schema.rb`.
+- Frontend: `usePosCart.ts`, `ProductFormModal.tsx`, `types/inventory.ts`.
+
+> `b2bacdc` also includes a transfer navigation refactor (`TransfersIndex.tsx`,
+> `SalesPosIndex.tsx`).
+
+### H. Per-plan user limit
+
+Configurable `user_limit` on `businesses` (default 5, editable by admin only),
+seat counting that excludes platform admins, and enforcement on both admin user
+creation and public Rodauth registration. Generic capability — no branding; the
+default reflects the Starter plan but is fully configurable.
+
+- Commit: `ced06bc`. *Migration:* `add_user_limit_to_businesses`.
+- Backend: `business.rb`, `user.rb`, `businesses_controller.rb`,
+  `users_controller.rb`, `misc/rodauth_main.rb`, `db/schema.rb`.
+- Frontend: `BusinessSettings.tsx`, `UsersIndex.tsx`, `businessStore.ts`, `userStore.ts`.
+
+### I. Decouple invoicing from payment (credit sales / mark-as-paid)
+
+`Sale#complete!(allow_unpaid:)` plus a `credit` ("cobro pendiente") flag so a
+sale can be completed and invoiced while left "por pagar". `confirm_payment`
+generalized to register payment on already-completed sales. Payment-status badge
+and a reusable "Marcar como pagada" dialog on both Sales and Invoices lists.
+
+- Commit: `b82c32a`.
+- Backend: `sale.rb`, `sales_controller.rb`, `invoices_controller.rb`.
+- Frontend: `MarkPaidDialog.tsx` *(new)*, `SalesIndex.tsx`, `InvoicesIndex.tsx`,
+  `SalesPosIndex.tsx`, `saleStore.ts`, `types/inventory.ts`.
+
+---
+
 ## What to EXCLUDE from main
 
 These commits are RysthDesign-specific and must stay on `clients/rysthdesign` only:
@@ -402,3 +509,17 @@ git show --stat HEAD | grep -iE 'rysth_logo|index.html|seeds/production|docker-c
 
 > **Tip:** Run `npx tsc --noEmit` (admin) and the backend migrations
 > (`rails db:migrate`) on `main` after the squash to confirm parity before pushing.
+
+### Batch 3 (commits since `549224a`, oldest → newest)
+
+The range is clean (no client-only files), so a straight ordered cherry-pick
+works:
+
+```bash
+git checkout main && git pull origin main
+git cherry-pick 2b55e98 291d2ea 45d86fe 0a9a78b 29975ee 763f2d2 145732e 9585f5f b2bacdc ced06bc b82c32a
+```
+
+When picking `291d2ea`, drop its `CHANGES_FOR_MAIN.md` / `ROADMAP.md` hunks
+(docs-only). Batch 3 adds 4 migrations — run `rails db:migrate` and
+`npx tsc --noEmit` afterwards to confirm parity.
