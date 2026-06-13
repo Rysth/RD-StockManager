@@ -62,7 +62,7 @@ interface BusinessState {
   isLoading: boolean;
   error: string | null;
   fetchBusiness: () => Promise<void>;
-  updateBusiness: (data: BusinessData | FormData) => Promise<void>;
+  updateBusiness: (data: Partial<BusinessData> | FormData) => Promise<void>;
   fetchPublicBusiness: () => Promise<Business | null>;
   loadCachedPublicBusiness: () => Business | null;
 }
@@ -121,7 +121,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => ({
     }
   },
 
-  updateBusiness: async (data: BusinessData | FormData) => {
+  updateBusiness: async (data: Partial<BusinessData> | FormData) => {
     set({ isLoading: true, error: null });
     try {
       const currentBusiness = get().business;

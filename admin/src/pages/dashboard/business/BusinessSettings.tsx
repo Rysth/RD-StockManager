@@ -5,6 +5,16 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   AlertCircle,
   Building2,
   ChevronRight,
@@ -118,6 +128,8 @@ export default function BusinessSettings() {
   );
   const [isProfileCooldown, setIsProfileCooldown] = useState(false);
   const [isPasswordCooldown, setIsPasswordCooldown] = useState(false);
+  const [ambienteSaving, setAmbienteSaving] = useState(false);
+  const [confirmProdOpen, setConfirmProdOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const canManageBusiness = hasPermission(Permissions.VIEW_BUSINESS);
@@ -160,6 +172,7 @@ export default function BusinessSettings() {
   const businessForm = useForm<BusinessFormData>({
     ...(businessFormValues ? { values: businessFormValues } : {}),
   });
+  const sriAmbiente = businessForm.watch("sri_ambiente");
 
   const profileFormValues = useMemo(
     () =>
@@ -253,6 +266,37 @@ export default function BusinessSettings() {
       toast.success("Configuración del negocio guardada");
     } catch (error: any) {
       toast.error(error.message || "Error al guardar configuración");
+    }
+  };
+
+  // Cambio rápido de ambiente SRI: guarda solo ese campo de inmediato.
+  // Pasar a Producción exige confirmación previa (handleSelectAmbiente).
+  const applyAmbiente = async (next: string) => {
+    const prev = businessForm.getValues("sri_ambiente");
+    if (next === prev) return;
+    businessForm.setValue("sri_ambiente", next, { shouldDirty: false });
+    setAmbienteSaving(true);
+    try {
+      await updateBusiness({ sri_ambiente: next });
+      toast.success(
+        next === "2"
+          ? "Ambiente cambiado a PRODUCCIÓN — las facturas ahora son reales"
+          : "Ambiente cambiado a Pruebas",
+      );
+    } catch (error: any) {
+      businessForm.setValue("sri_ambiente", prev, { shouldDirty: false });
+      toast.error(error.message || "No se pudo cambiar el ambiente");
+    } finally {
+      setAmbienteSaving(false);
+    }
+  };
+
+  const handleSelectAmbiente = (next: string) => {
+    if (ambienteSaving || next === businessForm.getValues("sri_ambiente")) return;
+    if (next === "2") {
+      setConfirmProdOpen(true);
+    } else {
+      applyAmbiente("1");
     }
   };
 
@@ -1066,19 +1110,54 @@ export default function BusinessSettings() {
                             </Alert>
                           ) : null}
 
-                          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                            <div className="space-y-1.5">
-                              <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                                Ambiente SRI
-                              </Label>
-                              <select
-                                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                                {...businessForm.register("sri_ambiente")}
-                              >
-                                <option value="1">Pruebas</option>
-                                <option value="2">Producción</option>
-                              </select>
+                          <div
+                            className={`mt-4 rounded-lg border p-3 ${
+                              sriAmbiente === "2"
+                                ? "border-red-300 bg-red-50/70 dark:border-red-900/60 dark:bg-red-950/30"
+                                : "border-blue-300 bg-blue-50/70 dark:border-blue-900/60 dark:bg-blue-950/30"
+                            }`}
+                          >
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                              <div>
+                                <p className="text-sm font-semibold">Ambiente de emisión SRI</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {sriAmbiente === "2"
+                                    ? "⚠ Producción: las facturas son reales, oficiales y consumen el secuencial real."
+                                    : "Pruebas: emite libremente para testear, sin afectar tus facturas oficiales."}
+                                  {ambienteSaving ? " Guardando…" : ""}
+                                </p>
+                              </div>
+                              <div className="inline-flex shrink-0 rounded-md border border-input bg-background p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectAmbiente("1")}
+                                  disabled={ambienteSaving}
+                                  className={`rounded px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-60 ${
+                                    sriAmbiente !== "2"
+                                      ? "bg-blue-600 text-white shadow-sm"
+                                      : "text-muted-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  Pruebas
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectAmbiente("2")}
+                                  disabled={ambienteSaving}
+                                  className={`rounded px-4 py-1.5 text-sm font-medium transition-colors disabled:opacity-60 ${
+                                    sriAmbiente === "2"
+                                      ? "bg-red-600 text-white shadow-sm"
+                                      : "text-muted-foreground hover:bg-muted"
+                                  }`}
+                                >
+                                  Producción
+                                </button>
+                              </div>
                             </div>
+                            <input type="hidden" {...businessForm.register("sri_ambiente")} />
+                          </div>
+
+                          <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
 
                             <div className="space-y-1.5">
                               <Label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -1140,6 +1219,43 @@ export default function BusinessSettings() {
                               </p>
                             </div>
                           </div>
+
+                          <AlertDialog
+                            open={confirmProdOpen}
+                            onOpenChange={(o) => !ambienteSaving && setConfirmProdOpen(o)}
+                          >
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Cambiar a ambiente de PRODUCCIÓN</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  <span className="block space-y-2 text-left">
+                                    <span className="block">
+                                      En <span className="font-semibold text-foreground">Producción</span>{" "}
+                                      las facturas que emitas son <span className="font-semibold text-foreground">reales y oficiales</span>:
+                                      se reportan al SRI y consumen el secuencial real de tu negocio.
+                                    </span>
+                                    <span className="block">
+                                      Usa <span className="font-semibold text-foreground">Pruebas</span> si solo quieres testear.
+                                    </span>
+                                  </span>
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel disabled={ambienteSaving}>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction
+                                  className="bg-red-600 text-white hover:bg-red-700"
+                                  disabled={ambienteSaving}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    setConfirmProdOpen(false);
+                                    applyAmbiente("2");
+                                  }}
+                                >
+                                  Sí, cambiar a Producción
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       )}
 

@@ -700,6 +700,17 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                       {money(invoiceTarget.total)}
                     </span>
                   )}
+                  <span
+                    className={`block rounded-lg border p-3 text-sm font-medium ${
+                      business?.sri_ambiente === "2"
+                        ? "border-red-300 bg-red-50 text-red-700"
+                        : "border-blue-300 bg-blue-50 text-blue-700"
+                    }`}
+                  >
+                    {business?.sri_ambiente === "2"
+                      ? "⚠ ATENCIÓN: ambiente PRODUCCIÓN — esta factura será real y oficial ante el SRI."
+                      : "Ambiente de Pruebas — no afecta tus facturas oficiales."}
+                  </span>
                 </span>
               )}
             </AlertDialogDescription>
@@ -708,12 +719,21 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
             <AlertDialogCancel disabled={!!invoicingId}>Volver</AlertDialogCancel>
             <AlertDialogAction
               disabled={!invoiceTarget || !!invoicingId}
+              className={
+                business?.sri_ambiente === "2"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : undefined
+              }
               onClick={(e) => {
                 e.preventDefault();
                 if (invoiceTarget) handleIssueInvoice(invoiceTarget.id);
               }}
             >
-              {invoicingId ? "Autorizando..." : "Sí, emitir factura"}
+              {invoicingId
+                ? "Autorizando..."
+                : business?.sri_ambiente === "2"
+                  ? "Sí, emitir a PRODUCCIÓN"
+                  : "Sí, emitir factura"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
