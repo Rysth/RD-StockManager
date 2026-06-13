@@ -57,45 +57,39 @@ Los empleados no ven la seccion de facturacion en el drawer de detalle de venta.
 
 ## Planes y Precios
 
-### Implementacion (pago unico)
+**StockManager** es un SaaS de inventario, ventas, compras y reportes con **facturacion electronica SRI incluida**. Se instala de forma individual para cada cliente (su propio servidor, dominio y datos). El modelo apunta a una **barrera de entrada baja**: un onboarding accesible y una mensualidad comoda para negocios pequeños, en lugar de un pago inicial alto.
 
-Incluye instalacion en servidor, configuracion de dominios, variables de entorno, primera carga de datos y capacitacion inicial.
+### Onboarding (pago unico)
+
+Instalacion en servidor, configuracion de dominios y variables de entorno, configuracion de facturacion SRI, primera carga de datos y capacitacion inicial.
 
 | | Precio |
 |---|---|
-| Implementacion | **$375 – $425** |
-
----
+| Onboarding | **$49 – $99** |
 
 ### Suscripcion mensual
 
-> **Promo Junio 2026** — Precio especial valido hasta el **30 de junio de 2026**.
-> A partir de julio los precios suben. Suscripciones contratadas en junio mantienen el precio promocional.
+| Plan | Usuarios | Mensual | Anual (paga 10, llevate 12) |
+|------|----------|---------|------------------------------|
+| **Starter** | Hasta 5 | $19 – $25 / mes | ~17% de ahorro |
+| **Business** | Hasta 8 | $29 – $35 / mes | ~17% de ahorro |
 
-#### Precio promocional (hasta 30 jun 2026)
+> El plan anual equivale a pagar 10 meses y usar 12 — **2 meses gratis**. La **facturacion electronica SRI esta incluida** en ambos planes; resolverla por fuera le cuesta mas al cliente, asi que es el principal gancho de valor.
 
-| Plan | Usuarios | Mensual | Anual | Ahorro anual |
-|------|----------|---------|-------|--------------|
-| **Basico** | Hasta 5 | $29 / mes | $290 / año | $58 (2 meses gratis) |
-| **Pro** | Hasta 10 | $39 / mes | $390 / año | $78 (2 meses gratis) |
+### Desarrollos a medida
 
-#### Precio regular (desde 1 jul 2026)
-
-| Plan | Usuarios | Mensual | Anual | Ahorro anual |
-|------|----------|---------|-------|--------------|
-| **Basico** | Hasta 5 | $35 / mes | $350 / año | $70 (2 meses gratis) |
-| **Pro** | Hasta 10 | $47 / mes | $470 / año | $94 (2 meses gratis) |
-
-> El plan anual equivale a pagar 10 meses y usar 12 — **2 meses completamente gratis**.
+Todo lo que esta fuera del producto estandar (integraciones, modulos o reportes custom) se cotiza y cobra aparte, **desde $400**.
 
 ---
 
 ### Que incluye la suscripcion
 
-- Todos los modulos: inventario, ventas, compras, gastos, reportes, cotizaciones y facturacion SRI.
+- Todos los modulos: inventario, ventas, compras, gastos, reportes, cotizaciones y **facturacion SRI incluida**.
 - Actualizaciones y mejoras incluidas en el plan.
 - Soporte tecnico por WhatsApp / email.
 - Infraestructura en servidor propio del cliente (Dokploy) — tus datos, tu servidor.
+
+> **Nota:** StockManager no incluye modulo de contabilidad (plan de cuentas, asientos, libro mayor) por diseño. En su lugar, exporta reportes de IVA, cuentas por cobrar/pagar y caja para que los use el contador del negocio.
 
 ---
 
