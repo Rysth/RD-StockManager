@@ -1,10 +1,9 @@
-# Production Seeds — generic, per-client deploy
-# Runs automatically on deploy via db:seed, or manually with:
+# Production Seeds — RysthDesign
+# Runs automatically on first deploy via db:prepare or manually with:
 #   bin/rails db:seed RAILS_ENV=production
 #
-# Creates only the minimum required data: roles, permissions, a default location,
-# and the initial admin user. Business identity is set via BUSINESS_* env vars at
-# startup — no hardcode here.
+# Creates only the minimum required data: roles, permissions, and the initial admin user.
+# Business identity is set via BUSINESS_* env vars at startup — no hardcode here.
 
 unless Rails.env.production?
   puts "⚠️  This seed file is only for production environment!"
@@ -16,9 +15,9 @@ puts "🌱 Seeding production database..."
 
 # Roles
 puts "Creating roles..."
-Role.find_or_create_by!(name: 'admin')
-Role.find_or_create_by!(name: 'business_owner')
-Role.find_or_create_by!(name: 'business_employee')
+admin_role            = Role.find_or_create_by!(name: 'admin')
+business_owner_role   = Role.find_or_create_by!(name: 'business_owner')
+business_employee_role = Role.find_or_create_by!(name: 'business_employee')
 
 # Permissions
 puts "Seeding permissions..."

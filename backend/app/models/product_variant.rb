@@ -15,6 +15,8 @@ class ProductVariant < ApplicationRecord
   after_update :reconcile_default_stock_level, if: :saved_change_to_stock?
 
   validates :sku, presence: true, uniqueness: { message: "El SKU ya existe" }
+  validates :barcode, uniqueness: { message: "El código de barras ya existe" }, allow_blank: true
+  validates :barcode, format: { with: /\A\d{8,14}\z/, message: "debe tener entre 8 y 14 dígitos (EAN/UPC)" }, allow_blank: true
   validates :stock, numericality: { greater_than_or_equal_to: 0, only_integer: true }
   validate :images_count_validation
   validate :images_type_validation
@@ -51,7 +53,7 @@ class ProductVariant < ApplicationRecord
   end
 
   def self.ransackable_attributes(_auth_object = nil)
-    %w[id product_id size color stock sku created_at updated_at]
+    %w[id product_id size color stock sku barcode created_at updated_at]
   end
 
   def self.ransackable_associations(_auth_object = nil)

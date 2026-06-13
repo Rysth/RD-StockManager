@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
+ActiveRecord::Schema[8.0].define(version: 2026_06_07_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -134,7 +134,27 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
     t.datetime "sri_cert_uploaded_at"
     t.text "sri_cert_password_ciphertext"
     t.integer "sri_next_factura_secuencial", default: 1, null: false
+    t.integer "user_limit", default: 5, null: false
     t.index ["ruc"], name: "index_businesses_on_ruc", unique: true
+  end
+
+  create_table "cash_sessions", force: :cascade do |t|
+    t.bigint "user_id", null: false
+    t.bigint "location_id", null: false
+    t.integer "status", default: 0, null: false
+    t.decimal "opening_amount", precision: 10, scale: 2, default: "0.0", null: false
+    t.decimal "counted_amount", precision: 10, scale: 2
+    t.decimal "expected_amount", precision: 10, scale: 2
+    t.decimal "variance", precision: 10, scale: 2
+    t.text "notes"
+    t.datetime "opened_at", null: false
+    t.datetime "closed_at"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["location_id"], name: "index_cash_sessions_on_location_id"
+    t.index ["status"], name: "index_cash_sessions_on_status"
+    t.index ["user_id", "location_id"], name: "index_cash_sessions_open_unique", unique: true, where: "(status = 0)"
+    t.index ["user_id"], name: "index_cash_sessions_on_user_id"
   end
 
   create_table "categories", force: :cascade do |t|
@@ -304,6 +324,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
     t.string "sku", null: false
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.string "barcode"
+    t.index ["barcode"], name: "index_product_variants_on_barcode", unique: true, where: "(barcode IS NOT NULL)"
     t.index ["product_id"], name: "index_product_variants_on_product_id"
     t.index ["sku"], name: "index_product_variants_on_sku", unique: true
   end
@@ -463,6 +485,11 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
     t.date "due_date"
     t.decimal "shipping_cost", precision: 10, scale: 2, default: "0.0", null: false
     t.decimal "sri_iva_rate", precision: 5, scale: 2, default: "0.0", null: false
+    t.decimal "cash_received", precision: 10, scale: 2
+    t.decimal "cash_change", precision: 10, scale: 2
+    t.bigint "cash_session_id"
+    t.boolean "stock_reserved", default: false, null: false
+    t.index ["cash_session_id"], name: "index_sales_on_cash_session_id"
     t.index ["customer_id"], name: "index_sales_on_customer_id"
     t.index ["due_date"], name: "index_sales_on_due_date"
     t.index ["location_id"], name: "index_sales_on_location_id"
@@ -536,6 +563,8 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
   add_foreign_key "account_verification_keys", "accounts", column: "id"
   add_foreign_key "active_storage_attachments", "active_storage_blobs", column: "blob_id"
   add_foreign_key "active_storage_variant_records", "active_storage_blobs", column: "blob_id"
+  add_foreign_key "cash_sessions", "locations"
+  add_foreign_key "cash_sessions", "users"
   add_foreign_key "categories", "categories", column: "parent_id"
   add_foreign_key "expenses", "expense_categories"
   add_foreign_key "expenses", "locations"
@@ -567,6 +596,7 @@ ActiveRecord::Schema[8.0].define(version: 2026_06_06_030000) do
   add_foreign_key "sale_items", "product_bundles"
   add_foreign_key "sale_items", "product_variants"
   add_foreign_key "sale_items", "sales"
+  add_foreign_key "sales", "cash_sessions"
   add_foreign_key "sales", "customers"
   add_foreign_key "sales", "locations"
   add_foreign_key "sales", "users"

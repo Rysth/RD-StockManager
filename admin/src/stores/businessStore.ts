@@ -27,6 +27,8 @@ interface Business {
   sri_cert_configured?: boolean;
   sri_cert_filename?: string | null;
   sri_cert_uploaded_at?: string | null;
+  user_limit?: number;
+  user_limit_used?: number;
   created_at: string;
   updated_at: string;
 }
@@ -51,6 +53,7 @@ interface BusinessData {
   sri_ambiente?: string;
   sri_next_factura_secuencial?: number;
   sri_cert_password?: string;
+  user_limit?: number;
 }
 
 interface BusinessState {
@@ -59,7 +62,7 @@ interface BusinessState {
   isLoading: boolean;
   error: string | null;
   fetchBusiness: () => Promise<void>;
-  updateBusiness: (data: BusinessData | FormData) => Promise<void>;
+  updateBusiness: (data: Partial<BusinessData> | FormData) => Promise<void>;
   fetchPublicBusiness: () => Promise<Business | null>;
   loadCachedPublicBusiness: () => Business | null;
 }
@@ -118,7 +121,7 @@ export const useBusinessStore = create<BusinessState>((set, get) => ({
     }
   },
 
-  updateBusiness: async (data: BusinessData | FormData) => {
+  updateBusiness: async (data: Partial<BusinessData> | FormData) => {
     set({ isLoading: true, error: null });
     try {
       const currentBusiness = get().business;

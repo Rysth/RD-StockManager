@@ -2,7 +2,7 @@ import { Link, Navigate, Outlet, useLocation } from "react-router-dom";
 import { useEffect } from "react";
 import { useAuthStore } from "../stores/authStore";
 import { useBusinessStore } from "../stores/businessStore";
-import logo from "../assets/logo.svg";
+import logo from "../assets/rysth_logo.png";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
 import { BarChart3, PackageCheck, ReceiptText, Warehouse } from "lucide-react";
 

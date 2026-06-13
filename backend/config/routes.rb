@@ -80,6 +80,16 @@ Rails.application.routes.draw do
           get  :invoice_xml          # descarga el XML autorizado
           get  :invoice_ride         # descarga el RIDE (PDF)
           put  :sync_items           # reemplaza los items de una venta pendiente
+          put  :confirm_payment      # verifica el pago (con comprobante) y completa la venta
+        end
+      end
+      resources :cash_sessions, only: [:show] do
+        collection do
+          get  :current # caja abierta del cajero en la sucursal
+          post :open    # abre una caja con monto inicial
+        end
+        member do
+          put :close    # cierra la caja con arqueo
         end
       end
       resources :invoices, only: [:index, :show] do
@@ -125,6 +135,7 @@ Rails.application.routes.draw do
         get :cash_register
         get :sales_reps
         get :inventory_valuation
+        get :best_sellers
       end
 
       # Public endpoints (no authentication)

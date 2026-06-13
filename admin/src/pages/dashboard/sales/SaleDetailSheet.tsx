@@ -98,6 +98,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
     isSubmitting,
     clearSelectedSale,
     updateSaleStatus,
+    confirmSalePayment,
     issueInvoice,
     sendInvoiceEmail,
     downloadInvoiceXml,
@@ -110,7 +111,8 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
   const [editSaleOpen, setEditSaleOpen] = useState(false);
   const [editItemsOpen, setEditItemsOpen] = useState(false);
   const [cancelId, setCancelId] = useState<number | null>(null);
-  const [completeId, setCompleteId] = useState<number | null>(null);
+  const [completeOpen, setCompleteOpen] = useState(false);
+  const [proofFile, setProofFile] = useState<File | null>(null);
   const [invoiceConfirmId, setInvoiceConfirmId] = useState<number | null>(null);
   const [invoicingId, setInvoicingId] = useState<number | null>(null);
   const [invoiceActionError, setInvoiceActionError] = useState<string | null>(null);
@@ -141,15 +143,19 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
   };
 
   const handleComplete = async () => {
-    if (completeId == null) return;
+    if (!selectedSale) return;
+    if (selectedSale.payment_method === "transfer" && !proofFile) {
+      toast.error("Debes adjuntar el comprobante de la transferencia");
+      return;
+    }
     try {
-      await updateSaleStatus(completeId, "completed");
-      toast.success("Pedido completado - stock descontado");
+      await confirmSalePayment(selectedSale.id, proofFile);
+      toast.success("Pago confirmado - venta completada");
+      setCompleteOpen(false);
+      setProofFile(null);
       handleClose();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Error al completar el pedido");
-    } finally {
-      setCompleteId(null);
+      toast.error(e instanceof Error ? e.message : "Error al confirmar el pago");
     }
   };
 
@@ -275,6 +281,16 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                     {PAYMENT_LABEL[selectedSale.payment_method ?? "cash"] || "-"}
                     {selectedSale.cash_on_delivery ? " · Contra entrega" : ""}
                   </p>
+                  {selectedSale.payment_proof_url && (
+                    <a
+                      href={selectedSale.payment_proof_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-0.5 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                    >
+                      <FileText className="h-3 w-3" /> Ver comprobante
+                    </a>
+                  )}
                 </div>
               </div>
 
@@ -382,7 +398,7 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                     )}
                   </div>
 
-                  {!sriEnabled && (
+                  {!sriEnabled && !isBusinessEmployee && (
                     <Alert className="border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-300 [&>svg]:text-amber-500">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">
@@ -481,9 +497,16 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
               {selectedSale.status === "pending" && (
                 <Button
                   className="w-full bg-emerald-600 text-white hover:bg-emerald-700"
-                  onClick={() => setCompleteId(selectedSale.id)}
+                  onClick={() => {
+                    setProofFile(null);
+                    setCompleteOpen(true);
+                  }}
                 >
-                  Confirmar entrega y pago
+                  {selectedSale.cash_on_delivery
+                    ? "Confirmar entrega y pago"
+                    : selectedSale.payment_method === "transfer"
+                      ? "Verificar transferencia y completar"
+                      : "Confirmar pago"}
                 </Button>
               )}
 
@@ -572,27 +595,75 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Complete confirmation */}
-      <AlertDialog open={completeId != null} onOpenChange={(o) => !o && setCompleteId(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Confirmar entrega y pago</AlertDialogTitle>
-            <AlertDialogDescription>
-              ¿Confirmás que el pedido fue entregado y el pago recibido? La venta pasará a
-              <strong> Completada</strong> y se descontará el stock de los productos.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Volver</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleComplete}
-              className="bg-emerald-600 text-white hover:bg-emerald-700"
+      {/* Complete / verify payment */}
+      <Dialog
+        open={completeOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setCompleteOpen(false);
+            setProofFile(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedSale?.payment_method === "transfer"
+                ? "Verificar transferencia"
+                : "Confirmar pago"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedSale?.payment_method === "transfer"
+                ? "Confirma que recibiste la transferencia. Debes adjuntar el comprobante (foto o PDF) para mayor control y seguridad. La venta se marcará pagada y completada, descontando el stock."
+                : "Confirma que el pago fue recibido. La venta se marcará pagada y completada, descontando el stock de los productos."}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSale?.payment_method === "transfer" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="proof-file">
+                Comprobante de transferencia <span className="text-destructive">*</span>
+              </Label>
+              <Input
+                id="proof-file"
+                type="file"
+                accept="image/*,application/pdf"
+                onChange={(e) => setProofFile(e.target.files?.[0] ?? null)}
+              />
+              {proofFile ? (
+                <p className="truncate text-xs text-muted-foreground">
+                  {proofFile.name}
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Obligatorio: adjunta la foto o PDF de la transferencia.
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              disabled={isSubmitting}
+              onClick={() => {
+                setCompleteOpen(false);
+                setProofFile(null);
+              }}
             >
-              Sí, confirmar entrega
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={
+                isSubmitting ||
+                (selectedSale?.payment_method === "transfer" && !proofFile)
+              }
+              onClick={handleComplete}
+            >
+              {isSubmitting ? "Procesando..." : "Confirmar y completar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Invoice issue confirmation */}
       <AlertDialog
@@ -629,6 +700,17 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
                       {money(invoiceTarget.total)}
                     </span>
                   )}
+                  <span
+                    className={`block rounded-lg border p-3 text-sm font-medium ${
+                      business?.sri_ambiente === "2"
+                        ? "border-red-300 bg-red-50 text-red-700"
+                        : "border-blue-300 bg-blue-50 text-blue-700"
+                    }`}
+                  >
+                    {business?.sri_ambiente === "2"
+                      ? "⚠ ATENCIÓN: ambiente PRODUCCIÓN — esta factura será real y oficial ante el SRI."
+                      : "Ambiente de Pruebas — no afecta tus facturas oficiales."}
+                  </span>
                 </span>
               )}
             </AlertDialogDescription>
@@ -637,12 +719,21 @@ export default function SaleDetailSheet({ open, onClose }: SaleDetailSheetProps)
             <AlertDialogCancel disabled={!!invoicingId}>Volver</AlertDialogCancel>
             <AlertDialogAction
               disabled={!invoiceTarget || !!invoicingId}
+              className={
+                business?.sri_ambiente === "2"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : undefined
+              }
               onClick={(e) => {
                 e.preventDefault();
                 if (invoiceTarget) handleIssueInvoice(invoiceTarget.id);
               }}
             >
-              {invoicingId ? "Autorizando..." : "Sí, emitir factura"}
+              {invoicingId
+                ? "Autorizando..."
+                : business?.sri_ambiente === "2"
+                  ? "Sí, emitir a PRODUCCIÓN"
+                  : "Sí, emitir factura"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

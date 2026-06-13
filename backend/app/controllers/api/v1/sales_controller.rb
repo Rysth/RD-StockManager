@@ -9,13 +9,13 @@ module Api
       before_action -> { authorize_permission!(Permission::MANAGE_SALES) }, except: [:report, *INVOICE_ACTIONS]
       before_action -> { authorize_permission!(Permission::VIEW_REPORTS) }, only: [:report]
       before_action -> { authorize_permission!(Permission::MANAGE_INVOICING) }, only: INVOICE_ACTIONS
-      before_action :set_sale, only: [:show, :update, :destroy, :sync_items]
+      before_action :set_sale, only: [:show, :update, :destroy, :sync_items, :confirm_payment]
       before_action :set_sale_for_invoice, only: [:invoice]
       before_action :set_sale_for_invoice_download, only: [:invoice_xml, :invoice_ride, :send_invoice_email]
 
       # GET /api/v1/sales
       def index
-        @q = Sale.includes(:customer, :user, :location, :invoices).ransack(search_params)
+        @q = Sale.includes(:customer, :user, :location, :invoices).with_attached_payment_proof.ransack(search_params)
         @q.sorts = "sold_at desc" if @q.sorts.empty?
 
         @pagy, sales = pagy(@q.result(distinct: true), page: params[:page] || 1, limit: params[:per_page] || 12)
@@ -50,6 +50,15 @@ module Api
             sale_params[:location_id].presence
           end
 
+        payment_method = sale_params[:payment_method].presence || :cash
+        cash_on_delivery = ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
+
+        # Las ventas al contado (no contra entrega) se asocian a la caja abierta del cajero.
+        cash_session =
+          if payment_method.to_s == "cash" && !cash_on_delivery && effective_location_id.present?
+            CashSession.current_for(current_rodauth_user, Location.find_by(id: effective_location_id))
+          end
+
         sale = nil
         ActiveRecord::Base.transaction do
           sale = Sale.new(
@@ -57,10 +66,13 @@ module Api
             location_id: effective_location_id,
             user: current_rodauth_user,
             status: :pending,
-            payment_method: sale_params[:payment_method].presence || :cash,
+            payment_method: payment_method,
             shipping_cost: sale_params[:shipping_cost].presence || 0,
             sri_iva_rate: sale_params[:sri_iva_rate].presence || 0,
-            cash_on_delivery: ActiveModel::Type::Boolean.new.cast(sale_params[:cash_on_delivery]) || false
+            cash_on_delivery: cash_on_delivery,
+            cash_received: sale_params[:cash_received].presence,
+            cash_change: sale_params[:cash_change].presence,
+            cash_session_id: cash_session&.id
           )
           sale.save!
 
@@ -76,11 +88,19 @@ module Api
           end
 
           sale.recalculate_total!
-          sale.complete! if desired_status == "completed" && sale.payment_method != "transfer"
+          # Reserva el stock al crear (pendiente o completada) para evitar que dos
+          # vendedores comprometan el mismo último ítem. complete! es idempotente.
+          sale.reserve_stock!
+          # "credit" = cobro pendiente: completa la venta dejándola por pagar (efectivo o
+          # transferencia), para poder facturarla y cobrar después.
+          credit = ActiveModel::Type::Boolean.new.cast(sale_params[:credit]) || false
+          if desired_status == "completed" && (sale.payment_method != "transfer" || credit)
+            sale.complete!(allow_unpaid: credit)
+          end
         end
 
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(sale.reload, with_items: true) }, "Venta registrada correctamente")
+        render_success({ sale: serialize(sale, with_items: true) }, "Venta registrada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo registrar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -89,7 +109,7 @@ module Api
       def update
         case desired_status
         when "completed"
-          @sale.complete!
+          @sale.complete!(allow_unpaid: ActiveModel::Type::Boolean.new.cast(params.dig(:sale, :credit)))
         when "cancelled"
           @sale.cancel!
         else
@@ -99,7 +119,7 @@ module Api
           @sale.recalculate_total! if sale_update_params.key?(:shipping_cost)
         end
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta actualizada correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Venta actualizada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo actualizar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -109,7 +129,7 @@ module Api
       def destroy
         @sale.cancel!
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Venta cancelada correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Venta cancelada correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudo cancelar la venta", :unprocessable_entity, e.record.errors.full_messages)
       end
@@ -127,6 +147,9 @@ module Api
         end
 
         ActiveRecord::Base.transaction do
+          # Libera la reserva previa antes de reemplazar los items, luego vuelve a
+          # reservar con las cantidades nuevas dentro de la misma transacción.
+          @sale.release_stock!
           @sale.sale_items.destroy_all
           items.each do |item|
             @sale.sale_items.create!(
@@ -139,12 +162,43 @@ module Api
             )
           end
           @sale.recalculate_total!
+          @sale.reserve_stock!
         end
 
         Rails.cache.delete("inventory:stats")
-        render_success({ sale: serialize(@sale.reload, with_items: true) }, "Items actualizados correctamente")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Items actualizados correctamente")
       rescue ActiveRecord::RecordInvalid => e
         render_error("No se pudieron actualizar los items", :unprocessable_entity, e.record.errors.full_messages)
+      end
+
+      # PUT /api/v1/sales/:id/confirm_payment — registra el pago completo (marca pagada)
+      # y adjunta el comprobante (obligatorio en transferencias: foto/PDF). Funciona sobre
+      # ventas pendientes (las completa) y sobre ventas ya completadas/facturadas que
+      # quedaron "por pagar" (cobro pendiente / a crédito). Usado por "Marcar como pagada".
+      def confirm_payment
+        if @sale.cancelled?
+          return render_error("No se puede registrar el pago de una venta cancelada", :unprocessable_entity)
+        end
+        if @sale.payment_paid?
+          return render_error("La venta ya está pagada", :unprocessable_entity)
+        end
+
+        # El comprobante es obligatorio para las transferencias.
+        if @sale.payment_transfer? && params[:payment_proof].blank? && !@sale.payment_proof.attached?
+          return render_error("Debes adjuntar el comprobante de la transferencia", :unprocessable_entity)
+        end
+
+        ActiveRecord::Base.transaction do
+          @sale.payment_proof.attach(params[:payment_proof]) if params[:payment_proof].present?
+          @sale.update!(paid_amount: @sale.total)
+          @sale.sync_payment_status!
+          @sale.complete! if @sale.pending? # las completadas se quedan completadas
+        end
+
+        Rails.cache.delete("inventory:stats")
+        render_success({ sale: serialize(@sale, with_items: true) }, "Pago registrado correctamente")
+      rescue ActiveRecord::RecordInvalid => e
+        render_error("No se pudo registrar el pago", :unprocessable_entity, e.record.errors.full_messages)
       end
 
       # POST /api/v1/sales/:id/invoice — emite la factura electrónica SRI de la venta.
@@ -229,7 +283,7 @@ module Api
       private
 
       def set_sale
-        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: :product }]).find(params[:id])
+        @sale = Sale.includes(:customer, :user, :location, :invoices, sale_items: [:product_bundle, { product_variant: [:product, :images_attachments] }]).with_attached_payment_proof.find(params[:id])
       rescue ActiveRecord::RecordNotFound
         render_error("Venta no encontrada", :not_found)
       end
@@ -247,11 +301,11 @@ module Api
       end
 
       def sale_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :status, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change, :credit)
       end
 
       def sale_update_params
-        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate)
+        params.fetch(:sale, {}).permit(:customer_id, :location_id, :payment_method, :cash_on_delivery, :shipping_cost, :sri_iva_rate, :cash_received, :cash_change)
       end
 
       def desired_status
@@ -291,7 +345,14 @@ module Api
           seller: sale.user&.fullname,
           payment_method: sale.payment_method,
           cash_on_delivery: sale.cash_on_delivery,
+          cash_received: sale.cash_received,
+          cash_change: sale.cash_change,
           sri_iva_rate: sale.sri_iva_rate,
+          payment_status: sale.payment_status,
+          paid_amount: sale.paid_amount,
+          balance: sale.balance_due,
+          due_date: sale.due_date,
+          payment_proof_url: sale.payment_proof.attached? ? url_for(sale.payment_proof) : nil,
           items_count: items_count || (sale.sale_items.loaded? ? sale.sale_items.length : sale.sale_items.count),
           created_at: sale.created_at,
           invoice: serialize_invoice(sale.latest_invoice)

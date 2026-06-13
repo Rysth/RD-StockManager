@@ -8,6 +8,7 @@ import type {
   CashRegisterReport,
   SalesRepRow,
   InventoryValuationReport,
+  BestSellersReport,
 } from "../types/inventory";
 
 type ApiError = {
@@ -48,6 +49,7 @@ interface ReportState {
   cashRegisterReport: CashRegisterReport | null;
   salesRepReport: SalesRepRow[] | null;
   inventoryValuationReport: InventoryValuationReport | null;
+  bestSellersReport: BestSellersReport | null;
   filters: ReportFilters;
   isLoading: boolean;
   error: string | null;
@@ -61,6 +63,7 @@ interface ReportState {
   fetchCashRegisterReport: () => Promise<void>;
   fetchSalesRepReport: () => Promise<void>;
   fetchInventoryValuationReport: () => Promise<void>;
+  fetchBestSellersReport: () => Promise<void>;
 }
 
 export const useReportStore = create<ReportState>((set, get) => ({
@@ -71,6 +74,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
   cashRegisterReport: null,
   salesRepReport: null,
   inventoryValuationReport: null,
+  bestSellersReport: null,
   filters: { locationId: null, startDate: null, endDate: null },
   isLoading: false,
   error: null,
@@ -86,6 +90,7 @@ export const useReportStore = create<ReportState>((set, get) => ({
       get().fetchCashRegisterReport(),
       get().fetchSalesRepReport(),
       get().fetchInventoryValuationReport(),
+      get().fetchBestSellersReport(),
     ]);
   },
 
@@ -156,6 +161,16 @@ export const useReportStore = create<ReportState>((set, get) => ({
       set({ inventoryValuationReport: data as InventoryValuationReport, isLoading: false });
     } catch (error) {
       set({ error: toMessage(error, "Error al obtener la valuación de inventario"), isLoading: false });
+    }
+  },
+
+  fetchBestSellersReport: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const { data } = await api.get("/api/v1/reports/best_sellers", { params: toParams(get().filters) });
+      set({ bestSellersReport: data as BestSellersReport, isLoading: false });
+    } catch (error) {
+      set({ error: toMessage(error, "Error al obtener el reporte de más vendidos"), isLoading: false });
     }
   },
 }));

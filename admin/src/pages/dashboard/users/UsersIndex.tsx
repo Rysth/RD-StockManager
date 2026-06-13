@@ -403,6 +403,9 @@ interface DataTableProps {
   canManageUsers: boolean;
   isLoading: boolean;
   isExporting: boolean;
+  userLimit: number | null;
+  userLimitUsed: number;
+  userLimitReached: boolean;
   pagination?: {
     currentPage: number;
     pageCount: number;
@@ -424,6 +427,9 @@ function UsersDataTable({
   canManageUsers,
   isLoading,
   isExporting,
+  userLimit,
+  userLimitUsed,
+  userLimitReached,
   pagination,
 }: DataTableProps) {
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
@@ -559,10 +565,33 @@ function UsersDataTable({
           </DropdownMenu>
 
           {canManageUsers && (
-            <Button onClick={onCreateUser} size="sm">
-              <Plus className="w-4 h-4 mr-2" />
-              Nuevo Usuario
-            </Button>
+            <div className="flex items-center gap-2">
+              {userLimit !== null && (
+                <span
+                  className={`hidden whitespace-nowrap rounded-md px-2 py-1 text-xs font-medium sm:inline ${
+                    userLimitReached
+                      ? "bg-amber-100 text-amber-800"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                  title="Tu cuenta de administrador no cuenta para este límite"
+                >
+                  {userLimitUsed} de {userLimit} usuarios
+                </span>
+              )}
+              <Button
+                onClick={onCreateUser}
+                size="sm"
+                disabled={userLimitReached}
+                title={
+                  userLimitReached
+                    ? "Límite del plan alcanzado. Amplía el plan para agregar más usuarios."
+                    : undefined
+                }
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Nuevo Usuario
+              </Button>
+            </div>
           )}
         </div>
       </div>
@@ -726,6 +755,9 @@ export default function UsersIndex() {
     batchDeleteUsers,
     batchToggleConfirmation,
     pagination,
+    userLimit,
+    userLimitUsed,
+    userLimitReached,
   } = useUserStore();
 
   const [state, dispatch] = useReducer(usersReducer, initialState);
@@ -925,6 +957,9 @@ export default function UsersIndex() {
         canManageUsers={!!canManageUsers}
         isLoading={isLoading}
         isExporting={isExporting || false}
+        userLimit={userLimit}
+        userLimitUsed={userLimitUsed}
+        userLimitReached={userLimitReached}
         pagination={
           pagination
             ? {

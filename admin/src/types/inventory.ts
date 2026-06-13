@@ -55,6 +55,7 @@ export interface ProductVariant {
   color?: string | null;
   stock: number;
   sku: string;
+  barcode?: string | null;
   low_stock?: boolean;
   out_of_stock?: boolean;
   stock_by_location?: VariantStockLevel[];
@@ -181,7 +182,14 @@ export interface Sale {
   seller?: string | null;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  cash_received?: number | null;
+  cash_change?: number | null;
   sri_iva_rate?: number;
+  payment_status?: "due" | "partial" | "paid";
+  paid_amount?: number;
+  balance?: number;
+  due_date?: string | null;
+  payment_proof_url?: string | null;
   items_count: number;
   items?: SaleItem[];
   profit?: number;
@@ -278,9 +286,42 @@ export interface CreateSaleData {
   status?: SaleStatus;
   payment_method?: PaymentMethod;
   cash_on_delivery?: boolean;
+  cash_received?: number | null;
+  cash_change?: number | null;
   shipping_cost?: number;
   sri_iva_rate?: number;
+  credit?: boolean;
   items: SaleItemInput[];
+}
+
+export type CashSessionStatus = "open" | "closed";
+
+export interface CashSessionSale {
+  id: number;
+  code: string;
+  total: number;
+  payment_method: PaymentMethod;
+  status: SaleStatus;
+  sold_at: string | null;
+}
+
+export interface CashSession {
+  id: number;
+  status: CashSessionStatus;
+  location_id: number;
+  location_name?: string | null;
+  user_id: number;
+  user_name?: string | null;
+  opening_amount: number;
+  counted_amount?: number | null;
+  expected_amount?: number | null;
+  variance?: number | null;
+  notes?: string | null;
+  sales_count: number;
+  opened_at: string;
+  closed_at?: string | null;
+  created_at: string;
+  sales?: CashSessionSale[];
 }
 
 export interface SalesReport {
@@ -529,6 +570,13 @@ export interface InvoiceListItem {
   sold_at: string | null;
   has_xml: boolean;
   has_ride: boolean;
+  sale_status?: "pending" | "completed" | "cancelled" | null;
+  payment_status?: "due" | "partial" | "paid" | null;
+  payment_method?: "cash" | "transfer" | null;
+  paid_amount?: number | null;
+  balance?: number | null;
+  due_date?: string | null;
+  payment_proof_url?: string | null;
   created_at: string;
   mensajes?: { tipo?: string; identificador?: string; mensaje?: string; informacion_adicional?: string }[];
 }
@@ -542,6 +590,28 @@ export interface InventoryValuationReport {
     sku_count: number;
   };
   rows: InventoryValuationRow[];
+}
+
+export interface BestSellerPeriodTotals {
+  revenue: number;
+  sales_count: number;
+  units: number;
+  profit: number;
+}
+
+export interface BestSellersReport {
+  summary: {
+    current: BestSellerPeriodTotals;
+    previous: BestSellerPeriodTotals;
+    // delta_pct null cuando el período anterior no tiene base de comparación
+    deltas: {
+      revenue: number | null;
+      units: number | null;
+      sales_count: number | null;
+      profit: number | null;
+    };
+  };
+  top_products: { name: string; brand?: string | null; units_sold: number; revenue: number }[];
 }
 
 export interface InventoryStats {

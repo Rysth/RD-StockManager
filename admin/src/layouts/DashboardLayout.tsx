@@ -15,15 +15,24 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import LogoutModal from "../components/shared/LogoutModal";
 import AppSidebar from "../components/navigation/AppSidebar";
 import { Permissions } from "../types/auth";
 import { getDefaultAdminRoute } from "../utils/adminRoutes";
+import { useBusinessStore } from "../stores/businessStore";
 
 export default function DashboardLayout() {
   const { user, hasPermission, hasAnyPermission } = useAuthStore();
+  const { business, fetchBusiness } = useBusinessStore();
   const location = useLocation();
   const [logoutModalOpen, setLogoutModalOpen] = useState(false);
+  const canViewBusiness = hasPermission(Permissions.VIEW_BUSINESS);
+
+  // Carga la config del negocio para mostrar siempre en qué ambiente SRI estás.
+  useEffect(() => {
+    if (canViewBusiness) fetchBusiness().catch(() => {});
+  }, [canViewBusiness, fetchBusiness]);
 
   useEffect(() => {
     document.body.classList.add("dashboard-theme");
@@ -134,6 +143,19 @@ export default function DashboardLayout() {
                 </BreadcrumbItem>
               </BreadcrumbList>
             </Breadcrumb>
+            {business?.sri_enabled && (
+              <Badge
+                variant="outline"
+                title="Ambiente de facturación electrónica SRI activo"
+                className={
+                  business.sri_ambiente === "2"
+                    ? "ml-auto border-red-300 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300"
+                    : "ml-auto border-blue-300 bg-blue-50 text-blue-700 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-300"
+                }
+              >
+                SRI: {business.sri_ambiente === "2" ? "PRODUCCIÓN" : "Pruebas"}
+              </Badge>
+            )}
           </header>
           <div className="mx-auto flex w-full flex-1 flex-col gap-6 px-4 py-4 md:px-6 md:py-6">
             <Outlet />

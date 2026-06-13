@@ -41,14 +41,18 @@ module Api
             requested_by:     current_rodauth_user,
             notes:            transfer_params[:notes]
           )
-          transfer.save!
 
+          # Se construyen los items en memoria ANTES de guardar para que la
+          # validación `presence` de stock_transfer_items pase y todo se
+          # persista (padre + items) en una sola operación atómica.
           items.each do |item|
-            transfer.stock_transfer_items.create!(
+            transfer.stock_transfer_items.build(
               product_variant_id: item[:product_variant_id],
               quantity:           item[:quantity].to_i
             )
           end
+
+          transfer.save!
         end
 
         render_success({ transfer: serialize(transfer.reload, with_items: true) }, "Transferencia creada correctamente")

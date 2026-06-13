@@ -5,13 +5,13 @@
 # several rows. Brands and categories are created on the fly when missing.
 #
 # Template / expected columns (in this order):
-#   Producto | Marca | Categoria | Precio | Costo | PrecioMayoreo | Talla | Color | Stock
+#   Producto | Marca | Categoria | Precio | Costo | PrecioMayoreo | Talla | Color | Stock | CodigoBarras
 class ProductImportService
   class InvalidFile < StandardError; end
 
   HEADERS = [
     "Producto", "Marca", "Categoria", "Precio", "Costo",
-    "PrecioMayoreo", "Talla", "Color", "Stock"
+    "PrecioMayoreo", "Talla", "Color", "Stock", "CodigoBarras"
   ].freeze
 
   # Build the downloadable .xlsx template (headers + a couple of example rows).
@@ -26,10 +26,10 @@ class ProductImportService
 
     workbook.add_worksheet(name: "Productos") do |sheet|
       sheet.add_row(HEADERS, style: header_style)
-      sheet.add_row(["Air Max 270", "Nike", "Deporte", 129.99, 78.0, 110.0, "38", "Negro", 10])
-      sheet.add_row(["Air Max 270", "Nike", "Deporte", 129.99, 78.0, 110.0, "40", "Blanco", 8])
-      sheet.add_row(["Chuck Taylor", "Converse", "Casual", 64.99, 39.0, 55.0, "39", "Gris", 12])
-      sheet.column_widths(22, 14, 14, 10, 10, 14, 8, 12, 8)
+      sheet.add_row(["Air Max 270", "Nike", "Deporte", 129.99, 78.0, 110.0, "38", "Negro", 10, "7501234567890"])
+      sheet.add_row(["Air Max 270", "Nike", "Deporte", 129.99, 78.0, 110.0, "40", "Blanco", 8, "7501234567891"])
+      sheet.add_row(["Chuck Taylor", "Converse", "Casual", 64.99, 39.0, 55.0, "39", "Gris", 12, ""])
+      sheet.column_widths(22, 14, 14, 10, 10, 14, 8, 12, 8, 16)
     end
 
     package.to_stream.read
@@ -59,7 +59,7 @@ class ProductImportService
         row = sheet.row(i)
         next if row.compact.empty? # skip blank rows
 
-        name, brand_name, category_name, price, cost, wholesale, size, color, stock = row.first(9)
+        name, brand_name, category_name, price, cost, wholesale, size, color, stock, barcode = row.first(10)
         next if name.blank? # need at least a product name
 
         rows_processed += 1
@@ -93,7 +93,8 @@ class ProductImportService
           product.product_variants.create!(
             size: size.to_s.strip,
             color: color.to_s.strip,
-            stock: stock.to_i
+            stock: stock.to_i,
+            barcode: normalize_barcode(barcode)
           )
           variants_created += 1
         rescue ActiveRecord::RecordInvalid => e
@@ -116,5 +117,13 @@ class ProductImportService
     return 0 if value.blank?
 
     value.to_s.tr(",", ".").to_f
+  end
+
+  # Excel often reads a numeric barcode as a float (e.g. 7501234567890.0).
+  # Strip the trailing ".0" and return nil when blank so it stays optional.
+  def normalize_barcode(value)
+    return nil if value.blank?
+
+    value.to_s.strip.sub(/\.0\z/, "").presence
   end
 end

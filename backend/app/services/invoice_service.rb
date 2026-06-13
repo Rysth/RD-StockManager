@@ -28,6 +28,7 @@ class InvoiceService
   DUPLICATE_SECUENCIAL_IDENTIFIER = "45".freeze
   MAX_DUPLICATE_SECUENCIAL_RETRIES = 25
   SUPPORTED_RIDE_LOGO_TYPES = %w[image/png image/jpeg image/jpg].freeze
+  DEFAULT_RIDE_LOGO_PATH = Rails.root.join("app", "assets", "images", "rysth_logo.png")
 
   def self.generate(sale:)
     new(sale).generate
@@ -198,10 +199,13 @@ class InvoiceService
   end
 
   def ride_logo_for(business)
-    return unless business.logo.attached?
-    return unless SUPPORTED_RIDE_LOGO_TYPES.include?(business.logo.blob.content_type.to_s.downcase)
+    if business.logo.attached? && SUPPORTED_RIDE_LOGO_TYPES.include?(business.logo.blob.content_type.to_s.downcase)
+      return { data: business.logo.download, content_type: business.logo.blob.content_type }
+    end
 
-    { data: business.logo.download, content_type: business.logo.blob.content_type }
+    return unless File.exist?(DEFAULT_RIDE_LOGO_PATH)
+
+    { data: File.binread(DEFAULT_RIDE_LOGO_PATH), content_type: "image/png" }
   rescue StandardError => e
     Rails.logger.warn("[InvoiceService] No se pudo cargar logo para RIDE: #{e.class} #{e.message}")
     nil

@@ -2,7 +2,7 @@ import { forwardRef } from "react";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { Quotation } from "@/stores/quotationStore";
-import logo from "@/assets/logo.svg";
+import logo from "@/assets/rysth_logo.png";
 import { DEFAULT_TERMS_CONDITIONS } from "@/constants/terms";
 import "@/styles/print.css";
 

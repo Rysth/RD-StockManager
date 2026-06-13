@@ -221,10 +221,85 @@ module Api
         )
       end
 
+      # GET /api/v1/reports/best_sellers — productos más vendidos del período + comparativa
+      # con el período inmediatamente anterior de igual longitud.
+      def best_sellers
+        now = Time.current
+        if date_range?
+          current_from = start_date
+          current_to = end_date
+        else
+          current_from = now.to_date.beginning_of_month
+          current_to = now.to_date
+        end
+
+        length_days = (current_to - current_from).to_i
+        prev_to = current_from - 1.day
+        prev_from = prev_to - length_days.days
+
+        current_window = current_from.beginning_of_day..current_to.end_of_day
+        prev_window = prev_from.beginning_of_day..prev_to.end_of_day
+
+        current = period_totals(current_window)
+        previous = period_totals(prev_window)
+
+        render_success(
+          summary: {
+            current: current,
+            previous: previous,
+            deltas: {
+              revenue: delta_pct(current[:revenue], previous[:revenue]),
+              units: delta_pct(current[:units], previous[:units]),
+              sales_count: delta_pct(current[:sales_count], previous[:sales_count]),
+              profit: delta_pct(current[:profit], previous[:profit])
+            }
+          },
+          top_products: best_seller_rows(current_window)
+        )
+      end
+
       private
 
       def location_id
         params[:location_id].presence
+      end
+
+      # Totales agregados de ventas completadas dentro de una ventana de tiempo.
+      def period_totals(window)
+        sales = Sale.completed.where(sold_at: window)
+        sales = sales.where(location_id: location_id) if location_id
+
+        items = SaleItem.joins(:sale)
+                        .where(sales: { status: Sale.statuses[:completed], sold_at: window })
+        items = items.where(sales: { location_id: location_id }) if location_id
+
+        {
+          revenue: sales.sum(:total).to_f,
+          sales_count: sales.count,
+          units: items.sum(:quantity).to_i,
+          profit: items.sum(Arel.sql("sale_items.quantity * (sale_items.unit_price - sale_items.unit_cost)")).to_f
+        }
+      end
+
+      # Variación porcentual entre el período actual y el anterior. Devuelve nil cuando
+      # no hay base de comparación (el frontend muestra "—" en ese caso).
+      def delta_pct(current, previous)
+        return nil if previous.to_f.zero?
+
+        (((current - previous) / previous) * 100).round(1)
+      end
+
+      # Top 10 productos por unidades vendidas dentro de la ventana de tiempo.
+      def best_seller_rows(window)
+        rel = SaleItem.joins(:sale, product_variant: :product)
+                      .joins("LEFT JOIN brands ON brands.id = products.brand_id")
+                      .where(sales: { status: Sale.statuses[:completed], sold_at: window })
+        rel = rel.where(sales: { location_id: location_id }) if location_id
+        rel.group("products.id", "products.name", "brands.name")
+           .order(Arel.sql("SUM(sale_items.quantity) DESC"))
+           .limit(10)
+           .pluck("products.name", "brands.name", Arel.sql("SUM(sale_items.quantity)"), Arel.sql("SUM(sale_items.quantity * sale_items.unit_price)"))
+           .map { |name, brand, qty, revenue| { name: name, brand: brand, units_sold: qty.to_i, revenue: revenue.to_f } }
       end
 
       def start_date

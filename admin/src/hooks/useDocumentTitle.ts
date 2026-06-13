@@ -26,7 +26,7 @@ export const useDocumentTitle = () => {
       updateFavicon(publicBusiness.logo_url);
     } else {
       // Fallback to default favicon
-      updateFavicon('/logo.svg');
+      updateFavicon('/rysth_logo.png');
     }
   }, [publicBusiness]);
 

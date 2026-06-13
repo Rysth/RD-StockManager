@@ -14,6 +14,11 @@ import {
   CheckCircle,
   Boxes,
   Zap,
+  Wallet,
+  Lock,
+  AlertTriangle,
+  Loader2,
+  Clock,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { useSaleStore } from "../../../stores/saleStore";
@@ -23,6 +28,7 @@ import { useCustomerStore } from "../../../stores/customerStore";
 import { useBusinessStore } from "../../../stores/businessStore";
 import { useLocationStore } from "../../../stores/locationStore";
 import { useAuthStore } from "../../../stores/authStore";
+import { useCashSessionStore } from "../../../stores/cashSessionStore";
 import type { PaymentMethod } from "../../../types/inventory";
 import { printTicket } from "../../../lib/ticket";
 import {
@@ -33,10 +39,12 @@ import {
   variantCartKey,
   serviceCartKey,
   bundleCartKey,
+  type CartItem,
 } from "../../../hooks/usePosCart";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
@@ -75,8 +83,17 @@ export default function SalesPosIndex() {
   const { publicBusiness, fetchPublicBusiness } = useBusinessStore();
   const { locations, fetchLocations } = useLocationStore();
   const { user } = useAuthStore();
+  const {
+    current: cashSession,
+    fetchCurrent: fetchCashSession,
+    openSession,
+    closeSession,
+    isOpening,
+    isClosing,
+  } = useCashSessionStore();
   const restrictedToBranch =
     !!user?.restricted_to_location && !!user?.location_id;
+  const isBusinessEmployee = !!user?.roles?.includes("business_employee");
 
   const {
     cart,
@@ -100,7 +117,21 @@ export default function SalesPosIndex() {
   const [customerId, setCustomerId] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("cash");
   const [cashOnDelivery, setCashOnDelivery] = useState(false);
+  // Cobro pendiente (a crédito): completa la venta dejándola "por pagar" para facturarla
+  // ahora y cobrar después (efectivo o transferencia).
+  const [creditPending, setCreditPending] = useState(false);
   const [shippingCost, setShippingCost] = useState(0);
+  const [cashReceived, setCashReceived] = useState("");
+
+  // Caja (cash session)
+  const [openCajaOpen, setOpenCajaOpen] = useState(false);
+  const [closeCajaOpen, setCloseCajaOpen] = useState(false);
+  const [openingAmount, setOpeningAmount] = useState("");
+  const [countedAmount, setCountedAmount] = useState("");
+  const [closeNotes, setCloseNotes] = useState("");
+  // Indica si ya se consultó el estado de la caja para la ubicación actual
+  // (evita parpadear el gate de "abrir caja" mientras carga).
+  const [cajaChecked, setCajaChecked] = useState(false);
 
   const [selectedProduct, setSelectedProduct] = useState<CatalogItem | null>(
     null,
@@ -138,6 +169,25 @@ export default function SalesPosIndex() {
     0,
   );
   const total = itemsTotal + ivaAmount + shippingCost;
+
+  // Pago en efectivo "real" (no transferencia ni contra entrega) → requiere caja y vuelto.
+  const isCashPayment = paymentMethod === "cash" && !cashOnDelivery;
+  const cashReceivedNum = parseFloat(cashReceived) || 0;
+  const changeDue = isCashPayment && cashReceived ? cashReceivedNum - total : 0;
+
+  // Empleados no pueden vender por debajo del costo (servicios exentos).
+  const belowCostItems = isBusinessEmployee
+    ? cart.filter((i) => !i.is_service && i.unit_value < i.cost)
+    : [];
+  const hasBelowCost = belowCostItems.length > 0;
+
+  // Bloqueos para registrar la venta.
+  const needsCajaOpen = isCashPayment && !cashSession;
+  const insufficientCash =
+    isCashPayment && (cashReceived === "" || cashReceivedNum < total);
+  const canSubmit =
+    cart.length > 0 && !hasBelowCost && !needsCajaOpen && !insufficientCash;
+
   const selectedCustomer = customers.find((c) => String(c.id) === customerId);
   const customerOptions = useMemo<ComboboxOption[]>(
     () => [
@@ -169,6 +219,25 @@ export default function SalesPosIndex() {
   useEffect(() => {
     fetchBundles(locationId).catch(() => {});
   }, [fetchBundles, locationId]);
+
+  useEffect(() => {
+    if (!locationId) return;
+    setCajaChecked(false);
+    fetchCashSession(locationId)
+      .catch(() => {})
+      .finally(() => setCajaChecked(true));
+  }, [fetchCashSession, locationId]);
+
+  // Edición de precio unitario con tope inferior al costo para empleados.
+  const handleUnitValueChange = (item: CartItem, raw: number) => {
+    const value = Math.max(0, raw);
+    if (isBusinessEmployee && !item.is_service && value < item.cost) {
+      setUnitValue(item.cart_key, item.cost);
+      toast.error("No puedes vender por debajo del costo");
+      return;
+    }
+    setUnitValue(item.cart_key, value);
+  };
 
   useEffect(() => {
     if (restrictedToBranch && user?.location_id) {
@@ -471,6 +540,8 @@ export default function SalesPosIndex() {
       total,
       paymentMethod,
       cashOnDelivery,
+      cashReceived: isCashPayment && cashReceived ? cashReceivedNum : null,
+      cashChange: isCashPayment && cashReceived ? Math.max(0, changeDue) : null,
     });
     if (!ok) toast.error("Permite ventanas emergentes para imprimir");
   };
@@ -482,7 +553,9 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
+    setCreditPending(false);
     setShippingCost(0);
+    setCashReceived("");
   };
 
   const clearAll = () => {
@@ -491,15 +564,72 @@ export default function SalesPosIndex() {
     setCustomerId("");
     setPaymentMethod("cash");
     setCashOnDelivery(false);
+    setCreditPending(false);
     setShippingCost(0);
+    setCashReceived("");
     setClearConfirmOpen(false);
     toast.success("Carrito reiniciado");
     focusSearch();
   };
 
+  const handleOpenCaja = async () => {
+    if (!locationId) {
+      toast.error("Selecciona una ubicación primero");
+      return;
+    }
+    try {
+      await openSession(locationId, parseFloat(openingAmount) || 0);
+      toast.success("Caja abierta");
+      setOpenCajaOpen(false);
+      setOpeningAmount("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al abrir la caja");
+    }
+  };
+
+  const handleCloseCaja = async () => {
+    if (!cashSession) return;
+    try {
+      const closed = await closeSession(
+        cashSession.id,
+        parseFloat(countedAmount) || 0,
+        closeNotes || undefined,
+      );
+      const variance = Number(closed.variance ?? 0);
+      toast.success(
+        variance === 0
+          ? "Caja cerrada — cuadre exacto"
+          : `Caja cerrada — diferencia ${money(variance)}`,
+      );
+      setCloseCajaOpen(false);
+      setCountedAmount("");
+      setCloseNotes("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al cerrar la caja");
+    }
+  };
+
   const submitSale = async () => {
+    if (hasBelowCost) {
+      toast.error("No puedes vender productos por debajo del costo");
+      return;
+    }
+    if (needsCajaOpen) {
+      toast.error("Debes abrir la caja antes de registrar ventas en efectivo");
+      return;
+    }
+    if (insufficientCash) {
+      toast.error("El efectivo recibido es menor al total");
+      return;
+    }
     const isTransfer = paymentMethod === "transfer";
-    const finalStatus = cashOnDelivery || isTransfer ? "pending" : "completed";
+    // Con cobro pendiente la venta se completa (facturable) aunque quede por pagar.
+    const finalStatus = creditPending
+      ? "completed"
+      : cashOnDelivery || isTransfer
+        ? "pending"
+        : "completed";
+    const sendCash = isCashPayment && !creditPending && cashReceived !== "";
     try {
       await createSale({
         customer_id: customerId ? Number(customerId) : null,
@@ -507,6 +637,9 @@ export default function SalesPosIndex() {
         status: finalStatus,
         payment_method: paymentMethod,
         cash_on_delivery: cashOnDelivery,
+        credit: creditPending,
+        cash_received: sendCash ? cashReceivedNum : null,
+        cash_change: sendCash ? Math.max(0, changeDue) : null,
         shipping_cost: shippingCost,
         items: cart.map((i) => ({
           product_variant_id: i.product_variant_id,
@@ -518,19 +651,113 @@ export default function SalesPosIndex() {
         })),
       });
       toast.success(
-        isTransfer
-          ? "Venta por transferencia registrada — pendiente de verificación"
-          : cashOnDelivery
-            ? "Pedido registrado — pendiente de entrega y pago"
-            : "Venta completada correctamente",
+        creditPending
+          ? "Venta registrada a crédito — por cobrar. Ya puedes facturarla."
+          : isTransfer
+            ? "Venta por transferencia registrada — pendiente de verificación"
+            : cashOnDelivery
+              ? "Pedido registrado — pendiente de entrega y pago"
+              : "Venta completada correctamente",
       );
       resetAfterSubmit();
+      // Refrescar el catálogo: la venta reservó stock y debe reflejarse de inmediato.
+      fetchProducts(1, 200, {}).catch(() => {});
+      // Refrescar la caja para reflejar la nueva venta al contado.
+      if (sendCash && locationId) fetchCashSession(locationId).catch(() => {});
     } catch (e) {
       toast.error(
         e instanceof Error ? e.message : "Error al registrar la venta",
       );
     }
   };
+
+  // ── Gate obligatorio: abrir caja antes de poder usar el POS ──
+  // Mientras se verifica el estado de la caja, mostramos un loader para no
+  // parpadear el gate.
+  if (!cajaChecked) {
+    return (
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center">
+        <div className="flex flex-col items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">Verificando caja…</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!cashSession) {
+    const showLocationPicker = !restrictedToBranch && locations.length > 1;
+    return (
+      <div className="flex min-h-0 w-full flex-1 items-center justify-center p-6">
+        <div className="w-full max-w-sm space-y-5 rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="flex flex-col items-center gap-2 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <Wallet className="h-6 w-6" />
+            </div>
+            <h2 className="text-lg font-bold">Abre la caja para comenzar</h2>
+            <p className="text-sm text-muted-foreground">
+              Debes aperturar la caja antes de registrar ventas o usar el punto
+              de venta. Es el primer paso del turno.
+            </p>
+          </div>
+
+          {showLocationPicker && (
+            <div className="space-y-1.5">
+              <Label htmlFor="gate-location">Ubicación</Label>
+              <select
+                id="gate-location"
+                value={locationId}
+                onChange={(e) => setLocationId(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+              >
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {restrictedToBranch && (
+            <div className="flex items-center justify-center">
+              <Badge variant="secondary" className="gap-1.5">
+                <Truck className="h-3.5 w-3.5" />
+                {user?.location_name || "Sucursal"}
+              </Badge>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="gate-opening-amount">Monto inicial (base)</Label>
+            <Input
+              id="gate-opening-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              autoFocus
+              value={openingAmount}
+              placeholder="0.00"
+              onChange={(e) => setOpeningAmount(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !isOpening) handleOpenCaja();
+              }}
+            />
+          </div>
+
+          <Button
+            className="h-11 w-full text-base font-semibold"
+            onClick={handleOpenCaja}
+            disabled={isOpening || !locationId}
+          >
+            <Wallet className="mr-2 h-5 w-5" />
+            {isOpening ? "Abriendo caja…" : "Abrir caja"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex min-h-0 w-full flex-1 overflow-hidden">
@@ -543,7 +770,7 @@ export default function SalesPosIndex() {
             <Input
               ref={searchInputRef}
               className="pl-9"
-              placeholder="Buscar o escanear SKU…  (Enter agrega)"
+              placeholder="Buscar o escanear SKU/código…  (Enter agrega)"
               value={variantQuery}
               onChange={(e) => setVariantQuery(e.target.value)}
               onKeyDown={(e) => {
@@ -792,6 +1019,17 @@ export default function SalesPosIndex() {
                               Mayoreo
                             </Badge>
                           )}
+                          {isBusinessEmployee &&
+                            !i.is_service &&
+                            i.unit_value < i.cost && (
+                              <Badge
+                                variant="secondary"
+                                className="gap-0.5 bg-red-100 px-1.5 py-0 text-[10px] text-red-800"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" /> Bajo
+                                costo
+                              </Badge>
+                            )}
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
@@ -845,10 +1083,7 @@ export default function SalesPosIndex() {
                           step="0.01"
                           value={i.unit_value}
                           onChange={(e) =>
-                            setUnitValue(
-                              i.cart_key,
-                              Math.max(0, Number(e.target.value) || 0),
-                            )
+                            handleUnitValueChange(i, Number(e.target.value) || 0)
                           }
                           className="h-7 flex-1 min-w-0 px-2 text-sm"
                         />
@@ -884,6 +1119,48 @@ export default function SalesPosIndex() {
 
         {/* Pago + Total + CTA */}
         <div className="shrink-0 border-t bg-background px-4 py-3 space-y-3">
+          {/* Estado de caja */}
+          <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2">
+            {cashSession ? (
+              <>
+                <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-emerald-600">
+                  <Wallet className="h-4 w-4 shrink-0" />
+                  <span className="truncate">
+                    Caja abierta · base {money(cashSession.opening_amount)}
+                  </span>
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 shrink-0 text-xs"
+                  onClick={() => {
+                    setCountedAmount("");
+                    setCloseNotes("");
+                    setCloseCajaOpen(true);
+                  }}
+                >
+                  Cerrar caja
+                </Button>
+              </>
+            ) : (
+              <>
+                <span className="flex min-w-0 items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                  <Lock className="h-4 w-4 shrink-0" /> Caja cerrada
+                </span>
+                <Button
+                  size="sm"
+                  className="h-7 shrink-0 text-xs"
+                  onClick={() => {
+                    setOpeningAmount("");
+                    setOpenCajaOpen(true);
+                  }}
+                >
+                  Abrir caja
+                </Button>
+              </>
+            )}
+          </div>
+
           {/* Método de pago */}
           <div>
             <p className="mb-1.5 text-xs font-medium text-muted-foreground">
@@ -899,7 +1176,10 @@ export default function SalesPosIndex() {
               </button>
               <button
                 type="button"
-                onClick={() => setPaymentMethod("transfer")}
+                onClick={() => {
+                  setPaymentMethod("transfer");
+                  setCashReceived("");
+                }}
                 className={`flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors ${paymentMethod === "transfer" ? "border-primary bg-primary/10 text-primary" : "hover:bg-muted"}`}
               >
                 <ArrowLeftRight className="h-4 w-4" /> Transferencia
@@ -912,6 +1192,14 @@ export default function SalesPosIndex() {
               />
               <Truck className="h-4 w-4 text-muted-foreground" />
               Pago contra entrega
+            </label>
+            <label className="mt-2 flex cursor-pointer items-center gap-2 rounded-md border p-2 text-sm">
+              <Checkbox
+                checked={creditPending}
+                onCheckedChange={(c) => setCreditPending(c === true)}
+              />
+              <Clock className="h-4 w-4 text-muted-foreground" />
+              Cobro pendiente (a crédito) — facturar y cobrar después
             </label>
           </div>
 
@@ -975,9 +1263,49 @@ export default function SalesPosIndex() {
             <span className="text-2xl font-bold tabular-nums">{money(total)}</span>
           </div>
 
+          {/* Efectivo recibido y cambio (solo pago en efectivo directo) */}
+          {isCashPayment && cart.length > 0 && (
+            <div className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center gap-2">
+                <Label className="shrink-0 text-xs font-medium text-muted-foreground">
+                  Recibido
+                </Label>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  value={cashReceived}
+                  placeholder={money(total)}
+                  onChange={(e) => setCashReceived(e.target.value)}
+                  className="h-8 flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 shrink-0 text-xs"
+                  onClick={() => setCashReceived(String(total.toFixed(2)))}
+                >
+                  Exacto
+                </Button>
+              </div>
+              {cashReceived !== "" && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Cambio</span>
+                  <span
+                    className={`font-semibold tabular-nums ${changeDue < 0 ? "text-destructive" : "text-emerald-600"}`}
+                  >
+                    {money(changeDue)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <Button
             className="h-12 w-full text-base font-semibold"
-            disabled={cart.length === 0}
+            disabled={!canSubmit}
             onClick={() => setConfirmOpen(true)}
           >
             <CheckCircle className="mr-2 h-5 w-5" />
@@ -990,6 +1318,17 @@ export default function SalesPosIndex() {
               F4
             </kbd>
           </Button>
+          {cart.length > 0 && !canSubmit && (
+            <p className="text-center text-[11px] font-medium text-amber-600">
+              {hasBelowCost
+                ? "Hay productos por debajo del costo"
+                : needsCajaOpen
+                  ? "Abre la caja para registrar ventas en efectivo"
+                  : insufficientCash
+                    ? "Ingresa el efectivo recibido (≥ total)"
+                    : ""}
+            </p>
+          )}
         </div>
       </div>
 
@@ -1331,6 +1670,22 @@ export default function SalesPosIndex() {
               <span>Total</span>
               <span>{money(total)}</span>
             </div>
+            {isCashPayment && cashReceived !== "" && (
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Recibido</span>
+                  <span>{money(cashReceivedNum)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cambio</span>
+                  <span
+                    className={`font-medium ${changeDue < 0 ? "text-destructive" : "text-emerald-600"}`}
+                  >
+                    {money(changeDue)}
+                  </span>
+                </div>
+              </div>
+            )}
             <Separator />
             <div className="space-y-1">
               {locations.length > 1 && locationId && (
@@ -1392,7 +1747,7 @@ export default function SalesPosIndex() {
               <Button variant="outline" onClick={() => setConfirmOpen(false)}>
                 Volver a editar
               </Button>
-              <Button onClick={submitSale} disabled={isSubmitting}>
+              <Button onClick={submitSale} disabled={isSubmitting || !canSubmit}>
                 {isSubmitting ? "Procesando..." : "Confirmar y registrar"}
               </Button>
             </div>
@@ -1449,6 +1804,127 @@ export default function SalesPosIndex() {
             </Button>
             <Button variant="destructive" onClick={clearAll}>
               Sí, vaciar todo
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Abrir caja ── */}
+      <Dialog open={openCajaOpen} onOpenChange={setOpenCajaOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wallet className="h-5 w-5" /> Abrir caja
+            </DialogTitle>
+            <DialogDescription>
+              Registra el monto inicial en efectivo con el que abres el turno.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-1">
+            <Label htmlFor="opening-amount">Monto inicial (base)</Label>
+            <Input
+              id="opening-amount"
+              type="number"
+              min={0}
+              step="0.01"
+              inputMode="decimal"
+              autoFocus
+              value={openingAmount}
+              placeholder="0.00"
+              onChange={(e) => setOpeningAmount(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpenCajaOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleOpenCaja} disabled={isOpening}>
+              {isOpening ? "Abriendo..." : "Abrir caja"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Cerrar caja (arqueo) ── */}
+      <Dialog open={closeCajaOpen} onOpenChange={setCloseCajaOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" /> Cerrar caja
+            </DialogTitle>
+            <DialogDescription>
+              Cuenta el efectivo físico y registra el cierre del turno.
+            </DialogDescription>
+          </DialogHeader>
+          {cashSession && (
+            <div className="space-y-3 py-1 text-sm">
+              <div className="space-y-1 rounded-lg border p-3 text-muted-foreground">
+                <div className="flex justify-between">
+                  <span>Base inicial</span>
+                  <span>{money(cashSession.opening_amount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Ventas en efectivo</span>
+                  <span>{cashSession.sales_count}</span>
+                </div>
+                <div className="flex justify-between font-medium text-foreground">
+                  <span>Efectivo esperado</span>
+                  <span>{money(Number(cashSession.expected_amount ?? 0))}</span>
+                </div>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="counted-amount">Efectivo contado</Label>
+                <Input
+                  id="counted-amount"
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  inputMode="decimal"
+                  autoFocus
+                  value={countedAmount}
+                  placeholder="0.00"
+                  onChange={(e) => setCountedAmount(e.target.value)}
+                />
+              </div>
+              {countedAmount !== "" && (
+                <div className="flex justify-between font-medium">
+                  <span>Diferencia</span>
+                  {(() => {
+                    const variance =
+                      (parseFloat(countedAmount) || 0) -
+                      Number(cashSession.expected_amount ?? 0);
+                    return (
+                      <span
+                        className={
+                          Math.abs(variance) < 0.005
+                            ? "text-emerald-600"
+                            : "text-destructive"
+                        }
+                      >
+                        {money(variance)}
+                      </span>
+                    );
+                  })()}
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label htmlFor="close-notes">Notas (opcional)</Label>
+                <Textarea
+                  id="close-notes"
+                  rows={2}
+                  value={closeNotes}
+                  placeholder="Observaciones del cierre..."
+                  onChange={(e) => setCloseNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCloseCajaOpen(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleCloseCaja} disabled={isClosing}>
+              {isClosing ? "Cerrando..." : "Cerrar caja"}
             </Button>
           </DialogFooter>
         </DialogContent>
