@@ -29,7 +29,7 @@ module Api
         return render_error("Solo el administrador puede configurar la facturación SRI", :forbidden) if sri_admin_params_present? && !admin_user?
 
         update_params = business_params.except(:logo, :sri_certificate)
-        update_params.merge!(sri_admin_params, plan_admin_params) if admin_user?
+        update_params.merge!(sri_admin_params).merge!(plan_admin_params) if admin_user?
 
         if @business.update(update_params)
           if params[:logo].present?
