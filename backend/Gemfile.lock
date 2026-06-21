@@ -1,6 +1,6 @@
 GIT
   remote: https://github.com/Rysth/GEM_SRI_Facturacion_RUBY.git
-  revision: bd94e2d09e3ff4d13802fc6b89b781f555b87da1
+  revision: b0064a2e9e52b351425634a4441b32242d421a76
   specs:
     sri_facturacion (0.1.0)
       bigdecimal (~> 3.1)
