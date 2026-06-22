@@ -219,6 +219,12 @@ class InvoiceService
       Rails.logger.info("[InvoiceService] Certificado: subject=#{cert.subject}, issuer=#{cert.issuer}, not_after=#{cert.not_after}")
     end
     result = client.emitir!(factura, generar_ride: true)
+    Rails.logger.info(
+      "[InvoiceService] Resultado SRI estado=#{result&.estado.inspect} " \
+      "clave=#{result&.clave_acceso.inspect} xml_firmado=#{result&.xml_firmado.present?} " \
+      "signer_verify_available=#{SriFacturacion::Signer.respond_to?(:verify_signature)} " \
+      "mensajes=#{Array(result&.mensajes).inspect}"
+    )
     if result&.respond_to?(:xml_firmado) && result.xml_firmado.present? && SriFacturacion::Signer.respond_to?(:verify_signature)
       sig_valid = SriFacturacion::Signer.verify_signature(result.xml_firmado, signer)
       Rails.logger.info("[InvoiceService] Self-verify de firma: #{sig_valid ? 'OK' : 'FALLÓ'}")

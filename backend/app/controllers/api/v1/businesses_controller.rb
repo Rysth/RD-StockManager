@@ -1,3 +1,5 @@
+require "openssl"
+
 module Api
   module V1
     class BusinessesController < BaseController
@@ -30,6 +32,10 @@ module Api
 
         update_params = business_params.except(:logo, :sri_certificate)
         update_params.merge!(sri_admin_params).merge!(plan_admin_params) if admin_user?
+
+        if sri_certificate_password_update_present? && !valid_sri_certificate_password?(params[:sri_cert_password])
+          return render_error("La clave del certificado .p12 no es válida", :unprocessable_entity)
+        end
 
         if @business.update(update_params)
           if params[:logo].present?
@@ -80,6 +86,31 @@ module Api
       def sri_admin_params_present?
         params.key?(:sri_enabled) || params.key?(:sri_ambiente) || params.key?(:sri_certificate) ||
           params.key?(:sri_cert_password) || params.key?(:sri_next_factura_secuencial)
+      end
+
+      def sri_certificate_password_update_present?
+        params[:sri_cert_password].present? && (params[:sri_certificate].present? || @business.sri_cert_file_present?)
+      end
+
+      def valid_sri_certificate_password?(password)
+        if params[:sri_certificate].present?
+          params[:sri_certificate].tempfile.rewind
+          bytes = params[:sri_certificate].tempfile.read
+          params[:sri_certificate].tempfile.rewind
+        elsif @business.sri_cert_path_for_emission.present?
+          bytes = File.binread(@business.sri_cert_path_for_emission)
+        end
+
+        return true if bytes.blank?
+
+        OpenSSL::PKCS12.new(bytes, password.to_s)
+        true
+      rescue OpenSSL::PKCS12::PKCS12Error => e
+        Rails.logger.warn("[BusinessesController] Clave .p12 inválida: #{e.message}")
+        false
+      rescue StandardError => e
+        Rails.logger.warn("[BusinessesController] No se pudo validar clave .p12: #{e.class} #{e.message}")
+        false
       end
 
       def admin_user?
