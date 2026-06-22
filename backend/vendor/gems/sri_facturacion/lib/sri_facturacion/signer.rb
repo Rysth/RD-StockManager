@@ -13,7 +13,7 @@ module SriFacturacion
   #   - SignatureMethod  : RSA-SHA1
   #   - DigestMethod     : SHA-1
   #   - Canonicalización : C14N 1.0 (inclusive)
-  #   - Transform        : enveloped-signature + C14N sobre la referencia #comprobante
+  #   - Transform        : enveloped-signature sobre la referencia #comprobante
   #   - QualifyingProperties / SignedProperties (XAdES) con SigningCertificate y DataObjectFormat
   #
   # Port estructural de XmlSignerService#signXml. La firma se ANEXA como hijo del nodo raíz
@@ -126,8 +126,8 @@ module SriFacturacion
     end
 
     def signature_template(ids:, ref_uri:, digest_comprobante:, cert_b64:, cert_digest:, signing_time:)
-      modulus = base64(OpenSSL::BN.new(certificate.public_key.n).to_s(2))
-      exponent = base64(OpenSSL::BN.new(certificate.public_key.e).to_s(2))
+      modulus = base64(certificate.public_key.n.to_s(2))
+      exponent = base64(certificate.public_key.e.to_s(2))
       issuer = certificate.issuer.to_s(OpenSSL::X509::Name::RFC2253)
       serial = certificate.serial.to_s
 
@@ -147,7 +147,6 @@ module SriFacturacion
             <ds:Reference Id="#{ids[:reference_id]}" URI="##{ref_uri}">
               <ds:Transforms>
                 <ds:Transform Algorithm="#{ENVELOPED}"></ds:Transform>
-                <ds:Transform Algorithm="#{C14N_ALG}"></ds:Transform>
               </ds:Transforms>
               <ds:DigestMethod Algorithm="#{SHA1_ALG}"></ds:DigestMethod>
               <ds:DigestValue>#{digest_comprobante}</ds:DigestValue>
