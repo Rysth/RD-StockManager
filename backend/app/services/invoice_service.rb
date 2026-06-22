@@ -213,14 +213,13 @@ class InvoiceService
 
   def emitir(factura)
     client = SriFacturacion::Client.new(config: @sri_config)
-    xml_sin_firmar = client.preview_xml(factura) rescue nil
     signer = client.send(:signer)
     if signer
       cert = signer.certificate
       Rails.logger.info("[InvoiceService] Certificado: subject=#{cert.subject}, issuer=#{cert.issuer}, not_after=#{cert.not_after}")
     end
     result = client.emitir!(factura, generar_ride: true)
-    if result&.respond_to?(:xml_firmado) && result.xml_firmado.present?
+    if result&.respond_to?(:xml_firmado) && result.xml_firmado.present? && SriFacturacion::Signer.respond_to?(:verify_signature)
       sig_valid = SriFacturacion::Signer.verify_signature(result.xml_firmado, signer)
       Rails.logger.info("[InvoiceService] Self-verify de firma: #{sig_valid ? 'OK' : 'FALLÓ'}")
     end
