@@ -103,6 +103,7 @@ module Api
 
         return true if bytes.blank?
 
+        SriFacturacion::Signer.load_legacy_provider if defined?(SriFacturacion::Signer)
         OpenSSL::PKCS12.new(bytes, password.to_s)
         true
       rescue OpenSSL::PKCS12::PKCS12Error => e
