@@ -126,8 +126,8 @@ module SriFacturacion
     end
 
     def signature_template(ids:, ref_uri:, digest_comprobante:, cert_b64:, cert_digest:, signing_time:)
-      modulus = base64(certificate.public_key.n.to_s(2))
-      exponent = base64(certificate.public_key.e.to_s(2))
+      modulus = base64(OpenSSL::BN.new(certificate.public_key.n).to_s(2))
+      exponent = base64(OpenSSL::BN.new(certificate.public_key.e).to_s(2))
       issuer = certificate.issuer.to_s(OpenSSL::X509::Name::RFC2253)
       serial = certificate.serial.to_s
 
