@@ -255,6 +255,7 @@ export const useSaleStore = create<SaleState>((set, get) => ({
       const response = await api.put(
         `/api/v1/sales/${id}/confirm_payment`,
         formData,
+        { headers: { "Content-Type": "multipart/form-data" } },
       );
       const sale = response.data.sale as Sale;
       set((state) => ({
